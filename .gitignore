@@ -1,0 +1,38 @@
+# dependencies
+node_modules/
+
+# environment variables
+.env
+.env.*
+
+# logs
+logs/
+*.log
+npm-debug.log*
+
+# build output
+dist/
+build/
+
+# uploads (local storage before cloudinary)
+uploads/
+
+# temp files
+tmp/
+temp/
+
+# database files
+*.sqlite
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# misc
+*.pid
+*.seed
+*.pid.lock
