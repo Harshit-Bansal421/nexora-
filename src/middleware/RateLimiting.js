@@ -10,9 +10,10 @@ class Limiter {
       message: {
         message: "too many request",
       },
-      keyGenerator: (req) => req._id || req.ip
+      keyGenerator: (req) => req._id || req.headers["x-forwarded-for"] || req.socket.remoteAddress
     });
   }
 }
 
 export default new Limiter();
+
