@@ -558,6 +558,8 @@ const getUserPosts = asyncHandler(async (req, res) => {
   if (!posts)
     throw new ApiError(500, "error in fetching post of given username");
   //send response
+  const total = await Post.countDocuments({ owner: user._id });
+  const totalPages = Math.ceil(total / limit);
   return res.status(200).json(
     new ApiResponse(
       200,
@@ -570,8 +572,13 @@ const getUserPosts = asyncHandler(async (req, res) => {
           title: user.title,
           badge: user.badge,
         },
-        page: page,
-        limit: limit,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages,
+          hasNextPage: page < totalPages,
+        },
       },
       "post is fetched successfully",
     ),
@@ -641,22 +648,34 @@ const getTopicPosts = asyncHandler(async (req, res) => {
             },
           },
         ],
-        totalcounts:[ {
-          $count: "count",
-        }],
+        totalcounts: [
+          {
+            $count: "count",
+          },
+        ],
       },
     },
   ]);
 
-  if(!posts) throw new ApiError(500, "error in fetching post of given username");
+  if (!posts)
+    throw new ApiError(500, "error in fetching post of given username");
   //send response
+  const result = posts[0];
+
+  const total = result.totalcounts[0]?.count || 0;
+  const totalPages = Math.ceil(total / limit);
   return res.status(200).json(
     new ApiResponse(
       200,
       {
-        posts: posts,
-        page: page,
-        limit: limit,
+        posts: result.posts,
+        paginations: {
+          total,
+          page,
+          limit,
+          totalPages,
+          hasNextPage: page < totalPages,
+        },
       },
       "post is fetched successfully",
     ),
@@ -675,4 +694,3 @@ export {
   getUserPosts,
   getTopicPosts,
 };
-
