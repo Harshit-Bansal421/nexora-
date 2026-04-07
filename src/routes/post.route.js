@@ -1,31 +1,46 @@
 import { Router } from "express";
-import { jwtVerify } from "../middleware/jwtVerify";
+import { jwtVerify } from "../middleware/jwtVerify.js";
+import { isOwner } from "../middleware/isowner.js";
+import { upload } from "../middleware/localUpload.js";
+import {
+  createPost,
+  deletePost,
+  AddExistingPostToPage,
+  updatePost,
+  getPost,
+  savePost,
+  unsavePost,
+  getSavePost
+} from "../controllers/post.controller.js";
 
-const router=Router();
+const router = Router();
 
+//post routes
 
-//post routes(i didnot make routes for unsave because i will just toggle and i also didnot make different route for downvote or upvote because they will be handled in one)
+//publc route any one can access them
+// router.route("/").get(); //--> for getting posts from default content
+// router.route("/search").get(); //for intent based getting post
+// router.route("/type/:type").get(); //--> for getting post of particular type
+// router.route("/user/:user_id").get(); //to get posts of some particular user,used in time of seeing some profile page
 
-//publc route any one can access them 
-router.route("/").get()//--> for getting posts from default content
-router.route("/search").get()//for intent based getting post
-router.route("/type/:type").get()//--> for getting post of particular type
-router.route("/user/:user_id").get()//to get posts of some particular user,used in time of seeing some profile page
-
-//login user can access them 
-router.route("/saved").get(jwtVerify)//-> getting saved post of a user
-router.route("/page/:pageid").get(jwtVerify)//-> to get the post of a particular page
-router.route("/:id/vote").post(jwtVerify)//--> to perform upvote,downvote 
-router.route("/:id/save").post(jwtVerify)//to save the post 
-
+//login user can access them
+router.route("/saved").get(jwtVerify,getSavePost); //-> getting saved post of a user and user can also provide query of limit,page
+// router.route("/page/:pageid").get(jwtVerify); //-> to get the post of a particular page
+// router.route("/:post_id/vote").post(jwtVerify); //--> to perform upvote,downvote
+router.route("/:post_id/save").post(jwtVerify, savePost); //to save the post
+router.route("/:post_id/save").delete(jwtVerify, unsavePost); //to unsave the post
 
 //only owner can do these
-router.route("/").post(jwtVerify)//--> for creating a post
-router.route("/:id").patch(jwtVerify)//-->for updting a post
-router.route("/:id").delete(jwtVerify)//--> for deleting a post
+router.route("/").post(jwtVerify, upload.postUpload("PostImages", "PostVideos"), createPost); //--> for creating a post
+router.route("/:post_id").patch(
+    jwtVerify,
+    isOwner,
+    upload.postUpload("addImages", "addVideos"),
+    updatePost,
+  ); //-->for updting a post
+router.route("/:post_id").delete(jwtVerify, isOwner, deletePost); //--> for deleting a post
+router.route("/add/:post_id").post(jwtVerify, isOwner, AddExistingPostToPage); //--> for adding existing post on a particular page
 
-
-router.route("/:id").get()//--> for fetching a single post
-
+router.route("/:post_id").get(jwtVerify, getPost); //--> for fetching a single post
 
 export default router;

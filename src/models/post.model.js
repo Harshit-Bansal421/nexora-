@@ -75,6 +75,7 @@ PostSchema.virtual("downvotesCount").get(function () {
   return this.downvotes.length;
 });
 
+
 PostSchema.index({owner:1,createdAt:-1})
 PostSchema.index({owner:1,title:1,createdAt:1})
 PostSchema.index({createdAt:-1})

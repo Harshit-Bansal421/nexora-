@@ -23,7 +23,7 @@ const router = Router();
 //for login-> we do actuall login
 
 //public routes
-router.route("/signup").post(ratelimit.authLimiter(), upload.single("profileImage"), SignupUser);
+router.route("/signup").post(ratelimit.authLimiter(), upload.avatarUpload(), SignupUser);
 router.route("/login").post(ratelimit.authLimiter(), loginUser);
 router.route("/refreshToken").post(ratelimit.authLimiter(), getNewAccessToken);
 router.route("/verify-email").post(ratelimit.authLimiter(),verifyEmailandLogin);
