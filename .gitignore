@@ -36,3 +36,16 @@ Thumbs.db
 *.pid
 *.seed
 *.pid.lock
+
+# pnpm and yarn logs
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# OneDrive conflict files
+*-LAPTOP-*
+*-DESKTOP-*

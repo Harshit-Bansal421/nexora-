@@ -6,6 +6,7 @@ const PageSchema = mongoose.Schema(
       type:String,
       required:true,
       trim:true,
+      unique:[true,"page with this name already exist"]
     },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
@@ -54,15 +55,15 @@ const PageSchema = mongoose.Schema(
   },
 );
 
-PageSchema.virtuals("membersCount").get(function(){
+PageSchema.virtual("membersCount").get(function(){
   return this.members.length;
 })
 
-PageSchema.virtuals("moderatorsCount").get(function(){
+PageSchema.virtual("moderatorsCount").get(function(){
   return this.moderators.length;
 })
 
-PageSchema.index({name:1})
+
 PageSchema.index({owner:1})
 PageSchema.index({type:1,title:1})
 PageSchema.index({createdAt:-1})
@@ -70,4 +71,4 @@ PageSchema.index({membersCount:1,createdAt:1})
 PageSchema.index({ name: 'text', description: 'text' })  // search pages
 
 
-const Page = mongoose.model("Post", PageSchema);
+export const Page = mongoose.model("Page", PageSchema);

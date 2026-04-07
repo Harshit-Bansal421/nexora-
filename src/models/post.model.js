@@ -68,12 +68,13 @@ const PostSchema = mongoose.Schema(
 );
 
 PostSchema.virtual("upvotesCount").get(function () {
-  return this.upvotes.length;
+  return this.upvotes?.length || 0;
 });
 
 PostSchema.virtual("downvotesCount").get(function () {
-  return this.downvotes.length;
+  return this.downvotes?.length || 0;
 });
+
 
 PostSchema.index({owner:1,createdAt:-1})
 PostSchema.index({owner:1,title:1,createdAt:1})

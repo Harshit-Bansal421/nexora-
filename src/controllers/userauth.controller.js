@@ -45,6 +45,7 @@ const SignupUser = asyncHandler(async (req, res) => {
   const cloudinaryResponse = await uploadUserImage_cloud(
     localfilepath,
     "nexora_userImage",
+    "image"
   );
   if (!cloudinaryResponse?.public_id) {
     throw new ApiError(500, "error in uploading file on cloudinary");
@@ -94,6 +95,11 @@ const SignupUser = asyncHandler(async (req, res) => {
 });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
+  const publc_id=req.user.profileImage;
+   const secure_url = cloudinary.url(publc_id, {
+    secure: true,
+  });
+  req.user.profileImage=secure_url;
   return res
     .status(201)
     .json(new ApiResponse(201, req.user, "user info fetched successfully"));
@@ -250,15 +256,12 @@ const verifyEmailandLogin = asyncHandler(async (req, res) => {
   });
   if (checkUsername) throw new ApiError(400, "user with this username exist");
 
-  //create user in database\
-  const secure_url = cloudinary.url(existedOTP.pendingUserImageID, {
-    secure: true,
-  });
+  //create user in database
   const user = await User.create({
     username: existedOTP.pendingUsername,
     email,
     password: existedOTP.pendingPasswordHash,
-    profileImage: secure_url,
+    profileImage: existedOTP.pendingUserImageID,//saving public_id instead of secure_url
   });
   if (!user) {
     throw new ApiError(500, "error in created new user");
@@ -479,7 +482,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
       },
       $inc: { resendCount: 1 },
     },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: 'after' },
   );
 
   // send email and response
