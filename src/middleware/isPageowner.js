@@ -3,7 +3,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { Page } from "../models/Page.model.js";
 import mongoose from "mongoose";
 
-const isPageowner = asyncHandler(async (req, res, next) => {
+const isPageOwner = asyncHandler(async (req, res, next) => {
   //get the user_id from req.user
   const user_id = req.user?._id;
   const { page_id } = req.params;
@@ -16,7 +16,8 @@ const isPageowner = asyncHandler(async (req, res, next) => {
   const response = await Page.findOne({
     _id: page_id,
     owner: user_id,
-  }).select("_id owner moderators members");
+  }).select("_id owner moderators members pageProfileImage");
+  console.log("response",response)
   if (!response)
     throw new ApiError(403, "only page owner can perform this task");
 
@@ -25,4 +26,4 @@ const isPageowner = asyncHandler(async (req, res, next) => {
   next();
 });
 
-export { isPageowner };
+export { isPageOwner };

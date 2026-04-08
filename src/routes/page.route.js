@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { jwtVerify } from "../middleware/jwtVerify.js";
-import {createPage} from "../controllers/page.controller.js";
+import {createPage,deletePost} from "../controllers/page.controller.js";
 import {upload} from "../middleware/localUpload.js"
-
+import { isPageOwner } from "../middleware/isPageowner.js";
+ 
 const router=Router();
 
 //routes i needed for pages
@@ -14,7 +15,7 @@ const router=Router();
 //any user
 // router.route("/").get()//to get general content
 // //owner only
-router.route("/").post(jwtVerify,upload.avatarUpload("pageImage"),createPage);// create page
+router.route("/").post(jwtVerify,upload.avatarUpload("pageProfileImage"),createPage);// create page
 // router.route("/:page_id/moderator/:user_id").post(jwtVerify, isPageOwner)//make moderator
 // router.route("/:page_id/moderator/:user_id").delete(jwtVerify,isPageOwner)//remove moderator
 
@@ -35,8 +36,8 @@ router.route("/").post(jwtVerify,upload.avatarUpload("pageImage"),createPage);//
 // //param routes
 
 // //owner only
-// router.route("/:page_id").patch(jwtVerify,isPageOwner)//edit page info
-// router.route("/:page_id").delete(jwtVerify,isPageOwner)//delete page
+//router.route("/:page_id").patch(jwtVerify,isPageOwner)//edit page info
+router.route("/:page_id").delete(jwtVerify,isPageOwner,deletePost)//delete page
 
 // //any user- will handle how much information in controller
 // router.route("/:page_id").get()
