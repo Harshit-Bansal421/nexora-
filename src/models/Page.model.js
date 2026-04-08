@@ -25,7 +25,7 @@ const PageSchema = mongoose.Schema(
         ref: "User",
       },
     ],
-    title:[{
+    title:[{//page category / topic.
       type:String,
       required:true
     }],
