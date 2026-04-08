@@ -138,7 +138,7 @@ const AddExistingPostToPage = asyncHandler(async (req, res) => {
   );
 
   //save them
-  res.status(201).json(201, "post is successfully added to pages");
+  res.status(201).json(new ApiResponse(201, "post is successfully added to pages"));
 });
 
 const updatePost = asyncHandler(async (req, res) => {
@@ -809,6 +809,37 @@ const reactToPost = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, "successfully reacted"));
 });
 
+const removeExistingPostToPage = asyncHandler(async (req, res) => {
+  //we expect an array of page id
+  let { pages } = req.body;
+
+  //validate page array if there is a single element then we convert it into array ourself
+  if (!pages) pages = [];
+  if (!Array.isArray(pages)) pages = [pages];
+
+  pages = pages.filter((page) => mongoose.Types.ObjectId.isValid(page));
+  if (pages.length == 0) throw new ApiError(400, "No valid page ids provided");
+
+  //check the validity of each pages
+  const validPages = await Page.find({ _id: { $in: pages } }).select("_id");
+  if (validPages.length !== pages.length) {
+    throw new ApiError(400, "Some pages do not exist");
+  }
+
+  //we already have data of post from isowner verification middleware so we just gonnna add new pages to existing page
+  await Post.findByIdAndUpdate(
+    req.post._id,
+    {
+      $pull: {
+        pages: { $in: pages },
+      },
+    },
+  );
+
+  //save them
+  res.status(201).json(new ApiResponse(201, "post is successfully remove from pages"));
+});
+
 export {
   createPost,
   deletePost,
@@ -822,4 +853,5 @@ export {
   getTopicPosts,
   getPost,
   reactToPost,
+  removeExistingPostToPage
 };

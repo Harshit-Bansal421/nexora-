@@ -15,6 +15,7 @@ import {
   getTopicPosts,
   getPost,
   reactToPost,
+  removeExistingPostToPage,
 } from "../controllers/post.controller.js";
 
 const router = Router();
@@ -30,7 +31,7 @@ router.route("/user/:username").get(getUserPosts); //to get posts of some partic
 //login user can access them
 router.route("/saved").get(jwtVerify, getSavePost); //-> getting saved post of a user and user can also provide query of limit,page
 // router.route("/page/:pageid").get(jwtVerify); //-> to get the post of a particular page
-router.route("/:post_id/vote").post(jwtVerify,reactToPost); //--> to perform upvote,downvote//i want type also in req.body
+router.route("/:post_id/vote").post(jwtVerify, reactToPost); //--> to perform upvote,downvote//i want type also in req.body
 router.route("/:post_id/save").post(jwtVerify, savePost); //to save the post
 router.route("/:post_id/save").delete(jwtVerify, unsavePost); //to unsave the post
 
@@ -48,7 +49,9 @@ router
   ); //-->for updting a post
 router.route("/:post_id").delete(jwtVerify, isOwner, deletePost); //--> for deleting a post
 router.route("/add/:post_id").post(jwtVerify, isOwner, AddExistingPostToPage); //--> for adding existing post on a particular page
-// router.route("/add/:post_id").delete(jwtVerify, isOwner, removePostToPage); //--> for adding existing post on a particular page
+router
+  .route("/add/:post_id")
+  .delete(jwtVerify, isOwner, removeExistingPostToPage); //--> for adding existing post on a particular page
 
 router.route("/:post_id").get(jwtVerify, getPostById); //--> for fetching a single post
 
