@@ -777,6 +777,38 @@ const getPost = asyncHandler(async (req, res) => {
     );
 });
 
+const reactToPost = asyncHandler(async (req, res) => {
+  //get type from req.body
+  const { type } = req.body;
+  const { post_id } = req.params;
+  const user_id = req.user._id;
+
+  //then perform action
+  let response = {};
+  if (type === "upvote") {
+    response = await Post.findByIdAndUpdate(
+      post_id,
+      {
+        $addToSet: { upvotes: user_id },
+        $pull: { downvotes: user_id },
+      },
+      { returnDocument: "after" },
+    );
+  } else if (type === "downvote") {
+    response = await Post.findByIdAndUpdate(
+      post_id,
+      {
+        $addToSet: { downvotes: user_id },
+        $pull: { upvotes: user_id },
+      },
+      { returnDocument: "after" },
+    );
+  }
+  if (!response) throw new ApiError("400", "Post Not Found");
+  // then send response
+  res.status(200).json(new ApiResponse(200, "successfully reacted"));
+});
+
 export {
   createPost,
   deletePost,
@@ -789,4 +821,5 @@ export {
   getUserPosts,
   getTopicPosts,
   getPost,
+  reactToPost,
 };
