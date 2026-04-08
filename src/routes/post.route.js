@@ -7,12 +7,13 @@ import {
   deletePost,
   AddExistingPostToPage,
   updatePost,
-  getPost,
+  getPostById,
   savePost,
   unsavePost,
   getSavePost,
   getUserPosts,
-  getTopicPosts
+  getTopicPosts,
+  getPost
 } from "../controllers/post.controller.js";
 
 const router = Router();
@@ -20,7 +21,7 @@ const router = Router();
 //post routes
 
 //publc route any one can access them
-// router.route("/").get(); //--> for getting posts from default content
+router.route("/").get(getPost); //--> for getting posts from default content
 // router.route("/search").get(); //for intent based getting post
 router.route("/topic/:topic").get(getTopicPosts); //--> for getting post of particular type
 router.route("/user/:username").get(getUserPosts); //to get posts of some particular user,used in time of seeing some profile page
@@ -37,7 +38,8 @@ router.route("/").post(jwtVerify, upload.postUpload("PostImages", "PostVideos"),
 router.route("/:post_id").patch(jwtVerify,isOwner,upload.postUpload("addImages", "addVideos"),updatePost,); //-->for updting a post
 router.route("/:post_id").delete(jwtVerify, isOwner, deletePost); //--> for deleting a post
 router.route("/add/:post_id").post(jwtVerify, isOwner, AddExistingPostToPage); //--> for adding existing post on a particular page
+// router.route("/add/:post_id").delete(jwtVerify, isOwner, removePostToPage); //--> for adding existing post on a particular page
 
-router.route("/:post_id").get(jwtVerify, getPost); //--> for fetching a single post
+router.route("/:post_id").get(jwtVerify, getPostById); //--> for fetching a single post
 
 export default router;

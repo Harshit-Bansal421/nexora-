@@ -260,7 +260,7 @@ const updatePost = asyncHandler(async (req, res) => {
   res.status(201).json(201, updatedData, "post is updated successfully");
 });
 
-const getPost = asyncHandler(async (req, res) => {
+const getPostById = asyncHandler(async (req, res) => {
   // validate the post id
   const postId = req.params.post_id;
   if (!postId) throw new ApiError(400, "no postid is given");
@@ -682,15 +682,111 @@ const getTopicPosts = asyncHandler(async (req, res) => {
   );
 });
 
+const getPost = asyncHandler(async (req, res) => {
+  //get query of pagination if it is given
+  const { page = 1, limit = 10 } = req.query;
+  const skip = (page - 1) * limit;
+  //i just have to make a aggregate pipeline for giving every post in sorted manner
+  const postData = await Post.aggregate([
+    { $match: {} },
+    {
+      $facet: {
+        totalPost: [
+          { $sort: { createdAt: -1 } },
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $lookup: {
+              from: "users",
+              let: { ownerInfo: { $ifNull: ["$owner", []] } },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $eq: ["$$ownerInfo", "$_id"],
+                    },
+                  },
+                },
+                {
+                  $project: {
+                    _id: 1,
+                    username: 1,
+                    profileImage: 1,
+                    title: 1,
+                    badge: 1,
+                  },
+                },
+              ],
+              as: "ownerInfo",
+            },
+          },
+          {
+            $unwind: {
+              path: "$ownerInfo",
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {
+            $addFields: {
+              upvoteCount: { $size: "$upvotes" },
+              downvoteCount: { $size: "$downvotes" },
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              ownerInfo: 1,
+              upvoteCount: 1,
+              downvoteCount: 1,
+              topic: 1,
+              title: 1,
+              postVideo: 1,
+              postImage: 1,
+              createdAt: 1,
+              updatedAt: 1,
+              description: 1,
+            },
+          },
+        ],
+        totalCount: [{ $count: "count" }],
+      },
+    },
+  ]);
+
+  const result = postData[0];
+
+  const total = result.totalCount[0].count;
+  const totalPages = Math.ceil(total / limit);
+  const pagination = {
+    total,
+    page,
+    limit,
+    totalPages,
+    hasNextPage: page < totalPages,
+  };
+
+  const finalresponse = {
+    post: result,
+    pagination,
+  };
+  //then send response
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, finalresponse, "post has been fetched successfully"),
+    );
+});
+
 export {
   createPost,
   deletePost,
   AddExistingPostToPage,
   updatePost,
-  getPost,
+  getPostById,
   savePost,
   unsavePost,
   getSavePost,
   getUserPosts,
   getTopicPosts,
+  getPost,
 };
