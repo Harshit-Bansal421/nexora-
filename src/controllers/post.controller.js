@@ -138,7 +138,9 @@ const AddExistingPostToPage = asyncHandler(async (req, res) => {
   );
 
   //save them
-  res.status(201).json(new ApiResponse(201, "post is successfully added to pages"));
+  res
+    .status(201)
+    .json(new ApiResponse(201, "post is successfully added to pages"));
 });
 
 const updatePost = asyncHandler(async (req, res) => {
@@ -292,72 +294,33 @@ const getPostById = asyncHandler(async (req, res) => {
       },
     },
     {
-      $lookup: {
-        from: "users",
-        let: { upvotesid: { $ifNull: ["$upvotes", []] } },
-        pipeline: [
-          {
-            $match: {
-              $expr: { $in: ["$_id", "$$upvotesid"] },
-            },
-          },
-          {
-            $project: {
-              _id: 1,
-              username: 1,
-              profileImage: 1,
-              title: 1,
-              badge: 1,
-            },
-          },
-        ],
-        as: "upvoteInfo",
+      $unwind: {
+        path: "$ownerInfo",
+        preserveNullAndEmptyArrays: true,
       },
     },
     {
-      $lookup: {
-        from: "users",
-        let: { downvoteId: { $ifNull: ["$downvote", []] } },
-        pipeline: [
-          {
-            $match: {
-              $expr: { $in: ["$_id", "$$downvoteId"] },
-            },
-          },
-          {
-            $project: {
-              _id: 1,
-              username: 1,
-              profileImage: 1,
-              title: 1,
-              badge: 1,
-            },
-          },
-        ],
-        as: "downvoteInfo",
+      $addFields: {
+        upvoteCount: { $size: "$upvotes" },
+        downvoteCount: { $size: "$downvotes" },
       },
     },
     {
-      $lookup: {
-        from: "pages",
-        let: { pageId: { $ifNull: ["$pages", []] } },
-        pipeline: [
-          {
-            $match: {
-              $expr: { $in: ["$_id", "$$pageId"] },
-            },
-          },
-          {
-            $project: {
-              pageName: 1,
-              title: 1,
-              type: 1,
-            },
-          },
-        ],
-        as: "pagesInfo",
+      $project: {
+        _id: 1,
+        ownerInfo: 1,
+        upvoteCount: 1,
+        downvoteCount: 1,
+        topic: 1,
+        title: 1,
+        postVideo: 1,
+        postImage: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        description: 1,
       },
     },
+    { returnDocument: "after" },
   ]);
 
   if (!postdata) throw new ApiError(500, "error in fetching post info");
@@ -827,17 +790,16 @@ const removeExistingPostToPage = asyncHandler(async (req, res) => {
   }
 
   //we already have data of post from isowner verification middleware so we just gonnna add new pages to existing page
-  await Post.findByIdAndUpdate(
-    req.post._id,
-    {
-      $pull: {
-        pages: { $in: pages },
-      },
+  await Post.findByIdAndUpdate(req.post._id, {
+    $pull: {
+      pages: { $in: pages },
     },
-  );
+  });
 
   //save them
-  res.status(201).json(new ApiResponse(201, "post is successfully remove from pages"));
+  res
+    .status(201)
+    .json(new ApiResponse(201, "post is successfully remove from pages"));
 });
 
 export {
@@ -853,5 +815,5 @@ export {
   getTopicPosts,
   getPost,
   reactToPost,
-  removeExistingPostToPage
+  removeExistingPostToPage,
 };
