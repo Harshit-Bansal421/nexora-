@@ -20,8 +20,10 @@ app.use(
 
 import userRoute from "./routes/user.route.js";
 import postRoute from "./routes/post.route.js";
+import PageRoute from "./routes/page.route.js";
 
 app.use("/api/v1/users", userRoute);
 app.use("/api/v1/posts", postRoute);
+app.use("/api/v1/pages",PageRoute);
 
 export default app;

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { jwtVerify } from "../middleware/jwtVerify.js";
-import { isOwner } from "../middleware/isowner.js";
+import { isPostOwner } from "../middleware/isPostowner.js";
 import { upload } from "../middleware/localUpload.js";
 import {
   createPost,
@@ -20,8 +20,9 @@ import {
 
 const router = Router();
 
-//post routes
 //specific named route first
+
+
 //publc route any one can access them
 router.route("/").get(getPost); //--> for getting posts from default content
 // router.route("/search").get(); //for intent based getting post
@@ -36,12 +37,15 @@ router.route("/saved").get(jwtVerify, getSavePost); //-> getting saved post of a
 router
   .route("/")
   .post(jwtVerify, upload.postUpload("PostImages", "PostVideos"), createPost); //--> for creating a post
-router.route("/add/:post_id").post(jwtVerify, isOwner, AddExistingPostToPage); //--> for adding existing post on a particular page
+router.route("/add/:post_id").post(jwtVerify, isPostOwner, AddExistingPostToPage); //--> for adding existing post on a particular page
 router
   .route("/add/:post_id")
-  .delete(jwtVerify, isOwner, removeExistingPostToPage); //--> for adding existing post on a particular page
+  .delete(jwtVerify, isPostOwner , removeExistingPostToPage); //--> for adding existing post on a particular page
+
+
 
 //param routes
+
 router.route("/:post_id/vote").post(jwtVerify, reactToPost); //--> to perform upvote,downvote//i want type also in req.body
 router.route("/:post_id/save").post(jwtVerify, savePost); //to save the post
 router.route("/:post_id/save").delete(jwtVerify, unsavePost); //to unsave the post
@@ -49,11 +53,11 @@ router
   .route("/:post_id")
   .patch(
     jwtVerify,
-    isOwner,
+    isPostOwner,
     upload.postUpload("addImages", "addVideos"),
     updatePost,
   ); //-->for updting a post
-router.route("/:post_id").delete(jwtVerify, isOwner, deletePost); //--> for deleting a post
+router.route("/:post_id").delete(jwtVerify, isPostOwner, deletePost); //--> for deleting a post
 
 router.route("/:post_id").get(jwtVerify, getPostById); //--> for fetching a single post
 
