@@ -42,6 +42,7 @@ const createPage = asyncHandler(async (req, res) => {
       type,
       pageProfileImage: cloudinaryresponse.public_id,
       moderators: [owner],
+      members: [owner],
     });
 
     page.pageProfileImage = getOptimizedImage(page.pageProfileImage);
@@ -206,4 +207,46 @@ const removeModerator = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, "user are updated to moderators"));
 });
 
-export { createPage, deletePage, getPages, makeModerator, removeModerator };
+const seeMembersList = asyncHandler(async (req, res) => {
+  //get page id from req.page
+  const { page = 1, limit = 10 } = req.query;
+  const page_id = req.page._id;
+
+  const pageNumber = Number(page);
+  const limitNumber = Number(limit);
+  const skip = (pageNumber - 1) * limitNumber;
+
+  const membeList = await Page.findById(page_id)
+    .select({ pageName: 1, owner: 1, pageProfileImage:1,members: { $slice: [skip, limit] } })
+    .populate({
+      path: "members",
+      select: "username profileImage title badge",
+    });
+
+  membeList.pageProfileImage=getOptimizedImage(membeList.pageProfileImage);
+  membeList.members.profileImage=membeList.members.map(member=>member.profileImage=getOptimizedImage(member.profileImage));
+
+  const pagination={
+    total:membeList.membersCount,
+    page:pageNumber,
+    limit:limitNumber,
+    totalPages:Math.ceil(membeList.membersCount/limitNumber),
+    hasNextPage:page<Math.ceil(membeList.membersCount/limitNumber)
+  }
+
+  //request maker only need to see members name,profileImage,username,title,badge
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, {membeList,pagination}, "member list is fetched successfully"),
+    );
+});
+
+export {
+  createPage,
+  deletePage,
+  getPages,
+  makeModerator,
+  removeModerator,
+  seeMembersList,
+};

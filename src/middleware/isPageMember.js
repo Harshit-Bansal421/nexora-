@@ -3,31 +3,19 @@ import ApiError from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const isPageMember = asyncHandler(async (req, res, next) => {
-  //get the requestedUser from req.body and members from req.page
-  let { users: requestedUsers } = req.body.user;
-  const members = req.page.members;
+  //get the requestedUser from req.body and get pageId from req.params and creating post part for independent member check
+  let user_id=req.user?._id;
+
+  let members=req.page.members|| [];
 
   //validate them and make an array if needed
-  if (!requestedUsers) throw new ApiError(400, "users is missing");
-  if (!Array.isArray(requestedUsers)) requestedUsers = [requestedUsers];
-  if (requestedUsers.length < 1)
-    throw new ApiError(400, "requested user array is empty");
-  requestedUsers.map((user) => {
-    if (!mongoose.Types.ObjectId.isValid(user))
+  if (!user_id) throw new ApiError(400, "users is missing");
+  if (!mongoose.Types.ObjectId.isValid(user_id)){
       throw new ApiError(400, "some user id is invalid");
-  });
+  };
 
   //then check
-  const memberIds = members.map((m) => m.toString());
-
-  const nonMembers = requestedUsers.filter((user) => !memberIds.includes(user));
-  if (nonMembers.length > 0)
-    throw new ApiError(
-      400,
-      "some of the user are not even members of the group",
-    );
-
-  req.requestedUsers = requestedUsers;
+  if(!members.some(mem=>mem.toString()===user_id.toString())) throw new ApiError(403,"u are not a member of this page")
   next();
 });
 
