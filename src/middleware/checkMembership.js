@@ -4,6 +4,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 const checkMembership = asyncHandler(async (req, res, next) => {
   //get the requestedUser from req.body and get pageId from req.params and creating post part for independent member check
+  if(!(!!req.body)) throw new ApiError(400,"no user is given");
   let { users: requestedUsers } = req.body;
 
   const members=req.page.members|| [];

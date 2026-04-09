@@ -9,6 +9,7 @@ import {
   deleteFromCloudinary,
 } from "../utils/Cloudinary.js";
 import { Post } from "../models/Post.model.js";
+import { JoinRequest } from "../models/Joinrequest.model.js";
 
 const createPage = asyncHandler(async (req, res) => {
   //get the info from req.body
@@ -204,7 +205,7 @@ const removeModerator = asyncHandler(async (req, res) => {
 
   return res
     .status(201)
-    .json(new ApiResponse(201, "user are updated to moderators"));
+    .json(new ApiResponse(201, "user are removed from moderators"));
 });
 
 const seeMembersList = asyncHandler(async (req, res) => {
@@ -217,29 +218,114 @@ const seeMembersList = asyncHandler(async (req, res) => {
   const skip = (pageNumber - 1) * limitNumber;
 
   const membeList = await Page.findById(page_id)
-    .select({ pageName: 1, owner: 1, pageProfileImage:1,members: { $slice: [skip, limit] } })
+    .select({
+      pageName: 1,
+      owner: 1,
+      pageProfileImage: 1,
+      members: { $slice: [skip, limit] },
+    })
     .populate({
       path: "members",
       select: "username profileImage title badge",
     });
 
-  membeList.pageProfileImage=getOptimizedImage(membeList.pageProfileImage);
-  membeList.members.profileImage=membeList.members.map(member=>member.profileImage=getOptimizedImage(member.profileImage));
+  membeList.pageProfileImage = getOptimizedImage(membeList.pageProfileImage);
+  membeList.members.profileImage = membeList.members.map(
+    (member) => (member.profileImage = getOptimizedImage(member.profileImage)),
+  );
 
-  const pagination={
-    total:membeList.membersCount,
-    page:pageNumber,
-    limit:limitNumber,
-    totalPages:Math.ceil(membeList.membersCount/limitNumber),
-    hasNextPage:page<Math.ceil(membeList.membersCount/limitNumber)
-  }
+  const pagination = {
+    total: membeList.membersCount,
+    page: pageNumber,
+    limit: limitNumber,
+    totalPages: Math.ceil(membeList.membersCount / limitNumber),
+    hasNextPage: page < Math.ceil(membeList.membersCount / limitNumber),
+  };
 
   //request maker only need to see members name,profileImage,username,title,badge
   res
     .status(200)
     .json(
-      new ApiResponse(200, {membeList,pagination}, "member list is fetched successfully"),
+      new ApiResponse(
+        200,
+        { membeList, pagination },
+        "member list is fetched successfully",
+      ),
     );
+});
+
+const removeUser = asyncHandler(async (req, res) => {
+  //get page id from req.page and removing user from req.requestedUsers
+  const page = req.page;
+  const removingUsers = req.requestedUsers.map((id) => id.toString());
+  const userPerformingAction = req.user._id;
+  const moderatorIds = new Set(page.moderators.map((m) => m.toString()));
+  // i have to check if the person who is removing is owner then he can remove anyone except himself
+  if (removingUsers.includes(page.owner.toString()))
+    throw new ApiError(403, "u cannot remove the owner of the page");
+
+  //if he is not owner that means he is moderator then he can not remove owner or any other moderator
+  if (page.owner.toString() !== userPerformingAction.toString()) {
+    if (removingUsers.some((id) => moderatorIds.has(id)))
+      throw new ApiError(403, "u cannot remove other moderators");
+  }
+  //remove them
+  await Page.updateOne(
+    { _id: page._id },
+    {
+      $pull: {
+        moderators: { $in: removingUsers },
+        members: { $in: removingUsers },
+      },
+    },
+  );
+  //send response
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "users is removed from the page"));
+});
+
+const joinPage = asyncHandler(async (req, res) => {
+  //we get the user_id from req.user and page id from params and get the req.body info
+  const user_id = req.user._id;
+  const { page_id } = req.params;
+  const { message = "" } = req.body || "";
+
+  //validate if page event exist or not and is use is already a member or not
+  const page = await Page.findById(page_id);
+  if (!page) throw new ApiError(400, "page doesnot exist");
+
+  if (page.members.some((mem) => mem.toString() === user_id.toString()))
+    throw new ApiError(400, "u are already a member of this page");
+
+  //then we see if the page is private or open
+  if (page.type === "open") {
+    //if it is open then just add the user in member list of that page
+    await Page.findByIdAndUpdate(page_id, {
+      $push: { members: user_id },
+    });
+    return res
+      .status(201)
+      .json(new ApiResponse(201, "u are successfully added to this page"));
+  }
+  //if it is private then validate if user already requested to join or not and then  just create a joinRequest schema
+  // Before creating new request, check if one already exists
+  const existingRequest = await JoinRequest.findOne({
+    page: page_id,
+    requestedBy: user_id,
+    status: "pending",
+  });
+  if (existingRequest) throw new ApiError(400, "You already requested to join");
+
+  await JoinRequest.create({
+    page: page_id,
+    status: "pending",
+    message: message,
+    requestedBy: user_id,
+  });
+
+  // After creating joinRequest, you need to return something
+  return res.status(201).json(new ApiResponse(201, "Join request sent"));
 });
 
 export {
@@ -249,4 +335,6 @@ export {
   makeModerator,
   removeModerator,
   seeMembersList,
+  removeUser,
+  joinPage,
 };

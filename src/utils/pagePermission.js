@@ -27,3 +27,4 @@ export const pageType= async (page_id) => {
   if(!status) throw new ApiError(404,"error in fetching the status of page");
   return status.type;
 };
+
