@@ -328,6 +328,104 @@ const joinPage = asyncHandler(async (req, res) => {
   return res.status(201).json(new ApiResponse(201, "Join request sent"));
 });
 
+const seePendingRequest = asyncHandler(async (req, res) => {
+  // get page_id from req.page and status is pending
+  const page_id = req.page._id;
+  const status = "pending";
+
+  const { page = 1, limit = 10 } = req.query;
+  const pageNumber = Number(page);
+  const limitNumber = Number(limit);
+  const skip = (pageNumber - 1) * limitNumber;
+
+  //get pending request from join request and use aggregate pipeline for requestedBy info
+  const requests = await JoinRequest.find({ page: page_id, status: status })
+    .populate({
+      path: "requestedBy",
+      select: "_id username title badge profileImage",
+    })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limitNumber)
+    .lean();
+
+  const total = await JoinRequest.countDocuments({
+    page: page_id,
+    status: status,
+  });
+  const totalPages = Math.ceil(total / limitNumber);
+  const pagination = {
+    total,
+    page: pageNumber,
+    limit: limitNumber,
+    totalPages,
+    hasNextPage: pageNumber < totalPages,
+  };
+
+
+  requests.forEach(
+    (oneRequest) =>
+      (oneRequest.requestedBy.profileImage = getOptimizedImage(
+        oneRequest.requestedBy.profileImage,
+      )),
+  );
+
+  //send info
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { pendingRequest: requests, pagination },
+        "pending request has been fetched successfully",
+      ),
+    );
+});
+
+const approvePendingRequest = asyncHandler(async (req, res) => {
+  //get the page_id from req.page and status and requestedBy from req.body
+  const page_id = req.page._id;
+  const { status, requestedBy } = req.body;
+  if (!status || !requestedBy)
+    throw new ApiError(
+      400,
+      "Incomplete information for reacting to page request",
+    );
+
+  //search for request if it still alive or not
+  const isStillAlive = await JoinRequest.findOne({
+    page: page_id,
+    requestedBy: requestedBy,
+  });
+  if (!isStillAlive) throw new ApiError(400, "no request exist");
+
+  //if yes then check the status
+  if (status.toLowerCase().trim() === "approved") {
+    //then if status is accept then add member to the page
+    const page = await Page.findById(page_id);
+    if (page.members.some((m) => m.toString() === requestedBy.toString())) {
+      throw new ApiError(400, "User is already a member");
+    }
+    await Page.findByIdAndUpdate(page_id, {
+      $push: { members: requestedBy },
+    });
+
+    await JoinRequest.findByIdAndUpdate(isStillAlive._id, {
+      status: "approved",
+    });
+  } else if (status.toLowerCase().trim() === "reject") {
+    //if reject just delete the request
+    await JoinRequest.findByIdAndUpdate(isStillAlive._id, {
+      status: "rejected",
+    });
+  }
+  //send notification to the user of the status
+  //todo
+
+  //send response
+  return res.status(201).json(new ApiResponse(201, "successfully"));
+});
+
 export {
   createPage,
   deletePage,
@@ -337,4 +435,6 @@ export {
   seeMembersList,
   removeUser,
   joinPage,
+  seePendingRequest,
+  approvePendingRequest,
 };

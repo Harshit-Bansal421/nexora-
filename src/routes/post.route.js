@@ -41,6 +41,9 @@ router.route("/add/:post_id").post(jwtVerify, isPostOwner, AddExistingPostToPage
 router
   .route("/add/:post_id")
   .delete(jwtVerify, isPostOwner , removeExistingPostToPage); //--> for adding existing post on a particular page
+// router
+//   .route("/add/:post_id")
+//   .delete(jwtVerify, isPostOwner , removeExistingPostToPage); //--> for removing existing post on a particular page
 
 
 
