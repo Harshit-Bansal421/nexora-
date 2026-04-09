@@ -113,8 +113,14 @@ const getPages = asyncHandler(async (req, res) => {
   //   console.log(getOptimizedImage(page.pageProfileImage))
   // pages.owner.profileImage=getOptimizedImage(pages.owner.profileImage);
   // pages.pageProfileImage=getOptimizedImage(pages.pageProfileImage);
-  pages.map(page=>page.pageProfileImage=getOptimizedImage(page.pageProfileImage));
-  pages.map(page=>page.owner.profileImage=getOptimizedImage(page.owner.profileImage));
+  pages.map(
+    (page) =>
+      (page.pageProfileImage = getOptimizedImage(page.pageProfileImage)),
+  );
+  pages.map(
+    (page) =>
+      (page.owner.profileImage = getOptimizedImage(page.owner.profileImage)),
+  );
   const total = await Page.countDocuments(filter);
   const totalPages = limitNumber ? Math.ceil(total / limitNumber) : 1;
 
@@ -129,9 +135,9 @@ const getPages = asyncHandler(async (req, res) => {
         username: page.owner.username,
         profileImage: page.owner.profileImage,
       },
-      pagePrifileImage:page?.pageProfileImage,
-      pageName:page?.pageName,
-      title:page.title,
+      pagePrifileImage: page?.pageProfileImage,
+      pageName: page?.pageName,
+      title: page.title,
       membersCount: page.membersCount,
     }));
   }
@@ -155,7 +161,49 @@ const getPages = asyncHandler(async (req, res) => {
 });
 
 const makeModerator = asyncHandler(async (req, res) => {
+  //get pageid from req.post and we know the the user that is giving task is owner
+  //and we also know upcoming requested users is member of the same page and is an validated array
+  const moderators = req.requestedUsers;
+  const page_id = req.page._id;
+  //make him a moderator
+  await Page.updateOne(
+    { _id: page_id },
+    {
+      $addToSet: {
+        moderators: { $each: moderators },
+      },
+    },
+  );
 
+  return res
+    .status(201)
+    .json(new ApiResponse(201, "user are updated to moderators"));
 });
 
-export { createPage, deletePage, getPages, makeModerator };
+const removeModerator = asyncHandler(async (req, res) => {
+  //get pageid from req.post and we know the the user that is giving task is owner
+  //and we also know upcoming requested users is member of the same page and is an validated array
+  const moderators = req.requestedUsers;
+  const page_id = req.page._id;
+
+  //we have to check if the one of removing users is owner or not
+  const owner_id = req.page.owner;
+  if (moderators.includes(owner_id.toString()))
+    throw new ApiError(400, "owner cannot be removed from moderators");
+
+  //make him a moderator
+  await Page.updateOne(
+    { _id: page_id },
+    {
+      $pullAll: {
+        moderators: moderators,
+      },
+    },
+  );
+
+  return res
+    .status(201)
+    .json(new ApiResponse(201, "user are updated to moderators"));
+});
+
+export { createPage, deletePage, getPages, makeModerator, removeModerator };

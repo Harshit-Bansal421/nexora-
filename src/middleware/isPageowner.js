@@ -16,7 +16,8 @@ const isPageOwner = asyncHandler(async (req, res, next) => {
   const response = await Page.findOne({
     _id: page_id,
     owner: user_id,
-  }).select("_id owner moderators members pageProfileImage");
+  }).select("_id owner members pageProfileImage");
+
   console.log("response",response)
   if (!response)
     throw new ApiError(403, "only page owner can perform this task");

@@ -4,24 +4,31 @@ import {
   createPage,
   deletePage,
   getPages,
-  makeModerator
+  makeModerator,
+  removeModerator,
 } from "../controllers/page.controller.js";
 import { upload } from "../middleware/localUpload.js";
 import { isPageOwner } from "../middleware/isPageowner.js";
-import { verifyOptional } from "../middleware/verifyOptional.js"
-
+import { verifyOptional } from "../middleware/verifyOptional.js";
+import { isPageMember } from "../middleware/isPageMember.js";
 const router = Router();
- 
+
+//because of any checking is that a requestedusers is member or not i am making req.body.users an array to check them
+
 //specific routes
 
 //any user
-router.route("/").get(verifyOptional,getPages); //to get general content
+router.route("/").get(verifyOptional, getPages); //to get general content
 // //owner only
 router
   .route("/")
   .post(jwtVerify, upload.avatarUpload("pageProfileImage"), createPage); // create page
-router.route("/:page_id/moderator/:user_id").post(jwtVerify, isPageOwner,makeModerator)//make moderator
-// router.route("/:page_id/moderator/:user_id").delete(jwtVerify,isPageOwner)//remove moderator
+router
+  .route("/:page_id/moderators")
+  .post(jwtVerify, isPageOwner, isPageMember, makeModerator); //make moderator-- we send user_id through body
+router
+  .route("/:page_id/moderator/:user_id")
+  .delete(jwtVerify, isPageOwner, isPageMember, removeModerator); //remove moderator
 
 // //moderator + owner can operate
 // router.route("/:page_id/members/:user_id").delete(jwtVerify,isPageModerator)//remove user
