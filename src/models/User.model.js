@@ -72,11 +72,11 @@ UserSchema.methods.isPasswordCorrect = async function (password) {
 };
 
 UserSchema.virtual("followersCount").get(function () {
-  return this.followers.length;
+  return this.followers?.length || 0;
 });
 
 UserSchema.virtual("followingCount").get(function () {
-  return this.following.length;
+  return this.following?.length || 0;
 });
 
 UserSchema.methods.accessTokenGenerator = function () {

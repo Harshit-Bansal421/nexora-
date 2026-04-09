@@ -67,6 +67,8 @@ const createPost = asyncHandler(async (req, res) => {
     pages,
   });
 
+  post.postImage = (post.postImage || []).map((image) => getOptimizedImage(image));
+  
   //modify the returned object with secure_url
   const postResponse = {
     ...post.toObject(),

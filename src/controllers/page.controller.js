@@ -44,7 +44,7 @@ const createPage = asyncHandler(async (req, res) => {
       moderators: [owner],
     });
 
-    page.pageProfileImage= getOptimizedImage(page.pageProfileImage);
+    page.pageProfileImage = getOptimizedImage(page.pageProfileImage);
 
     //then create a object that u will be sending as the response
     res
@@ -59,28 +59,103 @@ const createPage = asyncHandler(async (req, res) => {
   }
 });
 
-const deletePost = asyncHandler(async (req, res) => {
+const deletePage = asyncHandler(async (req, res) => {
   //get page_id from req.post
   const page_id = req.page._id;
   if (!page_id) throw new ApiResponse(404, "page id not found");
-  const pageImage=req.page.pageProfileImage;
+  const pageImage = req.page.pageProfileImage;
   //its is validated one so just deleted the page
   const deletedPage = await Page.findByIdAndDelete(page_id);
   if (!deletedPage) throw new ApiError(400, "error in deleting page");
 
   //delete file from cloudinary also
-  if(pageImage) {
-    const cloudinaryresponse=await deleteFromCloudinary(pageImage,"image");
-    if(!cloudinaryresponse) throw new ApiError(400,"error in deleting files from cloudinary")
+  if (pageImage) {
+    const cloudinaryresponse = await deleteFromCloudinary(pageImage, "image");
+    if (!cloudinaryresponse)
+      throw new ApiError(400, "error in deleting files from cloudinary");
   }
   //also update all those post which includes this deleted page in their pages array
   const updatedpost = await Post.updateMany(
     { pages: page_id },
     { $pull: { pages: page_id } },
   );
-  if(!updatedpost) throw new ApiError(400,"error in uploading post");
+  if (!updatedpost) throw new ApiError(400, "error in uploading post");
 
-  res.status(200).json(new ApiResponse(200,"page deleted successfully"));
+  res.status(200).json(new ApiResponse(200, "page deleted successfully"));
 });
 
-export { createPage, deletePost };
+const getPages = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 10, search, topic, title } = req.query;
+
+  const PageNumber = Number(page);
+  const limitNumber = Number(limit);
+  const skip = (PageNumber - 1) * limitNumber;
+
+  const filter = {};
+  if (search) filter.$text = { $search: search };
+  if (topic) filter.topic = topic;
+  if (title) filter.title = title;
+  const query = Page.find(filter);
+
+  if (search) {
+    query
+      .select({ score: { $meta: "textScore" } })
+      .sort({ score: { $meta: "textScore" } });
+  } else {
+    query.sort({ createAt: -1 });
+  }
+
+  const pages = await query
+    .populate({ path: "owner", select: "username profileImage title" })
+    .select("-moderators -members")
+    .skip(skip)
+    .limit(limitNumber);
+  //   console.log(getOptimizedImage(page.pageProfileImage))
+  // pages.owner.profileImage=getOptimizedImage(pages.owner.profileImage);
+  // pages.pageProfileImage=getOptimizedImage(pages.pageProfileImage);
+  pages.map(page=>page.pageProfileImage=getOptimizedImage(page.pageProfileImage));
+  pages.map(page=>page.owner.profileImage=getOptimizedImage(page.owner.profileImage));
+  const total = await Page.countDocuments(filter);
+  const totalPages = limitNumber ? Math.ceil(total / limitNumber) : 1;
+
+  const isloggedIn = !!req.user;
+  let responsePages;
+  if (isloggedIn) {
+    responsePages = pages;
+  } else {
+    responsePages = pages.map((page) => ({
+      _id: page._id,
+      owner: {
+        username: page.owner.username,
+        profileImage: page.owner.profileImage,
+      },
+      pagePrifileImage:page?.pageProfileImage,
+      pageName:page?.pageName,
+      title:page.title,
+      membersCount: page.membersCount,
+    }));
+  }
+  console.log(pages);
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        pages: responsePages,
+        pagination: {
+          total,
+          page: PageNumber,
+          limit: limitNumber,
+          totalPages,
+          hasNextPage: PageNumber < totalPages,
+        },
+      },
+      "Pages fetched",
+    ),
+  );
+});
+
+const makeModerator = asyncHandler(async (req, res) => {
+
+});
+
+export { createPage, deletePage, getPages, makeModerator };

@@ -56,11 +56,11 @@ const PageSchema = mongoose.Schema(
 );
 
 PageSchema.virtual("membersCount").get(function(){
-  return this.members.length;
+  return this.members?.length || 0;
 })
 
 PageSchema.virtual("moderatorsCount").get(function(){
-  return this.moderators.length;
+  return this.moderators?.length || 0;
 })
 
 
