@@ -67,8 +67,10 @@ const createPost = asyncHandler(async (req, res) => {
     pages,
   });
 
-  post.postImage = (post.postImage || []).map((image) => getOptimizedImage(image));
-  
+  post.postImage = (post.postImage || []).map((image) =>
+    getOptimizedImage(image),
+  );
+
   //modify the returned object with secure_url
   const postResponse = {
     ...post.toObject(),
@@ -113,24 +115,12 @@ const deletePost = asyncHandler(async (req, res) => {
 
 const AddExistingPostToPage = asyncHandler(async (req, res) => {
   //we expect an array of page id
-  let { pages } = req.body;
-
-  //validate page array if there is a single element then we convert it into array ourself
-  if (!pages) pages = [];
-  if (!Array.isArray(pages)) pages = [pages];
-
-  pages = pages.filter((page) => mongoose.Types.ObjectId.isValid(page));
-  if (pages.length == 0) throw new ApiError(400, "No valid page ids provided");
-
-  //check the validity of each pages
-  const validPages = await Page.find({ _id: { $in: pages } }).select("_id");
-  if (validPages.length !== pages.length) {
-    throw new ApiError(400, "Some pages do not exist");
-  }
+  const { post_id } = req.params;
+  const pages = req.pages;
 
   //we already have data of post from isowner verification middleware so we just gonnna add new pages to existing page
   await Post.findByIdAndUpdate(
-    req.post._id,
+    post_id,
     {
       $addToSet: {
         pages: { $each: pages },
@@ -260,8 +250,16 @@ const updatePost = asyncHandler(async (req, res) => {
   );
   if (!updatedData) throw new ApiError(500, "error in updating data");
 
+  const postResponse = {
+    ...updatedData.toObject(),
+    postImage: (updatedData.postImage || []).map(getOptimizedImage),
+    postVideo: (updatedData.postVideo || []).map(getOptimizedVideo),
+  };
+
   //send success reponse
-  res.status(201).json(201, updatedData, "post is updated successfully");
+  res
+    .status(201)
+    .json(new ApiResponse(201, postResponse, "post is updated successfully"));
 });
 
 const getPostById = asyncHandler(async (req, res) => {
@@ -325,11 +323,20 @@ const getPostById = asyncHandler(async (req, res) => {
     { returnDocument: "after" },
   ]);
 
-  if (!postdata) throw new ApiError(500, "error in fetching post info");
+  if (!postdata || postdata.length === 0)
+    throw new ApiError(500, "error in fetching post info");
+
+  const postResponse = postdata.map((post) => ({
+    ...post,
+    postImage: (post.postImage || []).map(getOptimizedImage),
+    postVideo: (post.postVideo || []).map(getOptimizedVideo),
+  }));
 
   return res
     .status(200)
-    .json(new ApiResponse(200, postdata, "post data is fetched successfully"));
+    .json(
+      new ApiResponse(200, postResponse, "post data is fetched successfully"),
+    );
 });
 
 const savePost = asyncHandler(async (req, res) => {
@@ -486,13 +493,19 @@ const getSavePost = asyncHandler(async (req, res) => {
   ]);
   if (!savedPost) throw new ApiError(500, "error in fetched saved posts");
 
+  const modifiedSavedPosts = (savedPost[0]?.savedPosts || []).map((post) => ({
+    ...post,
+    postImage: (post.postImage || []).map(getOptimizedImage),
+    postVideo: (post.postVideo || []).map(getOptimizedVideo),
+  }));
+
   //return response
   return res
     .status(200)
     .json(
       new ApiResponse(
         200,
-        { savedPost: savedPost[0].savedPosts, page, limit },
+        { savedPost: modifiedSavedPosts, page, limit },
         "saved posts fetched successfully",
       ),
     );
@@ -525,11 +538,21 @@ const getUserPosts = asyncHandler(async (req, res) => {
   //send response
   const total = await Post.countDocuments({ owner: user._id });
   const totalPages = Math.ceil(total / limit);
+
+  const modifiedPosts = (posts || []).map((post) => {
+    const postObj = post.toObject ? post.toObject() : post;
+    return {
+      ...postObj,
+      postImage: (postObj.postImage || []).map(getOptimizedImage),
+      postVideo: (postObj.postVideo || []).map(getOptimizedVideo),
+    };
+  });
+
   return res.status(200).json(
     new ApiResponse(
       200,
       {
-        posts: posts,
+        posts: modifiedPosts,
         owner: {
           username: user.username,
           profileImage: user.profileImage,
@@ -627,13 +650,19 @@ const getTopicPosts = asyncHandler(async (req, res) => {
   //send response
   const result = posts[0];
 
+  const modifiedTopicPosts = (result.posts || []).map((post) => ({
+    ...post,
+    postImage: (post.postImage || []).map(getOptimizedImage),
+    postVideo: (post.postVideo || []).map(getOptimizedVideo),
+  }));
+
   const total = result.totalcounts[0]?.count || 0;
   const totalPages = Math.ceil(total / limit);
   return res.status(200).json(
     new ApiResponse(
       200,
       {
-        posts: result.posts,
+        posts: modifiedTopicPosts,
         paginations: {
           total,
           page,
@@ -720,8 +749,16 @@ const getPost = asyncHandler(async (req, res) => {
 
   const result = postData[0];
 
-  const total = result.totalCount[0].count;
-  const totalPages = Math.ceil(total / limit);
+  const modifiedTotalPost = (result.totalPost || []).map((post) => ({
+    ...post,
+    postImage: (post.postImage || []).map(getOptimizedImage),
+    postVideo: (post.postVideo || []).map(getOptimizedVideo),
+  }));
+
+  result.totalPost = modifiedTotalPost;
+
+  const total = result.totalCount[0]?.count || 0;
+  const totalPages = limit > 0 ? Math.ceil(total / limit) : 0;
   const pagination = {
     total,
     page,
@@ -774,25 +811,13 @@ const reactToPost = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, "successfully reacted"));
 });
 
-const removeExistingPostToPage = asyncHandler(async (req, res) => {
+const removeExistingPostFromPage = asyncHandler(async (req, res) => {
   //we expect an array of page id
-  let { pages } = req.body;
-
-  //validate page array if there is a single element then we convert it into array ourself
-  if (!pages) pages = [];
-  if (!Array.isArray(pages)) pages = [pages];
-
-  pages = pages.filter((page) => mongoose.Types.ObjectId.isValid(page));
-  if (pages.length == 0) throw new ApiError(400, "No valid page ids provided");
-
-  //check the validity of each pages
-  const validPages = await Page.find({ _id: { $in: pages } }).select("_id");
-  if (validPages.length !== pages.length) {
-    throw new ApiError(400, "Some pages do not exist");
-  }
+  const pages = req.pages;
+  const { post_id } = req.params;
 
   //we already have data of post from isowner verification middleware so we just gonnna add new pages to existing page
-  await Post.findByIdAndUpdate(req.post._id, {
+  await Post.findByIdAndUpdate(post_id, {
     $pull: {
       pages: { $in: pages },
     },
@@ -817,5 +842,5 @@ export {
   getTopicPosts,
   getPost,
   reactToPost,
-  removeExistingPostToPage,
+  removeExistingPostFromPage,
 };

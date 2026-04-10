@@ -28,7 +28,7 @@ temp/
 .DS_Store
 Thumbs.db
 
-# IDE files
+# IDE filesw
 .vscode/
 .idea/
 

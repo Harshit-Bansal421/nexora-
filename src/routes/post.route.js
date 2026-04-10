@@ -15,9 +15,9 @@ import {
   getTopicPosts,
   getPost,
   reactToPost,
-  removeExistingPostToPage,
+  removeExistingPostFromPage,
 } from "../controllers/post.controller.js";
-
+import { isPageOrPostOwner } from "../middleware/isPageOrPostOwner.js"
 const router = Router();
 
 //specific named route first
@@ -37,13 +37,10 @@ router.route("/saved").get(jwtVerify, getSavePost); //-> getting saved post of a
 router
   .route("/")
   .post(jwtVerify, upload.postUpload("PostImages", "PostVideos"), createPost); //--> for creating a post
-router.route("/add/:post_id").post(jwtVerify, isPostOwner, AddExistingPostToPage); //--> for adding existing post on a particular page
+router.route("/add/pages/:post_id").post(jwtVerify, isPageOrPostOwner, AddExistingPostToPage); //--> for adding existing post on a particular page
 router
-  .route("/add/:post_id")
-  .delete(jwtVerify, isPostOwner , removeExistingPostToPage); //--> for adding existing post on a particular page
-// router
-//   .route("/add/:post_id")
-//   .delete(jwtVerify, isPostOwner , removeExistingPostToPage); //--> for removing existing post on a particular page
+  .route("/remove/pages/:post_id")
+  .delete(jwtVerify, isPageOrPostOwner , removeExistingPostFromPage); //--> for removing existing post on a particular page,, get the pages from which post are to be removed in req.body
 
 
 
