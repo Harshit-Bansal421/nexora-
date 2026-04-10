@@ -5,7 +5,6 @@ import { Page } from "../models/Page.model.js";
 import {
   uploadUserImage_cloud,
   getOptimizedImage,
-  getOptimizedVideo,
   deleteFromCloudinary,
 } from "../utils/Cloudinary.js";
 import { Post } from "../models/Post.model.js";
@@ -362,7 +361,6 @@ const seePendingRequest = asyncHandler(async (req, res) => {
     hasNextPage: pageNumber < totalPages,
   };
 
-
   requests.forEach(
     (oneRequest) =>
       (oneRequest.requestedBy.profileImage = getOptimizedImage(
@@ -426,6 +424,193 @@ const approvePendingRequest = asyncHandler(async (req, res) => {
   return res.status(201).json(new ApiResponse(201, "successfully"));
 });
 
+const leavePage = asyncHandler(async (req, res) => {
+  //get page id from req.page and userid of the user who want to leave the page from req.user
+  const page_id = req.page._id;
+  const user_id = req.user._id;
+
+  //validate them
+  if (!page_id || !user_id) throw new ApiError(400, "error in fetching ids");
+
+  //check if he is not a owner
+  if (req.page.owner.toString() === user_id.toString()) {
+    //if he is then ask for new owner id or ownername
+    if (!!!req.body)
+      throw new ApiError(
+        400,
+        "u have to pass the ownership to some other member",
+      );
+    const { newOwner } = req.body; //have to pass id
+    if (!newOwner)
+      throw new ApiError(
+        400,
+        "u have to pass the ownership to some other member",
+      );
+    const response = req.page.members.some(
+      (mem) => mem.toString() === newOwner.toString(),
+    );
+    if (!response)
+      throw new ApiError(
+        400,
+        "ur recommeded user must be a member of this group",
+      );
+    await Page.findByIdAndUpdate(page_id, {
+      owner: newOwner,
+      $pull: {
+        members: user_id,
+        moderators: user_id,
+      },
+    });
+  } else {
+    //if he is not then just remove him from the page
+    await Page.findByIdAndUpdate(page_id, {
+      $pull: {
+        members: user_id,
+        moderators: user_id,
+      },
+    });
+  }
+  //send response
+  res.status(200).json(new ApiResponse(200, "removed from page successfully"));
+});
+
+const updatePageinfo = asyncHandler(async (req, res) => {
+  //get info that is to be updated in page from req.body and page id from req.page
+  const { pageName, pageDescription, title, type } = req.body;
+
+  const newPageImage = req.file;
+  const updated = {};
+
+  //validate each info
+  if (pageName) {
+    const response = await Page.findOne({ pageName: pageName });
+    if (response) throw new ApiError(400, "page with this name already exist");
+    updated.pageName = pageName;
+  }
+  if (pageDescription && pageDescription.length > 0) {
+    updated.pageDescription = pageDescription;
+  }
+  if (type && (type === "open" || type === "private")) {
+    updated.type = type;
+  }
+
+  //also upload image on clodinary and delete previous image also
+  if (newPageImage?.path) {
+    const response = await uploadUserImage_cloud(
+      newPageImage.path,
+      "nexora_pageImage",
+      "image",
+    );
+    if (!response)
+      throw new ApiError(500, "error in uploading file on cloudinary");
+    await deleteFromCloudinary(req.page.pageProfileImage);
+    updated.pageProfileImage = response.public_id;
+  }
+
+  //then update info
+  let updateQuery = {};
+
+  if (Object.keys(updated).length > 0) {
+    updateQuery.$set = updated;
+  }
+
+  if (title) {
+    const titles = Array.isArray(title) ? title : [title];
+    updateQuery.$addToSet = { title: { $each: titles } };
+  }
+
+  if (Object.keys(updateQuery).length === 0)
+    throw new ApiError(400, "No fields provided to update");
+
+  const updatedpagedata = await Page.findByIdAndUpdate(
+    req.page._id,
+    updateQuery,
+    {
+      returnDocument: "after",
+    },
+  ).select("-moderators -members");
+  if (!updatedpagedata) throw new ApiError(400, "error in updating info");
+
+  //send response
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, updatedpagedata, "page is updated successfully"),
+    );
+});
+
+const getParticularPage = asyncHandler(async (req, res) => {
+  const pageId = req.page._id;
+  const userId = req.user?._id; // user might not be logged in
+
+  // Get page with populated references
+  const page = await Page.findById(pageId)
+    .populate("owner", "username email profileImage")
+    .populate("moderators", "username email profileImage")
+    .populate("members", "username email profileImage");
+
+  if (!page) throw new ApiError(404, "Page not found");
+
+  // Determine user's role in the page
+  const isOwner = userId && page.owner._id.toString() === userId.toString();
+  const isModerator =
+    userId &&
+    page.moderators.some((mod) => mod._id.toString() === userId.toString());
+  const isMember =
+    userId &&
+    page.members.some((mem) => mem._id.toString() === userId.toString());
+
+  // Build response based on user role
+  let responseData = {
+    _id: page._id,
+    pageName: page.pageName,
+    pageDescription: page.pageDescription,
+    title: page.title,
+    pageProfileImage: getOptimizedImage(page.pageProfileImage),
+    type: page.type,
+    membersCount: page.membersCount,
+    moderatorsCount: page.moderatorsCount,
+    createdAt: page.createdAt,
+    updatedAt: page.updatedAt,
+  };
+
+  // Add owner info for all
+  responseData.owner = page.owner;
+
+  // If logged in, add moderators and members list
+  if (userId) {
+    responseData.moderators = page.moderators.map((mod) => ({
+      ...mod.toObject(),
+      profileImage: getOptimizedImage(mod.profileImage),
+    }));
+    responseData.members = page.members.map((mem) => ({
+      ...mem.toObject(),
+      profileImage: getOptimizedImage(mem.profileImage),
+    }));
+  }
+
+  // If owner or moderator, add full permissions info
+  if (isOwner || isModerator) {
+    responseData.userRole = isOwner ? "owner" : "moderator";
+    responseData.canEditPage = true;
+    responseData.canDeletePage = isOwner;
+    responseData.canApproveModerators = isOwner;
+    responseData.canManageMembers = true;
+  } else if (isMember) {
+    responseData.userRole = "member";
+    responseData.canEditPage = false;
+    responseData.canDeletePage = false;
+  } else if (userId) {
+    responseData.userRole = "viewer";
+  } else {
+    responseData.userRole = "guest";
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Page retrieved successfully", responseData));
+});
+
 export {
   createPage,
   deletePage,
@@ -437,4 +622,7 @@ export {
   joinPage,
   seePendingRequest,
   approvePendingRequest,
+  leavePage,
+  updatePageinfo,
+  getParticularPage,
 };
