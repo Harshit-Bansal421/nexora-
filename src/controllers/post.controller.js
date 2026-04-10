@@ -533,8 +533,7 @@ const getUserPosts = asyncHandler(async (req, res) => {
     .select(
       " _id postImage description topic title createdAt updatedAt upvotes downvotes owner",
     );
-  if (!posts)
-    throw new ApiError(500, "Failed to fetch user posts");
+  if (!posts) throw new ApiError(500, "Failed to fetch user posts");
   //send response
   const total = await Post.countDocuments({ owner: user._id });
   const totalPages = Math.ceil(total / limit);
@@ -774,9 +773,7 @@ const getPost = asyncHandler(async (req, res) => {
   //then send response
   res
     .status(200)
-    .json(
-      new ApiResponse(200, finalresponse, "Posts retrieved successfully"),
-    );
+    .json(new ApiResponse(200, finalresponse, "Posts retrieved successfully"));
 });
 
 const reactToPost = asyncHandler(async (req, res) => {
@@ -808,7 +805,9 @@ const reactToPost = asyncHandler(async (req, res) => {
   }
   if (!response) throw new ApiError(404, "Post not found");
   // then send response
-  res.status(200).json(new ApiResponse(200, null, "Successfully reacted to post"));
+  res
+    .status(200)
+    .json(new ApiResponse(200, null, "Successfully reacted to post"));
 });
 
 const removeExistingPostFromPage = asyncHandler(async (req, res) => {
@@ -829,6 +828,153 @@ const removeExistingPostFromPage = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, null, "Post successfully removed from pages"));
 });
 
+const searchOnText = asyncHandler(async (req, res) => {
+  const { search, page = 1, limit = 10 } = req.query;
+
+  if (!search) throw new ApiError(400, "Search query is required");
+
+  const pageNumber = Number(page);
+  const limitNumber = Number(limit);
+  const skip = (pageNumber - 1) * limitNumber;
+
+  const posts = await Post.find(
+    { $text: { $search: search } },
+    { score: { $meta: "textScore" } },
+  )
+    .sort({ score: { $meta: "textScore" } })
+    .populate({
+      path: "owner",
+      select: " _id username profileImage title",
+    })
+    .skip(skip)
+    .limit(limitNumber);
+
+  const modifiedPosts = (posts || []).map((post) => {
+    const postObj = post.toObject ? post.toObject() : post;
+    return {
+      ...postObj,
+      postImage: (postObj.postImage || []).map(getOptimizedImage),
+      postVideo: (postObj.postVideo || []).map(getOptimizedVideo),
+      owner: postObj.owner
+        ? {
+          ...postObj.owner,
+          profileImage: postObj.owner.profileImage
+            ? getOptimizedImage(postObj.owner.profileImage)
+            : null,
+        }
+        : null,
+    };
+  });
+
+  const total = await Post.countDocuments({
+    $text: { $search: search },
+  });
+
+  const totalPages = Math.ceil(total / limitNumber);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        posts: modifiedPosts,
+        pagination: {
+          total,
+          page: pageNumber,
+          limit: limitNumber,
+          totalPages,
+          hasNextPage: pageNumber < totalPages,
+        },
+      },
+      "Posts fetched successfully",
+    ),
+  );
+});
+
+const getPagePost = asyncHandler(async (req, res) => {
+  //get pageid from req.params
+  const { pageid } = req.params;
+  const { page = 1, limit = 10 } = req.query;
+
+  //validate it
+  if (!pageid) throw new ApiError(400, "Page ID is required");
+
+  const pageData = await Page.findById(pageid);
+  if (!pageData) throw new ApiError(404, "Page not found");
+
+  //verify if the page is open then allow all the user to fetch posts
+  //if the page is closed then check if the user is member of page or not
+  if (pageData.type === "private") {
+    const user = req.user;
+    if (!user) throw new ApiError(401, "Unauthorized access");
+
+    const isMember = pageData.members.some(
+      (memberId) => memberId.toString() === user._id.toString()
+    );
+    const isOwner = pageData.owner.toString() === user._id.toString();
+    const isModerator = pageData.moderators.some(
+      (modId) => modId.toString() === user._id.toString()
+    );
+
+    if (!isMember && !isOwner && !isModerator) {
+      throw new ApiError(403, "You are not a member of this private page");
+    }
+  }
+
+  //get all posts from post collections where pages array contains pageid
+  const pageNumber = Number(page);
+  const limitNumber = Number(limit);
+  const skip = (pageNumber - 1) * limitNumber;
+
+  const posts = await Post.find({ pages: pageid })
+    //populate owner
+    .populate({
+      path: "owner",
+      select: "_id username profileImage title badge",
+    })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limitNumber);
+
+  //Transform each image and videos with getoptimised 
+  const modifiedPosts = (posts || []).map((post) => {
+    const postObj = post.toObject ? post.toObject() : post;
+    return {
+      ...postObj,
+      postImage: (postObj.postImage || []).map(getOptimizedImage),
+      postVideo: (postObj.postVideo || []).map(getOptimizedVideo),
+      owner: postObj.owner
+        ? {
+          ...postObj.owner,
+          profileImage: postObj.owner.profileImage
+            ? getOptimizedImage(postObj.owner.profileImage)
+            : null,
+        }
+        : null,
+    };
+  });
+
+  const total = await Post.countDocuments({ pages: pageid });
+  const totalPages = Math.ceil(total / limitNumber);
+
+  //send response
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        posts: modifiedPosts,
+        pagination: {
+          total,
+          page: pageNumber,
+          limit: limitNumber,
+          totalPages,
+          hasNextPage: pageNumber < totalPages,
+        },
+      },
+      "Page posts retrieved successfully"
+    )
+  );
+});
+
 export {
   createPost,
   deletePost,
@@ -843,4 +989,6 @@ export {
   getPost,
   reactToPost,
   removeExistingPostFromPage,
+  searchOnText,
+  getPagePost
 };

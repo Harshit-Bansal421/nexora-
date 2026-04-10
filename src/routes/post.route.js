@@ -16,6 +16,8 @@ import {
   getPost,
   reactToPost,
   removeExistingPostFromPage,
+  searchOnText,
+  getPagePost
 } from "../controllers/post.controller.js";
 import { isPageOrPostOwner } from "../middleware/isPageOrPostOwner.js";
 const router = Router();
@@ -24,13 +26,13 @@ const router = Router();
 
 //publc route any one can access them
 router.route("/").get(getPost); //--> for getting posts from default content
-// router.route("/search").get(); //for intent based getting post
+router.route("/search").get(searchOnText); //for intent based getting post
 router.route("/topic/:topic").get(getTopicPosts); //--> for getting post of particular type
 router.route("/user/:username").get(getUserPosts); //to get posts of some particular user,used in time of seeing some profile page
 
 //login user can access them
 router.route("/saved").get(jwtVerify, getSavePost); //-> getting saved post of a user and user can also provide query of limit,page
-// router.route("/page/:pageid").get(jwtVerify); //-> to get the post of a particular page
+router.route("/page/:pageid").get(jwtVerify, getPagePost); //-> to get the post of a particular page
 
 //only owner can do these
 router

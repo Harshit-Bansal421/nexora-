@@ -7,7 +7,7 @@ const app = express();
 app.use(json({ limit: "100kb" })); //Converts incoming JSON data → JavaScript object so that we can use req.body
 app.use(cookieParser()); //allow cookie acess
 app.use(urlencoded({ extended: true, limit: "30kb" })); //allow fetch data from form-data
-app.use(express.static("public")); //try to access static data from public folder
+app.use(express.static("public")); //try to access static data/file from public folder
 app.use(helmet()); //automatically add security headers
 app.use(compression()); //reduces size of response thus increasing the speed
 
