@@ -1,6 +1,6 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { User } from "../models/User.model.js";
-import { uploadUserImage_cloud } from "../utils/Cloudinary.js";
+import { uploadUserImage_cloud, getOptimizedImage } from "../utils/Cloudinary.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import {
@@ -32,13 +32,13 @@ const SignupUser = asyncHandler(async (req, res) => {
   //check if user already exist:username , email
   const existeduser = await User.findOne({ username: username });
   if (existeduser) {
-    throw new ApiError(409, "User with this username already exist");
+    throw new ApiError(409, "User with this username already exists");
   }
 
   //check if localfile exist
   const localfilepath = req.file?.path;
   if (!localfilepath) {
-    throw new ApiError(400, "issue in uploading file in multer");
+    throw new ApiError(400, "Profile image is required");
   }
 
   //upload file into cloudinary
@@ -48,7 +48,7 @@ const SignupUser = asyncHandler(async (req, res) => {
     "image"
   );
   if (!cloudinaryResponse?.public_id) {
-    throw new ApiError(500, "error in uploading file on cloudinary");
+    throw new ApiError(500, "Failed to upload profile image securely");
   }
 
   //get the file url from cloudinary
@@ -82,37 +82,35 @@ const SignupUser = asyncHandler(async (req, res) => {
       resendCount: 0,
     });
     if (!tempsaved)
-      throw new ApiError(400, "error in saving the temporary data");
+      throw new ApiError(500, "Failed to process signup request temporarily");
   }
 
   //send an email and response
   const html = getVerificationEmailHTML(username, plainOTP);
   const emailResponse = await sendEmail({ to:email,html: html });
-  if (!emailResponse) throw new ApiError(400, "error in sending the email");
+  if (!emailResponse) throw new ApiError(500, "Failed to send verification email");
   return res
     .status(201)
     .json(new ApiResponse(201, "Verification code sent to your email"));
 });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
-  const publc_id=req.user.profileImage;
-   const secure_url = cloudinary.url(publc_id, {
-    secure: true,
-  });
-  req.user.profileImage=secure_url;
+  if (req.user && req.user.profileImage) {
+    req.user.profileImage = getOptimizedImage(req.user.profileImage);
+  }
   return res
-    .status(201)
-    .json(new ApiResponse(201, req.user, "user info fetched successfully"));
+    .status(200)
+    .json(new ApiResponse(200, req.user, "User information retrieved successfully"));
 });
 
 const getNewAccessToken = asyncHandler(async (req, res) => {
   const refreshToken = req.cookies?.RefreshToken;
-  if (!refreshToken) throw new ApiError(401, "session expired");
+  if (!refreshToken) throw new ApiError(401, "Unauthorized - Session expired");
   let decodedToken;
   try {
     decodedToken = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
   } catch (error) {
-    throw new ApiError(401, "session expired");
+    throw new ApiError(401, "Unauthorized - Invalid or expired token");
   }
   const accessToken = await accessTokenGenerator(decodedToken._id);
 
@@ -125,10 +123,15 @@ const getNewAccessToken = asyncHandler(async (req, res) => {
   const user = await User.findById(decodedToken._id).select(
     "-password -refreshToken",
   );
+  
+  if (user && user.profileImage) {
+    user.profileImage = getOptimizedImage(user.profileImage);
+  }
+  
   return res
-    .status(201)
+    .status(200)
     .cookie("AccessToken", accessToken, options)
-    .json(new ApiResponse(201, user, "accessToken is generated successfully"));
+    .json(new ApiResponse(200, user, "Access token successfully refreshed"));
 });
 
 const loginUser = asyncHandler(async (req, res) => {
@@ -136,7 +139,7 @@ const loginUser = asyncHandler(async (req, res) => {
   const { username, password } = req.body;
   //validate data
   if (!username || !password) {
-    throw new ApiError(400, "username and password are required");
+    throw new ApiError(400, "Username and password are required");
   }
   //check if user exist or not
   const user = await User.findOne({ username });
@@ -165,12 +168,16 @@ const loginUser = asyncHandler(async (req, res) => {
     "-password -refreshToken",
   );
 
+  if (loggedInUser && loggedInUser.profileImage) {
+    loggedInUser.profileImage = getOptimizedImage(loggedInUser.profileImage);
+  }
+
   //return these tokens with user info
   return res
     .status(200)
     .cookie("AccessToken", accessToken, options)
     .cookie("RefreshToken", refreshToken, options)
-    .json(new ApiResponse(200, loggedInUser, "user is logged in successfully"));
+    .json(new ApiResponse(200, loggedInUser, "User logged in successfully"));
 });
 
 const logoutUser = asyncHandler(async (req, res) => {
@@ -190,7 +197,7 @@ const logoutUser = asyncHandler(async (req, res) => {
     .status(200)
     .clearCookie("AccessToken")
     .clearCookie("RefreshToken")
-    .json(new ApiResponse(200, "logout successfully"));
+    .json(new ApiResponse(200, "Logged out successfully"));
 });
 
 const logoutUserAllDevice = asyncHandler(async (req, res) => {
@@ -210,7 +217,7 @@ const logoutUserAllDevice = asyncHandler(async (req, res) => {
     .status(200)
     .clearCookie("AccessToken")
     .clearCookie("RefreshToken")
-    .json(new ApiResponse(200, "logout from all devices successfully"));
+    .json(new ApiResponse(200, "Logged out from all devices successfully"));
 });
 
 const verifyEmailandLogin = asyncHandler(async (req, res) => {
@@ -226,19 +233,19 @@ const verifyEmailandLogin = asyncHandler(async (req, res) => {
   const existedOTP = await OTP.findOne({ email: email, type: "email_verify" });
   if (!existedOTP)
     throw new ApiError(
-      400,
+      404,
       "No pending verification found — please register again",
     );
 
   //check for expiry
   if (existedOTP.expiry < new Date()) {
     await OTP.findByIdAndDelete(existedOTP._id);
-    throw new ApiError(400, "OTP expired — please register again");
+    throw new ApiError(410, "OTP expired — please register again");
   }
   //check for failed attemmpt so to ensure user is not doing brute force
   if (existedOTP.failedAttempts > 5) {
     await OTP.findByIdAndDelete(existedOTP._id);
-    throw new ApiError(400, "Too many wrong attempts — please register again");
+    throw new ApiError(429, "Too many wrong attempts — please register again");
   }
   //we will verify otp and increase the failed Attempts
   const OTPrespone = await bcrypt.compare(otp, existedOTP.hashedOTP);
@@ -247,14 +254,14 @@ const verifyEmailandLogin = asyncHandler(async (req, res) => {
       $inc: { failedAttempts: 1 },
     });
     const remaining = 4 - existedOTP.failedAttempts;
-    throw new ApiError(400, `Invalid OTP — ${remaining} attempts remaining`);
+    throw new ApiError(401, `Invalid OTP — ${remaining} attempts remaining`);
   }
 
   //check if the username still exist in the db or not
   const checkUsername = await User.findOne({
     username: existedOTP.pendingUsername,
   });
-  if (checkUsername) throw new ApiError(400, "user with this username exist");
+  if (checkUsername) throw new ApiError(409, "Username is already taken");
 
   //create user in database
   const user = await User.create({
@@ -264,7 +271,7 @@ const verifyEmailandLogin = asyncHandler(async (req, res) => {
     profileImage: existedOTP.pendingUserImageID,//saving public_id instead of secure_url
   });
   if (!user) {
-    throw new ApiError(500, "error in created new user");
+    throw new ApiError(500, "Failed to create user account");
   }
 
   //generate accesstoken and refreshToken and set cookie
@@ -278,6 +285,10 @@ const verifyEmailandLogin = asyncHandler(async (req, res) => {
   const newUser = await User.findById(user._id).select(
     "-password -refreshToken",
   );
+
+  if (newUser && newUser.profileImage) {
+    newUser.profileImage = getOptimizedImage(newUser.profileImage);
+  }
 
   //otp delete
   await OTP.deleteOne({ _id: existedOTP._id });
@@ -305,7 +316,7 @@ const updateUsername = asyncHandler(async (req, res) => {
 
   //check if the username avaiable or not
   const isExist = await User.findOne({ username });
-  if (isExist) throw new ApiError(400, "user with this username already exist");
+  if (isExist) throw new ApiError(409, "User with this username already exists");
   if (!username) {
     throw new ApiError(400, "Username is required");
   }
@@ -318,7 +329,7 @@ const updateUsername = asyncHandler(async (req, res) => {
   //send response
   return res
     .status(200)
-    .json(new ApiResponse(201, "username updated successfully"));
+    .json(new ApiResponse(200, null, "Username updated successfully"));
 });
 
 const UpdatePassword = asyncHandler(async (req, res) => {
@@ -327,16 +338,16 @@ const UpdatePassword = asyncHandler(async (req, res) => {
 
   //validation whether the feilds are empty or not,repassword and newpassword is same or not
   if (!oldpassword || !newpassword || !confirmpassword)
-    throw new ApiError(400, "all field are required");
+    throw new ApiError(400, "All fields are required");
   if (oldpassword === newpassword)
-    throw new ApiError(400, "new password must be different from old password");
+    throw new ApiError(400, "New password must be different from old password");
   if (newpassword !== confirmpassword)
-    throw new ApiError(400, "newpassword and confirmpassword doesnot match");
+    throw new ApiError(400, "New password and confirm password do not match");
 
   //check if the oldpassword is correct or not
   const user = await User.findById(req.user._id);
   const iscorrect = await user.isPasswordCorrect(oldpassword);
-  if (!iscorrect) throw new ApiError(400, "your password is not correct");
+  if (!iscorrect) throw new ApiError(401, "Incorrect old password");
 
   //hash new password
   const hashedPassword = await bcrypt.hash(newpassword, 12);
@@ -349,8 +360,8 @@ const UpdatePassword = asyncHandler(async (req, res) => {
 
   //send response
   return res
-    .status(201)
-    .json(new ApiResponse(201, "password is updated successfully"));
+    .status(200)
+    .json(new ApiResponse(200, null, "Password updated successfully"));
 });
 
 const resendEmail = asyncHandler(async (req, res) => {
@@ -362,7 +373,7 @@ const resendEmail = asyncHandler(async (req, res) => {
   const existedOTP = await OTP.findOne({ email, type: type });
   if (!existedOTP)
     throw new ApiError(
-      400,
+      404,
       "No pending verification found — please register again",
     );
 
@@ -391,7 +402,7 @@ const resendEmail = asyncHandler(async (req, res) => {
 
   if (existedOTP.expiry < new Date()) {
     await OTP.findByIdAndDelete(existedOTP._id);
-    throw new ApiError(400, "OTP expired — please restart process");
+    throw new ApiError(410, "OTP expired — please restart process");
   }
 
   //generate otp and update them into otpschema
@@ -425,23 +436,22 @@ const resendEmail = asyncHandler(async (req, res) => {
   const emailResponse = await sendEmail({ to:email,html: html });
   if (!emailResponse) throw new ApiError(400, "error in sending the email");
 
-  //send some response
   return res
-    .status(201)
-    .json(new ApiResponse(201,existedOTP, "Verification code sent to your email"));
+    .status(200)
+    .json(new ApiResponse(200, existedOTP, "Verification code sent to your email"));
 });
 
 const forgotPassword = asyncHandler(async (req, res) => {
   //get email and validate the feild
   const { email } = req.body;
-  if (!email) throw new ApiError(400, "email feild is missing");
+  if (!email) throw new ApiError(400, "Email is required");
 
   //check whether the user even exist or not in user db
   const user = await User.findOne({ email });
   if (!user)
     throw new ApiError(
-      400,
-      "user with this email doesnot exist|| please register",
+      404,
+      "User with this email does not exist. Please register.",
     );
 
   //check for spaming forgot password
@@ -495,7 +505,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         {},
-        "If this email is registered you will receive a reset code yes u will",
+        "If this email is registered, you will receive a reset code",
       ),
     );
 });
@@ -503,22 +513,22 @@ const forgotPassword = asyncHandler(async (req, res) => {
 const verifyResetOTP = asyncHandler(async (req, res) => {
   //retrive otp and email from request body
   const { email, otp } = req.body;
-  if (!email || !otp) throw new ApiError(400, "feild are empty");
+  if (!email || !otp) throw new ApiError(400, "Email and OTP are required");
 
   //check if otpschema even exist now or not
   const existedOTP = await OTP.findOne({ email, type: "password_reset" });
   if (!existedOTP)
-    throw new ApiError(400, "No reset request found — please request again");
+    throw new ApiError(404, "No reset request found — please request again");
 
   //validate the otp
   if (existedOTP.expiry < new Date()) {
     await OTP.findByIdAndDelete(existedOTP._id);
-    throw new ApiError(400, "OTP expired — please request a new one");
+    throw new ApiError(410, "OTP expired — please request a new one");
   }
 
   if (existedOTP.failedAttempts >= 5) {
     await OTP.findByIdAndDelete(existedOTP._id);
-    throw new ApiError(400, "Too many wrong attempts — please request again");
+    throw new ApiError(429, "Too many wrong attempts — please request again");
   }
 
   const isvalid = await bcrypt.compare(otp, existedOTP.hashedOTP);
@@ -527,7 +537,7 @@ const verifyResetOTP = asyncHandler(async (req, res) => {
       $inc: { failedAttempts: 1 },
     });
     const remaining = 4 - existedOTP.failedAttempts;
-    throw new ApiError(400, `Invalid OTP — ${remaining} attempts remaining`);
+    throw new ApiError(401, `Invalid OTP — ${remaining} attempts remaining`);
   }
 
   //otp is valid now find the user
@@ -552,7 +562,7 @@ const verifyResetOTP = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .cookie("ResetToken", resetToken, OPTIONS)
-    .json(new ApiResponse(200, "otp is verified now eneter new Password"));
+    .json(new ApiResponse(200, null, "OTP verified successfully. Please enter your new password"));
 });
 
 const resetPassword = asyncHandler(async (req, res) => {
@@ -562,23 +572,22 @@ const resetPassword = asyncHandler(async (req, res) => {
 
   //validate the feilds
   if (!newpassword || !confirmNewPassword || !resetToken)
-    throw new ApiError(400, "feild missing");
+    throw new ApiError(400, "All fields are required");
   if (newpassword !== confirmNewPassword)
-    throw new ApiError(400, "fields does not match");
+    throw new ApiError(400, "Passwords do not match");
 
-  //check for resetoken
   let decoded;
   try {
     decoded = jwt.verify(resetToken, process.env.RESET_SECRETKEY);
   } catch (error) {
     if (error.name === "TokenExpiredError") {
-      throw new ApiError(400, "Reset session expired — please start again");
+      throw new ApiError(401, "Reset session expired — please start again");
     }
-    throw new ApiError(400, "Invalid reset token");
+    throw new ApiError(401, "Invalid reset token");
   }
 
   if (decoded.purpose !== "password_reset") {
-    throw new ApiError(400, "Invalid reset token");
+    throw new ApiError(401, "Invalid reset token purpose");
   }
 
   //update the password
@@ -592,7 +601,7 @@ const resetPassword = asyncHandler(async (req, res) => {
 
   //send reponse
   res.clearCookie("ResetToken");
-  return res.status(200).json(200, "password is changed successfully");
+  return res.status(200).json(new ApiResponse(200, null, "Password changed successfully"));
 });
 
 export {

@@ -9,13 +9,13 @@ const isPageMember = asyncHandler(async (req, res, next) => {
   let members=req.page.members|| [];
 
   //validate them and make an array if needed
-  if (!user_id) throw new ApiError(400, "users is missing");
+  if (!user_id) throw new ApiError(401, "User is missing");
   if (!mongoose.Types.ObjectId.isValid(user_id)){
-      throw new ApiError(400, "some user id is invalid");
+      throw new ApiError(400, "Invalid user ID");
   };
 
   //then check
-  if(!members.some(mem=>mem.toString()===user_id.toString())) throw new ApiError(403,"u are not a member of this page")
+  if(!members.some(mem=>mem.toString()===user_id.toString())) throw new ApiError(403, "You are not a member of this page")
   next();
 });
 

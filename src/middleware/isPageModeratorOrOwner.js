@@ -8,7 +8,7 @@ const isPageModeratorOrOwner = asyncHandler(async (req, res, next) => {
   const user_id = req.user?._id;
   if (!user_id) throw new ApiError(401, "User not authenticated");
   if (!mongoose.Types.ObjectId.isValid(user_id))
-    throw new ApiError(400, "Invalid page id");
+    throw new ApiError(400, "Invalid Page ID");
 
   const owner = req.page.owner;
   const moderators = req.page.moderators;
@@ -19,7 +19,7 @@ const isPageModeratorOrOwner = asyncHandler(async (req, res, next) => {
       moderators.some((moderate) => moderate.toString() === user_id.toString())
     )
   )
-    throw new ApiError(403, "u have no authority to perform this action");
+    throw new ApiError(403, "You do not have authorization to perform this action");
   next();
 });
 

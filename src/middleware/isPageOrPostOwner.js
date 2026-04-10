@@ -9,9 +9,9 @@ const isPageOrPostOwner = asyncHandler(async (req, res, next) => {
   const user_id = req.user._id;
   const { post_id } = req.params;
   if (!(post_id && mongoose.Types.ObjectId.isValid(post_id)))
-    throw new ApiError(400, "no valid post id is provided");
+    throw new ApiError(400, "Valid Post ID is required");
   if (!req.body || !req.body.pages)
-    throw new ApiError(400, "no details are provided");
+    throw new ApiError(400, "No details provided");
   let {pages} = req.body;
   if (!pages) throw new ApiError(400, "no details are provided");
   if (!Array.isArray(pages)) pages = [pages];
@@ -22,7 +22,7 @@ const isPageOrPostOwner = asyncHandler(async (req, res, next) => {
     mongoose.Types.ObjectId.isValid(page),
   );
   if (validpages.length !== pages.length)
-    throw new ApiError(400, "some of the pages id are not valid");
+    throw new ApiError(400, "Some page IDs are invalid");
   req.pages = pages;
 
   //check if user is a owner of post or not?
@@ -37,7 +37,7 @@ const isPageOrPostOwner = asyncHandler(async (req, res, next) => {
     (page) => page.owner.toString() === user_id.toString(),
   );
   if (!isOwnerOfAllPages)
-    throw new ApiError(403, "You don't own all these pages");
+    throw new ApiError(403, "You do not own all of these pages");
 
   //if yes then he can add
   return next();

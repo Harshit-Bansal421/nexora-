@@ -8,10 +8,10 @@ const isPageOwner = asyncHandler(async (req, res, next) => {
   const user_id = req.user?._id;
   if (!user_id) throw new ApiError(401, "User not authenticated");
   if (!mongoose.Types.ObjectId.isValid(user_id))
-    throw new ApiError(400, "Invalid user id");
+    throw new ApiError(400, "Invalid user ID");
   //then check if the user if owner of the page_id
   if (req.page.owner.toString() !== user_id.toString())
-    throw new ApiError(403, "only page owner can perform this task");
+    throw new ApiError(403, "Only the page owner can perform this action");
 
   next();
 });

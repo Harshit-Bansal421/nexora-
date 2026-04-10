@@ -21,7 +21,7 @@ const jwtVerify = asyncHandler(async (req, res, next) => {
     if (error.name === "JsonWebTokenError") {
       throw new ApiError(401, "Invalid access token");
     }
-    throw new ApiError(401, error.message || "Unauthorised access");
+    throw new ApiError(401, error.message || "Unauthorized access");
   }
   
   const user = await User.findById(decodedToken?._id).select(

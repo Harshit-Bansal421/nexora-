@@ -21,8 +21,8 @@ const createPost = asyncHandler(async (req, res) => {
   console.log("file uploaded is =", req.files);
 
   //validate each of the feilds properly and set defaults feilds too
-  if (!owner) throw new ApiError(400, "unauthorised access");
-  if (!title || !topic) throw new ApiError(400, "title and topic is required");
+  if (!owner) throw new ApiError(401, "Unauthorized access");
+  if (!title || !topic) throw new ApiError(400, "Title and topic are required");
   description = description || "";
   pages = pages || [];
 
@@ -36,7 +36,7 @@ const createPost = asyncHandler(async (req, res) => {
           "image",
         );
         if (!response?.public_id) {
-          throw new ApiError(500, "Error uploading image");
+          throw new ApiError(500, "Failed to upload image");
         }
         return response.public_id;
       }) || [],
@@ -49,7 +49,7 @@ const createPost = asyncHandler(async (req, res) => {
           "video",
         );
         if (!response?.public_id) {
-          throw new ApiError(500, "Error uploading video");
+          throw new ApiError(500, "Failed to upload video");
         }
         return response.public_id;
       }) || [],
@@ -81,13 +81,13 @@ const createPost = asyncHandler(async (req, res) => {
   //then send the response
   res
     .status(201)
-    .json(new ApiResponse(201, postResponse, "post is created successfully"));
+    .json(new ApiResponse(201, postResponse, "Post created successfully"));
 });
 
 const deletePost = asyncHandler(async (req, res) => {
   //we already have the postid and we have verified whether the user is owner so now take that id fetched details for cloudinary delete
   const post = req.post;
-  if (!post) throw new ApiError(400, "post does not exist");
+  if (!post) throw new ApiError(404, "Post not found");
 
   //then delete images and videos in cloudinary
   await Promise.all(
@@ -104,13 +104,13 @@ const deletePost = asyncHandler(async (req, res) => {
     { $pull: { savedPost: post._id } },
   );
   if (!savedPostresponse)
-    throw new ApiError(500, "error in deleting post from saved post section");
+    throw new ApiError(500, "Failed to remove post from saved posts");
 
   //delete the collection in database
   await Post.findByIdAndDelete(post._id);
 
   //send success response
-  res.status(200).json(200, "post is deleted successfully");
+  res.status(200).json(new ApiResponse(200, null, "Post deleted successfully"));
 });
 
 const AddExistingPostToPage = asyncHandler(async (req, res) => {
@@ -131,8 +131,8 @@ const AddExistingPostToPage = asyncHandler(async (req, res) => {
 
   //save them
   res
-    .status(201)
-    .json(new ApiResponse(201, "post is successfully added to pages"));
+    .status(200)
+    .json(new ApiResponse(200, "Post successfully added to pages"));
 });
 
 const updatePost = asyncHandler(async (req, res) => {
@@ -153,7 +153,7 @@ const updatePost = asyncHandler(async (req, res) => {
   if (addImages) {
     if (!Array.isArray(addImages)) addImages = [addImages];
     if (addImages.length + req.post.postImage.length > 3)
-      throw new ApiError(400, "number of images exceed the length");
+      throw new ApiError(400, "Maximum number of images exceeded");
   }
   let addedImages = [];
   if (addImages?.length > 0) {
@@ -180,7 +180,7 @@ const updatePost = asyncHandler(async (req, res) => {
       );
 
       if (InvalidImages.length > 0) {
-        throw new ApiError(400, "Some images do not exist in post");
+        throw new ApiError(400, "Some images do not exist in the post");
       }
     }
   }
@@ -192,7 +192,7 @@ const updatePost = asyncHandler(async (req, res) => {
   if (addVideos) {
     if (!Array.isArray(addVideos)) addVideos = [addVideos];
     if (addVideos.length + req.post.postVideo.length > 2)
-      throw new ApiError(400, "number of videos exceed the length");
+      throw new ApiError(400, "Maximum number of videos exceeded");
   }
   let addedVideos = [];
   if (addVideos?.length > 0) {
@@ -219,7 +219,7 @@ const updatePost = asyncHandler(async (req, res) => {
       );
 
       if (InvalidVideos.length > 0) {
-        throw new ApiError(400, "Some images do not exist in post");
+        throw new ApiError(400, "Some videos do not exist in the post");
       }
     }
   }
@@ -248,7 +248,7 @@ const updatePost = asyncHandler(async (req, res) => {
     },
     { returnDocument: "after" },
   );
-  if (!updatedData) throw new ApiError(500, "error in updating data");
+  if (!updatedData) throw new ApiError(500, "Failed to update post");
 
   const postResponse = {
     ...updatedData.toObject(),
@@ -258,14 +258,14 @@ const updatePost = asyncHandler(async (req, res) => {
 
   //send success reponse
   res
-    .status(201)
-    .json(new ApiResponse(201, postResponse, "post is updated successfully"));
+    .status(200)
+    .json(new ApiResponse(200, postResponse, "Post updated successfully"));
 });
 
 const getPostById = asyncHandler(async (req, res) => {
   // validate the post id
   const postId = req.params.post_id;
-  if (!postId) throw new ApiError(400, "no postid is given");
+  if (!postId) throw new ApiError(400, "Post ID is required");
 
   //i just have to make a aggregate pipeline for the getting upvotes and downvotes and owner and pages of that post
   const postdata = await Post.aggregate([
@@ -324,7 +324,7 @@ const getPostById = asyncHandler(async (req, res) => {
   ]);
 
   if (!postdata || postdata.length === 0)
-    throw new ApiError(500, "error in fetching post info");
+    throw new ApiError(404, "Post not found");
 
   const postResponse = postdata.map((post) => ({
     ...post,
@@ -335,7 +335,7 @@ const getPostById = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, postResponse, "post data is fetched successfully"),
+      new ApiResponse(200, postResponse, "Post data retrieved successfully"),
     );
 });
 
@@ -344,9 +344,9 @@ const savePost = asyncHandler(async (req, res) => {
   const { post_id } = req.params;
 
   //validate it and check if it even exist or not
-  if (!post_id) throw new ApiError(400, "no post id is given");
+  if (!post_id) throw new ApiError(400, "Post ID is required");
   const postExisted = await Post.findById(post_id);
-  if (!postExisted) throw new ApiError(404, "no post exist with this postId");
+  if (!postExisted) throw new ApiError(404, "Post not found");
 
   //it exist then add in user's saved post
   const response = await User.findByIdAndUpdate(
@@ -358,12 +358,12 @@ const savePost = asyncHandler(async (req, res) => {
     },
     { returnDocument: "after" },
   );
-  if (!response) throw new ApiError(500, "error in saveing post");
+  if (!response) throw new ApiError(500, "Failed to save post");
 
   //send success response
   return res
-    .status(201)
-    .json(new ApiResponse(201, response, "saved successfully"));
+    .status(200)
+    .json(new ApiResponse(200, response, "Post saved successfully"));
 });
 
 const unsavePost = asyncHandler(async (req, res) => {
@@ -371,9 +371,9 @@ const unsavePost = asyncHandler(async (req, res) => {
   const { post_id } = req.params;
 
   //validate it and check if it even exist or not
-  if (!post_id) throw new ApiError(400, "no post id is given");
+  if (!post_id) throw new ApiError(400, "Post ID is required");
   const postExisted = await Post.findById(post_id);
-  if (!postExisted) throw new ApiError(404, "no post exist with this postId");
+  if (!postExisted) throw new ApiError(404, "Post not found");
 
   //it exist then add in user's saved post
   const response = await User.findByIdAndUpdate(
@@ -385,12 +385,12 @@ const unsavePost = asyncHandler(async (req, res) => {
     },
     { returnDocument: "after" },
   );
-  if (!response) throw new ApiError(500, "error in saveing post");
+  if (!response) throw new ApiError(500, "Failed to unsave post");
 
   //send success response
   return res
-    .status(201)
-    .json(new ApiResponse(201, response, "saved successfully"));
+    .status(200)
+    .json(new ApiResponse(200, response, "Post unsaved successfully"));
 });
 
 const getSavePost = asyncHandler(async (req, res) => {
@@ -403,7 +403,7 @@ const getSavePost = asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
 
   //validate it
-  if (!userid) throw new ApiError(404, "user not found");
+  if (!userid) throw new ApiError(401, "Unauthorized access");
 
   //get saved post from database of user
   const savedPost = await User.aggregate([
@@ -491,7 +491,7 @@ const getSavePost = asyncHandler(async (req, res) => {
       },
     },
   ]);
-  if (!savedPost) throw new ApiError(500, "error in fetched saved posts");
+  if (!savedPost) throw new ApiError(500, "Failed to fetch saved posts");
 
   const modifiedSavedPosts = (savedPost[0]?.savedPosts || []).map((post) => ({
     ...post,
@@ -506,7 +506,7 @@ const getSavePost = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         { savedPost: modifiedSavedPosts, page, limit },
-        "saved posts fetched successfully",
+        "Saved posts retrieved successfully",
       ),
     );
 });
@@ -517,13 +517,13 @@ const getUserPosts = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
 
   const skip = (page - 1) * limit;
-  if (!username) throw new ApiError(400, "username is not given");
+  if (!username) throw new ApiError(400, "Username is required");
 
   //then get user collection from database if it exist
   const user = await User.findOne({ username: username }).select(
     "-password -refreshToken",
   );
-  if (!user) throw new ApiError(400, "user with this username doesnt exist");
+  if (!user) throw new ApiError(404, "User not found");
 
   //call for posts
   const posts = await Post.find({ owner: user._id })
@@ -534,7 +534,7 @@ const getUserPosts = asyncHandler(async (req, res) => {
       " _id postImage description topic title createdAt updatedAt upvotes downvotes owner",
     );
   if (!posts)
-    throw new ApiError(500, "error in fetching post of given username");
+    throw new ApiError(500, "Failed to fetch user posts");
   //send response
   const total = await Post.countDocuments({ owner: user._id });
   const totalPages = Math.ceil(total / limit);
@@ -568,7 +568,7 @@ const getUserPosts = asyncHandler(async (req, res) => {
           hasNextPage: page < totalPages,
         },
       },
-      "post is fetched successfully",
+      "Posts retrieved successfully",
     ),
   );
 });
@@ -579,7 +579,7 @@ const getTopicPosts = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
 
   const skip = (page - 1) * limit;
-  if (!topic) throw new ApiError(400, "username is not given");
+  if (!topic) throw new ApiError(400, "Topic is required");
 
   //call for posts
   const posts = await Post.aggregate([
@@ -646,7 +646,7 @@ const getTopicPosts = asyncHandler(async (req, res) => {
   ]);
 
   if (!posts)
-    throw new ApiError(500, "error in fetching post of given username");
+    throw new ApiError(500, "Failed to fetch posts for the given topic");
   //send response
   const result = posts[0];
 
@@ -671,7 +671,7 @@ const getTopicPosts = asyncHandler(async (req, res) => {
           hasNextPage: page < totalPages,
         },
       },
-      "post is fetched successfully",
+      "Posts retrieved successfully",
     ),
   );
 });
@@ -775,7 +775,7 @@ const getPost = asyncHandler(async (req, res) => {
   res
     .status(200)
     .json(
-      new ApiResponse(200, finalresponse, "post has been fetched successfully"),
+      new ApiResponse(200, finalresponse, "Posts retrieved successfully"),
     );
 });
 
@@ -806,9 +806,9 @@ const reactToPost = asyncHandler(async (req, res) => {
       { returnDocument: "after" },
     );
   }
-  if (!response) throw new ApiError("400", "Post Not Found");
+  if (!response) throw new ApiError(404, "Post not found");
   // then send response
-  res.status(200).json(new ApiResponse(200, "successfully reacted"));
+  res.status(200).json(new ApiResponse(200, null, "Successfully reacted to post"));
 });
 
 const removeExistingPostFromPage = asyncHandler(async (req, res) => {
@@ -825,8 +825,8 @@ const removeExistingPostFromPage = asyncHandler(async (req, res) => {
 
   //save them
   res
-    .status(201)
-    .json(new ApiResponse(201, "post is successfully remove from pages"));
+    .status(200)
+    .json(new ApiResponse(200, null, "Post successfully removed from pages"));
 });
 
 export {

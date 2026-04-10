@@ -30,7 +30,7 @@ const createPage = asyncHandler(async (req, res) => {
     "image",
   );
   if (!cloudinaryresponse)
-    throw new ApiError(500, "error in uploading image to cloudinary");
+    throw new ApiError(500, "Failed to upload page profile image");
 
   //then create a entry in database
   try {
@@ -53,7 +53,7 @@ const createPage = asyncHandler(async (req, res) => {
       .json(new ApiResponse(201, page, "page is created successfully"));
   } catch (error) {
     if (error.code === 11000) {
-      throw new ApiError(400, "Page with this name already exists");
+      throw new ApiError(409, "Page with this name already exists");
     }
 
     throw error;
@@ -63,26 +63,26 @@ const createPage = asyncHandler(async (req, res) => {
 const deletePage = asyncHandler(async (req, res) => {
   //get page_id from req.post
   const page_id = req.page._id;
-  if (!page_id) throw new ApiResponse(404, "page id not found");
+  if (!page_id) throw new ApiError(400, "Page ID is required");
   const pageImage = req.page.pageProfileImage;
   //its is validated one so just deleted the page
   const deletedPage = await Page.findByIdAndDelete(page_id);
-  if (!deletedPage) throw new ApiError(400, "error in deleting page");
+  if (!deletedPage) throw new ApiError(404, "Page not found or already deleted");
 
   //delete file from cloudinary also
   if (pageImage) {
     const cloudinaryresponse = await deleteFromCloudinary(pageImage, "image");
     if (!cloudinaryresponse)
-      throw new ApiError(400, "error in deleting files from cloudinary");
+      throw new ApiError(500, "Failed to delete page image from Cloudinary");
   }
   //also update all those post which includes this deleted page in their pages array
   const updatedpost = await Post.updateMany(
     { pages: page_id },
     { $pull: { pages: page_id } },
   );
-  if (!updatedpost) throw new ApiError(400, "error in uploading post");
+  if (!updatedpost) throw new ApiError(500, "Failed to update associated posts");
 
-  res.status(200).json(new ApiResponse(200, "page deleted successfully"));
+  res.status(200).json(new ApiResponse(200, "Page deleted successfully"));
 });
 
 const getPages = asyncHandler(async (req, res) => {
@@ -156,7 +156,7 @@ const getPages = asyncHandler(async (req, res) => {
           hasNextPage: PageNumber < totalPages,
         },
       },
-      "Pages fetched",
+      "Pages retrieved successfully",
     ),
   );
 });
@@ -177,8 +177,8 @@ const makeModerator = asyncHandler(async (req, res) => {
   );
 
   return res
-    .status(201)
-    .json(new ApiResponse(201, "user are updated to moderators"));
+    .status(200)
+    .json(new ApiResponse(200, "Users successfully added as moderators"));
 });
 
 const removeModerator = asyncHandler(async (req, res) => {
@@ -190,7 +190,7 @@ const removeModerator = asyncHandler(async (req, res) => {
   //we have to check if the one of removing users is owner or not
   const owner_id = req.page.owner;
   if (moderators.includes(owner_id.toString()))
-    throw new ApiError(400, "owner cannot be removed from moderators");
+    throw new ApiError(403, "Owner cannot be removed from moderators");
 
   //make him a moderator
   await Page.updateOne(
@@ -203,8 +203,8 @@ const removeModerator = asyncHandler(async (req, res) => {
   );
 
   return res
-    .status(201)
-    .json(new ApiResponse(201, "user are removed from moderators"));
+    .status(200)
+    .json(new ApiResponse(200, "Users removed from moderators successfully"));
 });
 
 const seeMembersList = asyncHandler(async (req, res) => {
@@ -248,7 +248,7 @@ const seeMembersList = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         { membeList, pagination },
-        "member list is fetched successfully",
+        "Member list retrieved successfully",
       ),
     );
 });
@@ -261,12 +261,12 @@ const removeUser = asyncHandler(async (req, res) => {
   const moderatorIds = new Set(page.moderators.map((m) => m.toString()));
   // i have to check if the person who is removing is owner then he can remove anyone except himself
   if (removingUsers.includes(page.owner.toString()))
-    throw new ApiError(403, "u cannot remove the owner of the page");
+    throw new ApiError(403, "Cannot remove the owner of the page");
 
   //if he is not owner that means he is moderator then he can not remove owner or any other moderator
   if (page.owner.toString() !== userPerformingAction.toString()) {
     if (removingUsers.some((id) => moderatorIds.has(id)))
-      throw new ApiError(403, "u cannot remove other moderators");
+      throw new ApiError(403, "Moderators cannot remove other moderators");
   }
   //remove them
   await Page.updateOne(
@@ -281,7 +281,7 @@ const removeUser = asyncHandler(async (req, res) => {
   //send response
   return res
     .status(200)
-    .json(new ApiResponse(200, {}, "users is removed from the page"));
+    .json(new ApiResponse(200, {}, "Users removed from the page successfully"));
 });
 
 const joinPage = asyncHandler(async (req, res) => {
@@ -292,10 +292,10 @@ const joinPage = asyncHandler(async (req, res) => {
 
   //validate if page event exist or not and is use is already a member or not
   const page = await Page.findById(page_id);
-  if (!page) throw new ApiError(400, "page doesnot exist");
+  if (!page) throw new ApiError(404, "Page not found");
 
   if (page.members.some((mem) => mem.toString() === user_id.toString()))
-    throw new ApiError(400, "u are already a member of this page");
+    throw new ApiError(409, "You are already a member of this page");
 
   //then we see if the page is private or open
   if (page.type === "open") {
@@ -304,8 +304,8 @@ const joinPage = asyncHandler(async (req, res) => {
       $push: { members: user_id },
     });
     return res
-      .status(201)
-      .json(new ApiResponse(201, "u are successfully added to this page"));
+      .status(200)
+      .json(new ApiResponse(200, "Successfully joined the page"));
   }
   //if it is private then validate if user already requested to join or not and then  just create a joinRequest schema
   // Before creating new request, check if one already exists
@@ -314,7 +314,7 @@ const joinPage = asyncHandler(async (req, res) => {
     requestedBy: user_id,
     status: "pending",
   });
-  if (existingRequest) throw new ApiError(400, "You already requested to join");
+  if (existingRequest) throw new ApiError(409, "Join request already exists");
 
   await JoinRequest.create({
     page: page_id,
@@ -324,7 +324,7 @@ const joinPage = asyncHandler(async (req, res) => {
   });
 
   // After creating joinRequest, you need to return something
-  return res.status(201).json(new ApiResponse(201, "Join request sent"));
+  return res.status(201).json(new ApiResponse(201, "Join request sent successfully"));
 });
 
 const seePendingRequest = asyncHandler(async (req, res) => {
@@ -375,7 +375,7 @@ const seePendingRequest = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         { pendingRequest: requests, pagination },
-        "pending request has been fetched successfully",
+        "Pending requests fetched successfully",
       ),
     );
 });
@@ -395,14 +395,14 @@ const approvePendingRequest = asyncHandler(async (req, res) => {
     page: page_id,
     requestedBy: requestedBy,
   });
-  if (!isStillAlive) throw new ApiError(400, "no request exist");
+  if (!isStillAlive) throw new ApiError(404, "Join request not found");
 
   //if yes then check the status
   if (status.toLowerCase().trim() === "approved") {
     //then if status is accept then add member to the page
     const page = await Page.findById(page_id);
     if (page.members.some((m) => m.toString() === requestedBy.toString())) {
-      throw new ApiError(400, "User is already a member");
+      throw new ApiError(409, "User is already a member");
     }
     await Page.findByIdAndUpdate(page_id, {
       $push: { members: requestedBy },
@@ -421,7 +421,7 @@ const approvePendingRequest = asyncHandler(async (req, res) => {
   //todo
 
   //send response
-  return res.status(201).json(new ApiResponse(201, "successfully"));
+  return res.status(200).json(new ApiResponse(200, "Request processed successfully"));
 });
 
 const leavePage = asyncHandler(async (req, res) => {
@@ -430,7 +430,7 @@ const leavePage = asyncHandler(async (req, res) => {
   const user_id = req.user._id;
 
   //validate them
-  if (!page_id || !user_id) throw new ApiError(400, "error in fetching ids");
+  if (!page_id || !user_id) throw new ApiError(400, "Invalid page or user ID");
 
   //check if he is not a owner
   if (req.page.owner.toString() === user_id.toString()) {
@@ -438,13 +438,13 @@ const leavePage = asyncHandler(async (req, res) => {
     if (!!!req.body)
       throw new ApiError(
         400,
-        "u have to pass the ownership to some other member",
+        "Ownership must be transferred before leaving",
       );
     const { newOwner } = req.body; //have to pass id
     if (!newOwner)
       throw new ApiError(
         400,
-        "u have to pass the ownership to some other member",
+        "Ownership must be transferred before leaving",
       );
     const response = req.page.members.some(
       (mem) => mem.toString() === newOwner.toString(),
@@ -452,7 +452,7 @@ const leavePage = asyncHandler(async (req, res) => {
     if (!response)
       throw new ApiError(
         400,
-        "ur recommeded user must be a member of this group",
+        "New owner must be an existing member of the page",
       );
     await Page.findByIdAndUpdate(page_id, {
       owner: newOwner,
@@ -471,7 +471,7 @@ const leavePage = asyncHandler(async (req, res) => {
     });
   }
   //send response
-  res.status(200).json(new ApiResponse(200, "removed from page successfully"));
+  res.status(200).json(new ApiResponse(200, "Successfully left the page"));
 });
 
 const updatePageinfo = asyncHandler(async (req, res) => {
@@ -484,7 +484,7 @@ const updatePageinfo = asyncHandler(async (req, res) => {
   //validate each info
   if (pageName) {
     const response = await Page.findOne({ pageName: pageName });
-    if (response) throw new ApiError(400, "page with this name already exist");
+    if (response) throw new ApiError(409, "Page with this name already exists");
     updated.pageName = pageName;
   }
   if (pageDescription && pageDescription.length > 0) {
@@ -502,7 +502,7 @@ const updatePageinfo = asyncHandler(async (req, res) => {
       "image",
     );
     if (!response)
-      throw new ApiError(500, "error in uploading file on cloudinary");
+      throw new ApiError(500, "Failed to upload image to Cloudinary");
     await deleteFromCloudinary(req.page.pageProfileImage);
     updated.pageProfileImage = response.public_id;
   }
@@ -529,13 +529,18 @@ const updatePageinfo = asyncHandler(async (req, res) => {
       returnDocument: "after",
     },
   ).select("-moderators -members");
-  if (!updatedpagedata) throw new ApiError(400, "error in updating info");
+  
+  if (!updatedpagedata) throw new ApiError(500, "Failed to update page information");
+
+  if (updatedpagedata && updatedpagedata.pageProfileImage) {
+    updatedpagedata.pageProfileImage = getOptimizedImage(updatedpagedata.pageProfileImage);
+  }
 
   //send response
   return res
     .status(200)
     .json(
-      new ApiResponse(200, updatedpagedata, "page is updated successfully"),
+      new ApiResponse(200, updatedpagedata, "Page updated successfully"),
     );
 });
 

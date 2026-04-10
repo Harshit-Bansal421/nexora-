@@ -17,11 +17,10 @@ import {
   reactToPost,
   removeExistingPostFromPage,
 } from "../controllers/post.controller.js";
-import { isPageOrPostOwner } from "../middleware/isPageOrPostOwner.js"
+import { isPageOrPostOwner } from "../middleware/isPageOrPostOwner.js";
 const router = Router();
 
 //specific named route first
-
 
 //publc route any one can access them
 router.route("/").get(getPost); //--> for getting posts from default content
@@ -37,12 +36,12 @@ router.route("/saved").get(jwtVerify, getSavePost); //-> getting saved post of a
 router
   .route("/")
   .post(jwtVerify, upload.postUpload("PostImages", "PostVideos"), createPost); //--> for creating a post
-router.route("/add/pages/:post_id").post(jwtVerify, isPageOrPostOwner, AddExistingPostToPage); //--> for adding existing post on a particular page
+router
+  .route("/add/pages/:post_id")
+  .post(jwtVerify, isPageOrPostOwner, AddExistingPostToPage); //--> for adding existing post on a particular page
 router
   .route("/remove/pages/:post_id")
-  .delete(jwtVerify, isPageOrPostOwner , removeExistingPostFromPage); //--> for removing existing post on a particular page,, get the pages from which post are to be removed in req.body
-
-
+  .delete(jwtVerify, isPageOrPostOwner, removeExistingPostFromPage); //--> for removing existing post on a particular page,, get the pages from which post are to be removed in req.body
 
 //param routes
 
