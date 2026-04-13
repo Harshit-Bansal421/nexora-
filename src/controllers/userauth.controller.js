@@ -1,6 +1,9 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { User } from "../models/User.model.js";
-import { uploadUserImage_cloud, getOptimizedImage } from "../utils/Cloudinary.js";
+import {
+  uploadUserImage_cloud,
+  getOptimizedImage,
+} from "../utils/Cloudinary.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import {
@@ -18,6 +21,7 @@ import { OTP } from "../models/Otp.model.js";
 import bcrypt from "bcryptjs";
 import { v2 as cloudinary } from "cloudinary";
 import { OPTIONS } from "../constants.js";
+import mongoose from "mongoose";
 
 const SignupUser = asyncHandler(async (req, res) => {
   //in signin we save data in otpschema which is a temporary database which exist only for 10 min after that it will vanish and user have to verify within that minute and after verify we save the info actually
@@ -45,7 +49,7 @@ const SignupUser = asyncHandler(async (req, res) => {
   const cloudinaryResponse = await uploadUserImage_cloud(
     localfilepath,
     "nexora_userImage",
-    "image"
+    "image",
   );
   if (!cloudinaryResponse?.public_id) {
     throw new ApiError(500, "Failed to upload profile image securely");
@@ -87,8 +91,9 @@ const SignupUser = asyncHandler(async (req, res) => {
 
   //send an email and response
   const html = getVerificationEmailHTML(username, plainOTP);
-  const emailResponse = await sendEmail({ to:email,html: html });
-  if (!emailResponse) throw new ApiError(500, "Failed to send verification email");
+  const emailResponse = await sendEmail({ to: email, html: html });
+  if (!emailResponse)
+    throw new ApiError(500, "Failed to send verification email");
   return res
     .status(201)
     .json(new ApiResponse(201, "Verification code sent to your email"));
@@ -100,7 +105,9 @@ const getCurrentUser = asyncHandler(async (req, res) => {
   }
   return res
     .status(200)
-    .json(new ApiResponse(200, req.user, "User information retrieved successfully"));
+    .json(
+      new ApiResponse(200, req.user, "User information retrieved successfully"),
+    );
 });
 
 const getNewAccessToken = asyncHandler(async (req, res) => {
@@ -123,11 +130,11 @@ const getNewAccessToken = asyncHandler(async (req, res) => {
   const user = await User.findById(decodedToken._id).select(
     "-password -refreshToken",
   );
-  
+
   if (user && user.profileImage) {
     user.profileImage = getOptimizedImage(user.profileImage);
   }
-  
+
   return res
     .status(200)
     .cookie("AccessToken", accessToken, options)
@@ -268,7 +275,7 @@ const verifyEmailandLogin = asyncHandler(async (req, res) => {
     username: existedOTP.pendingUsername,
     email,
     password: existedOTP.pendingPasswordHash,
-    profileImage: existedOTP.pendingUserImageID,//saving public_id instead of secure_url
+    profileImage: existedOTP.pendingUserImageID, //saving public_id instead of secure_url
   });
   if (!user) {
     throw new ApiError(500, "Failed to create user account");
@@ -316,7 +323,8 @@ const updateUsername = asyncHandler(async (req, res) => {
 
   //check if the username avaiable or not
   const isExist = await User.findOne({ username });
-  if (isExist) throw new ApiError(409, "User with this username already exists");
+  if (isExist)
+    throw new ApiError(409, "User with this username already exists");
   if (!username) {
     throw new ApiError(400, "Username is required");
   }
@@ -433,12 +441,14 @@ const resendEmail = asyncHandler(async (req, res) => {
       ? getVerificationEmailHTML(username, plainOTP)
       : getPasswordResetEmailHTML(username, plainOTP);
 
-  const emailResponse = await sendEmail({ to:email,html: html });
+  const emailResponse = await sendEmail({ to: email, html: html });
   if (!emailResponse) throw new ApiError(400, "error in sending the email");
 
   return res
     .status(200)
-    .json(new ApiResponse(200, existedOTP, "Verification code sent to your email"));
+    .json(
+      new ApiResponse(200, existedOTP, "Verification code sent to your email"),
+    );
 });
 
 const forgotPassword = asyncHandler(async (req, res) => {
@@ -492,13 +502,13 @@ const forgotPassword = asyncHandler(async (req, res) => {
       },
       $inc: { resendCount: 1 },
     },
-    { upsert: true, returnDocument: 'after' },
+    { upsert: true, returnDocument: "after" },
   );
 
   // send email and response
   const html = getPasswordResetEmailHTML(user.username, plainOTP);
-  const emailresponse=await sendEmail({to:email,html: html });
-  console.log("emailresponse = ",emailresponse)
+  const emailresponse = await sendEmail({ to: email, html: html });
+  console.log("emailresponse = ", emailresponse);
   return res
     .status(200)
     .json(
@@ -562,7 +572,13 @@ const verifyResetOTP = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .cookie("ResetToken", resetToken, OPTIONS)
-    .json(new ApiResponse(200, null, "OTP verified successfully. Please enter your new password"));
+    .json(
+      new ApiResponse(
+        200,
+        null,
+        "OTP verified successfully. Please enter your new password",
+      ),
+    );
 });
 
 const resetPassword = asyncHandler(async (req, res) => {
@@ -601,7 +617,126 @@ const resetPassword = asyncHandler(async (req, res) => {
 
   //send reponse
   res.clearCookie("ResetToken");
-  return res.status(200).json(new ApiResponse(200, null, "Password changed successfully"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "Password changed successfully"));
+});
+
+const followUser = asyncHandler(async (req, res) => {
+  const { user_id } = req.params;
+
+  if (!user_id) {
+    throw new ApiError(400, "User ID is required");
+  }
+
+  if (user_id.toString() === req.user._id.toString()) {
+    throw new ApiError(400, "You cannot follow yourself");
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const userToFollow = await User.findById(user_id).session(session);
+    if (!userToFollow) {
+      throw new ApiError(404, "User does not exist");
+    }
+
+    // check already following
+    const alreadyFollowing = userToFollow.followers?.includes(req.user._id);
+
+    if (alreadyFollowing) {
+      await session.abortTransaction();
+      return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "Already following"));
+    }
+
+    await User.findByIdAndUpdate(
+      user_id,
+      {
+        $addToSet: { followers: req.user._id },
+      },
+      { session },
+    );
+
+    await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $addToSet: { following: user_id },
+      },
+      { session },
+    );
+
+    await session.commitTransaction();
+
+    res.status(200).json(new ApiResponse(200, {}, "Followed successfully"));
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
+});
+
+const unfollowUser = asyncHandler(async (req, res) => {
+  const { user_id } = req.params;
+
+  if (!user_id) {
+    throw new ApiError(400, "User ID is required");
+  }
+
+  if (user_id.toString() === req.user._id.toString()) {
+    throw new ApiError(400, "You cannot unfollow yourself");
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const userToUnfollow = await User.findById(user_id).session(session);
+
+    if (!userToUnfollow) {
+      throw new ApiError(404, "User does not exist");
+    }
+
+    // check if actually following
+    const isFollowing = userToUnfollow.followers?.includes(req.user._id);
+
+    if (!isFollowing) {
+      await session.abortTransaction();
+      return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "You are not following this user"));
+    }
+
+    // remove follower
+    await User.findByIdAndUpdate(
+      user_id,
+      {
+        $pull: { followers: req.user._id },
+      },
+      { session },
+    );
+
+    // remove following
+    await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $pull: { following: user_id },
+      },
+      { session },
+    );
+
+    await session.commitTransaction();
+
+    res.status(200).json(new ApiResponse(200, {}, "Unfollowed successfully"));
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession(); 
+  }
 });
 
 export {
@@ -618,4 +753,6 @@ export {
   forgotPassword,
   verifyResetOTP,
   resetPassword,
+  followUser,
+  unfollowUser,
 };

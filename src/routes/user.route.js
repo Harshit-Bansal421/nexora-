@@ -14,7 +14,9 @@ import {
   resendEmail,
   forgotPassword,
   verifyResetOTP,
-  resetPassword
+  resetPassword,
+  followUser,
+  unfollowUser
 } from "../controllers/userauth.controller.js";
 import { jwtVerify } from "../middleware/jwtVerify.js";
 
@@ -33,6 +35,8 @@ router.route("/verify-reset-otp").post(ratelimit.authLimiter(), verifyResetOTP)
 router.route("/reset-password").post(ratelimit.authLimiter(), resetPassword)
 
 //protected routes
+router.route("/follow/:user_id").post(ratelimit.authLimiter(),jwtVerify,followUser);
+router.route("/unfollow/:user_id").delete(ratelimit.authLimiter(),jwtVerify,unfollowUser);
 router.route("/currentuser").get(ratelimit.authLimiter(), jwtVerify, getCurrentUser);
 router.route("/logout").post(ratelimit.authLimiter(), jwtVerify, logoutUser);
 router.route("/logout-all").post(ratelimit.authLimiter(), jwtVerify, logoutUserAllDevice);
