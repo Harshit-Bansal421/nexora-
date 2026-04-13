@@ -11,9 +11,8 @@ export const createNotification = async (
   comment,
   page,
 ) => {
-  if (recipient.toString() === sender.toString())
-    throw new ApiError(400, "u can send notification to yourself");
-  const res = await Notification.create(
+  if (recipient.toString() === sender.toString()) return null;
+  const res = await Notification.create({
     recipient,
     sender,
     type,
@@ -21,7 +20,7 @@ export const createNotification = async (
     post,
     comment,
     page,
-  );
+});
   if (!res) throw new ApiError(400, "error in creating notification");
 
   sendToUser(recipient, "notification", res);

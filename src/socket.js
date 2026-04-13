@@ -8,7 +8,7 @@ const onlineUser = new Map();
 export const initSocket = (server) => {
   const io = new Server(server, {
     cors: {
-      orgin: "*",
+      origin: "*",
       Credential: true,
     },
     pingTimeout: 60000, //how long to wait before considering connection dead
@@ -31,7 +31,7 @@ export const initSocket = (server) => {
       //check the authenticity of code
       const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
       const user = await User.findById(decoded._id).select(
-        "_id username avatar title",
+        "_id username profileImage title badge",
       );
 
       if (!user) {
@@ -71,14 +71,26 @@ export const initSocket = (server) => {
       socket.join(`post:${post_id}`)
       console.log(`${socket.user.username} joined page = ${post_id}`);
     })
-    socket.on("join-page",(post_id)=>{
+    socket.on("leave-post",(post_id)=>{
       if(!post_id) return;
       socket.join(`page:${post_id}`)
       console.log(`${socket.user.username} joined page = ${post_id}`);
     })
 
-    socket.on("...typing",(post_id)=>{
-      if(post_id) return;
+    // socket.on("follow-user",(user_id)=>{
+    //   if(!user_id) return;
+    //   socket.join(`follow-${user_id}`);
+    //   console.log(`${socket.user.username} followed ${user_id}`);
+    // })
+
+    // socket.on("unfollow-user",(user_id)=>{
+    //   if(!user_id) return;
+    //   socket.join(`unfollow-${user_id}`);
+    //   console.log(`${socket.user.username} unfollowed ${user_id}`);
+    // })
+
+    socket.on("typing",(post_id)=>{
+      if(!post_id) return;
       socket.to(`post:${post_id}`).emit("...typing",{
         username:socket.user.username,
         profileImage: getOptimizedImage(socket.user.profileImage),
@@ -87,7 +99,7 @@ export const initSocket = (server) => {
     })
 
     socket.on("stop-typing",(post_id)=>{
-      if(post_id) return;
+      if(!post_id) return;
       socket.to(`post:${post_id}`).emit("stop-typing",{
         username:socket.user.username,
         profileImage: getOptimizedImage(socket.user.profileImage),
@@ -116,5 +128,6 @@ export const getIO = {
 
 export const sendToUser=(userId,event,data)=>{
   const socketid=onlineUser.get(userId.toString());
+  if (!socketid) return
   getIO.get().to(socketid).emit(event,data);
 }

@@ -11,6 +11,7 @@ import {
 import { User } from "../models/User.model.js";
 import mongoose from "mongoose";
 import { Page } from "../models/Page.model.js";
+import {createNotification} from "../utils/createNotification.js";
 
 const createPost = asyncHandler(async (req, res) => {
   //get all the info from req.body,req.user,req.files
@@ -128,6 +129,8 @@ const AddExistingPostToPage = asyncHandler(async (req, res) => {
     },
     { returnDocument: "after" },
   );
+
+  
 
   //save them
   res

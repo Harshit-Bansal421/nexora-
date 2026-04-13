@@ -30,7 +30,8 @@ const NotificationSchema = new mongoose.Schema(
           "mod_removed", //you were removed as moderator
           "request_approved", //your join request approved
           "request_rejected", //your join request rejected
-          "join_request", //someone want to join ur page
+          "join_request", //someone want to join ur page,
+          "pinned"//pinned ur comment
         ],
         message: "Invalid notification type",
       },
