@@ -28,6 +28,6 @@ app.use("/api/v1/users", userRoute);
 app.use("/api/v1/posts", postRoute);
 app.use("/api/v1/pages", PageRoute);
 app.use("/api/v1/comments", CommentRoute);
-app.use("/api/v1/nnotifications", notificationRoute);
+app.use("/api/v1/notifications", notificationRoute);
 
 export default app;
