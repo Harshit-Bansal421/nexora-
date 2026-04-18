@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed": "#fea619",
+                        "error-container": "#f56965",
+                        "inverse-primary": "#4d8eff",
+                        "inverse-surface": "#050e20",
+                        "tertiary-container": "#fea619",
+                        "on-surface-variant": "#4d5f86",
+                        "on-tertiary-fixed": "#311c00",
+                        "outline": "#687aa3",
+                        "on-primary-fixed-variant": "#004292",
+                        "on-primary": "#f9f8ff",
+                        "tertiary-dim": "#764900",
+                        "secondary": "#006d4a",
+                        "primary-dim": "#004fad",
+                        "on-tertiary": "#fff7f3",
+                        "tertiary-fixed-dim": "#ee9800",
+                        "secondary-dim": "#005f40",
+                        "on-error-container": "#65000b",
+                        "surface": "#f9f9ff",
+                        "surface-tint": "#005bc4",
+                        "primary-fixed-dim": "#8fb3ff",
+                        "inverse-on-surface": "#949db5",
+                        "secondary-container": "#6ffbbe",
+                        "on-tertiary-container": "#4f3000",
+                        "on-secondary-fixed-variant": "#006947",
+                        "on-tertiary-fixed-variant": "#5b3800",
+                        "primary": "#005bc4",
+                        "on-error": "#fff7f6",
+                        "primary-fixed": "#a5c1ff",
+                        "surface-container": "#e9edff",
+                        "outline-variant": "#9fb2dd",
+                        "secondary-fixed-dim": "#5fedb0",
+                        "on-primary-container": "#003a81",
+                        "surface-bright": "#f9f9ff",
+                        "error-dim": "#70030f",
+                        "surface-variant": "#d8e2ff",
+                        "tertiary": "#865400",
+                        "on-secondary-fixed": "#004930",
+                        "background": "#f9f9ff",
+                        "on-secondary": "#e6ffee",
+                        "secondary-fixed": "#6ffbbe",
+                        "on-secondary-container": "#005e3f",
+                        "surface-container-high": "#e0e8ff",
+                        "surface-container-low": "#f1f3ff",
+                        "primary-container": "#a5c1ff",
+                        "on-primary-fixed": "#002659",
+                        "error": "#ac3434",
+                        "on-surface": "#1f3256",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-dim": "#cbdaff",
+                        "surface-container-highest": "#d8e2ff",
+                        "on-background": "#1f3256"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .shadow-blue-glow-sm {
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.06);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased min-h-screen flex flex-col">
+<!-- TopAppBar for Branding Context -->
+<header class="w-full sticky top-0 z-50 bg-slate-50 dark:bg-slate-950 flex justify-between items-center px-6 py-3 shadow-blue-glow-sm">
+<div class="flex items-center gap-2">
+<span class="text-xl font-extrabold text-blue-700 dark:text-blue-400 font-headline tracking-tight">HelpHub</span>
+</div>
+<div class="flex items-center gap-4">
+<a class="text-slate-500 dark:text-slate-400 text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors duration-200 px-3 py-1.5 rounded-lg" href="#">Sign In</a>
+</div>
+</header>
+<main class="flex-grow flex items-center justify-center p-6 md:p-12">
+<div class="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-hidden rounded-[2rem] bg-surface-container-low shadow-blue-glow-sm border border-outline-variant/10">
+<!-- Visual/Marketing Column -->
+<div class="hidden lg:flex lg:col-span-5 relative bg-primary-container overflow-hidden p-12 flex-col justify-between">
+<div class="absolute inset-0 z-0">
+<img alt="Community working together" class="w-full h-full object-cover opacity-30 mix-blend-multiply" data-alt="Abstract composition of diverse community hands joining together over a collaborative table with soft blue and warm gold sunlight" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZb4ssSUprhINGhhq7qgjKm-FFZWVoAk4lRUJQ0At61jEdz3yDcCY4rTVA5sYeYhb7ShNAPnMz6o9jglbURvSUyZD4n9hN6Xy9es4GX5EFiqn5UAbfybgbr6YbkJjH--0VPRNjWFNVwenIpz68SCiCfSniEsD9Q8aCsMyV4VxVGNI8N5QpWjutnW7j0j4UhpkCZmKMzNbc7g6re5lj1Hc0o4Lc8wNJDQyrtkixEfnHnKkaYJbvIWBb-qqOQ2WGh9-OrSeorSmgku4"/>
+</div>
+<div class="relative z-10">
+<h2 class="text-4xl font-headline font-extrabold text-on-primary-container leading-tight">Join the<br/>Collaborative Canvas.</h2>
+<p class="mt-4 text-on-primary-container/80 text-lg leading-relaxed max-w-sm font-medium">
+                        Where knowledge finds its home and every question meets a helping hand.
+                    </p>
+</div>
+<div class="relative z-10 space-y-6">
+<div class="flex items-center gap-4 bg-white/20 backdrop-blur-md p-4 rounded-xl">
+<div class="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-white">
+<span class="material-symbols-outlined">verified_user</span>
+</div>
+<div>
+<p class="text-on-primary-container font-bold text-sm">Verified Network</p>
+<p class="text-on-primary-container/70 text-xs">Access trusted experts and peers</p>
+</div>
+</div>
+<div class="flex items-center gap-4 bg-white/20 backdrop-blur-md p-4 rounded-xl">
+<div class="w-10 h-10 rounded-full bg-tertiary flex items-center justify-center text-white">
+<span class="material-symbols-outlined">volunteer_activism</span>
+</div>
+<div>
+<p class="text-on-primary-container font-bold text-sm">Real Impact</p>
+<p class="text-on-primary-container/70 text-xs">Transform lives with your expertise</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Form Column -->
+<div class="lg:col-span-7 bg-surface-container-lowest p-8 md:p-16 flex flex-col justify-center">
+<div class="max-w-md w-full mx-auto">
+<div class="mb-10 text-left">
+<span class="inline-block px-3 py-1 rounded-full bg-surface-container-highest text-on-primary-fixed text-xs font-bold uppercase tracking-wider mb-3">Get Started</span>
+<h1 class="text-3xl font-headline font-bold text-on-surface tracking-tight mb-2">Create Your Account</h1>
+<p class="text-on-surface-variant font-body">Join thousands of helpers making an impact.</p>
+</div>
+<form class="space-y-6">
+<!-- Email Field -->
+<div class="space-y-1.5">
+<label class="text-sm font-semibold text-on-surface ml-1">Email Address</label>
+<div class="relative group">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline group-focus-within:text-primary transition-colors">mail</span>
+<input class="w-full bg-surface-container-low border-none rounded-xl py-3.5 pl-12 pr-4 focus:ring-2 focus:ring-primary/40 focus:bg-surface-container-lowest transition-all text-on-surface placeholder:text-outline-variant/60 font-medium" placeholder="alex@helphub.io" type="email"/>
+</div>
+</div>
+<!-- Username Field -->
+<div class="space-y-1.5">
+<label class="text-sm font-semibold text-on-surface ml-1">Username</label>
+<div class="relative group">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline group-focus-within:text-primary transition-colors">person</span>
+<input class="w-full bg-surface-container-low border-none rounded-xl py-3.5 pl-12 pr-4 focus:ring-2 focus:ring-primary/40 focus:bg-surface-container-lowest transition-all text-on-surface placeholder:text-outline-variant/60 font-medium" placeholder="alex_helper" type="text"/>
+</div>
+</div>
+<!-- Password Field -->
+<div class="space-y-1.5">
+<div class="flex justify-between items-center px-1">
+<label class="text-sm font-semibold text-on-surface">Password</label>
+<span class="text-[11px] font-bold text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Strong
+                                </span>
+</div>
+<div class="relative group">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline group-focus-within:text-primary transition-colors">lock</span>
+<input class="w-full bg-surface-container-low border-none rounded-xl py-3.5 pl-12 pr-12 focus:ring-2 focus:ring-primary/40 focus:bg-surface-container-lowest transition-all text-on-surface placeholder:text-outline-variant/60 font-medium" placeholder="••••••••••••" type="password"/>
+<button class="absolute right-4 top-1/2 -translate-y-1/2 text-outline-variant hover:text-on-surface transition-colors" type="button">
+<span class="material-symbols-outlined">visibility_off</span>
+</button>
+</div>
+<div class="flex gap-1 mt-2">
+<div class="h-1 flex-1 rounded-full bg-secondary"></div>
+<div class="h-1 flex-1 rounded-full bg-secondary"></div>
+<div class="h-1 flex-1 rounded-full bg-secondary"></div>
+<div class="h-1 flex-1 rounded-full bg-outline-variant/20"></div>
+</div>
+</div>
+<!-- Terms of Service -->
+<div class="flex items-start gap-3 p-1">
+<div class="mt-1">
+<input class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4 cursor-pointer" id="terms" type="checkbox"/>
+</div>
+<label class="text-xs text-on-surface-variant leading-relaxed cursor-pointer select-none" for="terms">
+                                By clicking sign up, I agree to HelpHub's <a class="text-primary font-semibold hover:underline" href="#">Terms of Service</a> and <a class="text-primary font-semibold hover:underline" href="#">Privacy Policy</a>.
+                            </label>
+</div>
+<!-- Action Buttons -->
+<div class="pt-4 flex flex-col gap-4">
+<button class="w-full py-4 bg-gradient-to-br from-primary to-primary-dim text-white font-semibold rounded-xl shadow-lg shadow-primary/10 active:scale-[0.98] transition-all duration-200" type="submit">
+                                Create Account
+                            </button>
+<div class="relative py-4">
+<div class="absolute inset-0 flex items-center"><div class="w-full border-t border-outline-variant/15"></div></div>
+<div class="relative flex justify-center text-xs uppercase"><span class="bg-surface-container-lowest px-4 text-on-surface-variant font-bold tracking-widest">Or Continue With</span></div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<button class="flex items-center justify-center gap-2 py-3 border border-outline-variant/20 rounded-xl hover:bg-surface-container-low transition-colors active:scale-95" type="button">
+<img alt="Google" class="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDIn6_TmSkWpTc3DC1oRdNBxOfHKaDgAFbPSG8Pi9kaLVim8aI3CpTogW5zL2n6T8eP823HxmHUfXM3VfIxPXkaXz8WSHySHBv-7efZkig8cyP9gqCJxxFjJWSylFQtoYnV_X1H64tF6R6IG_Qgm_05EqHueD0MAKLSqkl5Kk7eqacPxvjJ9rKD6NTYxXvHt-TFBRSECh5i935OxbkJm_R0o_lcIL_34Y-cP5WkCz0E6RUtBQ0QaW4E4I3k-K1Sa6DbvO29hvQQVMQ"/>
+<span class="text-sm font-semibold">Google</span>
+</button>
+<button class="flex items-center justify-center gap-2 py-3 border border-outline-variant/20 rounded-xl hover:bg-surface-container-low transition-colors active:scale-95" type="button">
+<img alt="GitHub" class="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAY_-esIriTqVc2xxMefFo8UCSmgDC9ERTolSCzVfxNZQZ0fNbvTA9E8m-U4S6QQw-h7IWqud-CsLFylnbNCxsVIpt1-izX1jKJelmvzAhj3kIYCHlM8ABM5f_UU4wFMTyhAof3YToFDSk7HXzTxX8IsFpQk9y8Tx_jFEZHAXLoz7D-Gzgwf20NyITzYR0_t4K-OtpUVLNt2XmeC26GGpjyit5nGKIbRtTtqXrhSBQmOVOoDaHaQTIp0jULE8XX-gMfoKLB4_FQZRg"/>
+<span class="text-sm font-semibold">GitHub</span>
+</button>
+</div>
+</div>
+</form>
+</div>
+</div>
+</div>
+</main>
+<!-- Navigation Shell suppressed for transactional screen but keeping small branding footer -->
+<footer class="py-8 text-center">
+<p class="text-sm text-on-surface-variant font-medium">© 2024 HelpHub Inc. Built for humans.</p>
+</footer>
+</body></html>

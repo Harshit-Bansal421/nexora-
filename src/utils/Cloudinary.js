@@ -1,5 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
-import ApiError from "../utils/ApiError.js";
+import ApiError from "./ApiError.js";
 import fs from "fs";
 
 cloudinary.config({
@@ -19,13 +19,12 @@ const uploadUserImage_cloud = async (localfilePath, folder, type = "image") => {
       resource_type: "auto",
     };
 
-    // 🔥 Light compression (not aggressive)
     if (type === "image") {
       options.transformation = [
         {
-          quality: "auto:good", // balanced quality
+          quality: "auto:good",
           fetch_format: "auto",
-          width: 1200, // don't shrink too much
+          width: 1200,
           crop: "limit",
         },
       ];
