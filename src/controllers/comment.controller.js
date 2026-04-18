@@ -12,7 +12,6 @@ import { User } from '../models/User.model.js'
 const createComment = asyncHandler(async (req, res) => {
   //get the post id in which user want to comment also validate it
   const { post_id } = req.params;
-  console.log(post_id);
   if (!post_id) throw new ApiError(400, "no post id is given");
   if (!mongoose.Types.ObjectId.isValid(post_id))
     throw new ApiError(400, "post id is invalid");
@@ -142,7 +141,7 @@ const getComnment = asyncHandler(async (req, res) => {
         },
       },
     },
-    { $project: { replies: 0, statusPriority: 1 } },
+    { $project: { replies: 0} },
     {
       $lookup: {
         from: "users",
