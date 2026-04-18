@@ -20,6 +20,7 @@ const NotificationSchema = new mongoose.Schema(
           "comment", //someone commented on your post
           "reply", //someone replied to your comment
           "post_upvote", //someone upvoted your post
+          "post_downvote",//someone downvoted your post
           "comment_upvote", //someone upvoted your comment
           "helpful", //your comment marked as helpful
           "follow", //someone followed you

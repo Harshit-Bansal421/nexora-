@@ -203,6 +203,7 @@ const editComment = asyncHandler(async (req, res) => {
 
   //send real time update
   const io = getIO.get();
+  
   io.to(`post:${updatedComment.post}`).emit("comment-updated", {
     body: updatedComment.body,
     comment_id: comment_id,

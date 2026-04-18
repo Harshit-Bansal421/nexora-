@@ -11,7 +11,8 @@ import {
 import { User } from "../models/User.model.js";
 import mongoose from "mongoose";
 import { Page } from "../models/Page.model.js";
-import {createNotification} from "../utils/createNotification.js";
+import { createNotification } from "../utils/createNotification.js";
+import { getIO, sendToUser } from "../socket.js";
 
 const createPost = asyncHandler(async (req, res) => {
   //get all the info from req.body,req.user,req.files
@@ -79,6 +80,13 @@ const createPost = asyncHandler(async (req, res) => {
     postVideo: postVideo.map(getOptimizedVideo),
   };
 
+  //send live response and there is no need for notification
+  const io = getIO.get();
+  (postResponse.pages || []).forEach((page_id) => {
+    const room = `page:${page_id.toString().trim()}`;
+    io.to(room).emit("post-created", postResponse);
+  });
+
   //then send the response
   res
     .status(201)
@@ -108,7 +116,19 @@ const deletePost = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Failed to remove post from saved posts");
 
   //delete the collection in database
-  await Post.findByIdAndDelete(post._id);
+  const deletedPost = await Post.findByIdAndDelete(post._id);
+  if (!deletedPost) throw new ApiError(400, "error in deleting the post");
+  console.log("deletePost", deletedPost);
+
+  //send live response to post as well as to all pages in which this post is available
+  const io = getIO.get();
+  const room = `post:${deletedPost._id?.toString().trim()}`;
+  io.to(room).emit("post-deleted", deletedPost);
+
+  (deletedPost.pages || []).forEach((page_id) => {
+    const room = `page:${page_id.toString().trim()}`;
+    io.to(room).emit("post-deleted", deletedPost);
+  });
 
   //send success response
   res.status(200).json(new ApiResponse(200, null, "Post deleted successfully"));
@@ -117,10 +137,18 @@ const deletePost = asyncHandler(async (req, res) => {
 const AddExistingPostToPage = asyncHandler(async (req, res) => {
   //we expect an array of page id
   const { post_id } = req.params;
-  const pages = req.pages;
+  const pages = (req.pages || []).map((id) => String(id).trim());
+
+  const post = await Post.findById(post_id);
+  if (!post) throw new ApiError(400, "no post exist");
+  const isexist = (post.pages || []).some((page) =>
+    pages.includes(String(page).trim()),
+  );
+
+  if (isexist) throw new ApiError(400, "post exist in some pages already");
 
   //we already have data of post from isowner verification middleware so we just gonnna add new pages to existing page
-  await Post.findByIdAndUpdate(
+  const returnedPost = await Post.findByIdAndUpdate(
     post_id,
     {
       $addToSet: {
@@ -130,7 +158,12 @@ const AddExistingPostToPage = asyncHandler(async (req, res) => {
     { returnDocument: "after" },
   );
 
-  
+  //send live response to the user and also notification to the page owner
+  const io = getIO.get();
+  (pages || []).forEach(async (page_id) => {
+    const room = `page:${page_id.toString().trim()}`;
+    io.to(room).emit("addPost-to-page", returnedPost);
+  });
 
   //save them
   res
@@ -258,6 +291,15 @@ const updatePost = asyncHandler(async (req, res) => {
     postImage: (updatedData.postImage || []).map(getOptimizedImage),
     postVideo: (updatedData.postVideo || []).map(getOptimizedVideo),
   };
+
+  //send live response of updated post
+  const io = getIO.get();
+  const room = `post:${String(postResponse._id).trim()}`;
+  io.to(room).emit("updated-post", postResponse);
+  postResponse.pages.forEach((page) => {
+    const room = `page:${String(page).trim()}`;
+    io.to(room).emit("updated-post", postResponse);
+  });
 
   //send success reponse
   res
@@ -807,6 +849,24 @@ const reactToPost = asyncHandler(async (req, res) => {
     );
   }
   if (!response) throw new ApiError(404, "Post not found");
+
+  //send live response to the users
+  const io = getIO.get();
+  const room = `post:${String(response._id).trim()}`;
+  io.to(room).emit("reacted-post", response);
+  response.pages.forEach((page) => {
+    const room = `page:${String(page).trim()}`;
+    io.to(room).emit("reacted-post", response);
+  });
+
+  await createNotification(
+    response._id,
+    user_id,
+    type === "downvote" ? "post_downvote" : "post_upvote",
+    `${req.user.username} has ${type === "downvote" ? "downvoted" : "upvoted"} your post`,
+    response._id,
+  );
+
   // then send response
   res
     .status(200)
@@ -815,14 +875,30 @@ const reactToPost = asyncHandler(async (req, res) => {
 
 const removeExistingPostFromPage = asyncHandler(async (req, res) => {
   //we expect an array of page id
-  const pages = req.pages;
   const { post_id } = req.params;
+  const pages = (req.pages || []).map((id) => String(id).trim());
+
+  const post = await Post.findById(post_id);
+  if (!post) throw new ApiError(400, "no post exist");
+
+  const isexist = (post.pages || []).some((page) =>
+    !pages.includes(String(page).trim()),
+  );
+
+  if (isexist) throw new ApiError(400, "post doesnot exist in some pages already");
 
   //we already have data of post from isowner verification middleware so we just gonnna add new pages to existing page
-  await Post.findByIdAndUpdate(post_id, {
+  const returnedPost = await Post.findByIdAndUpdate(post_id, {
     $pull: {
       pages: { $in: pages },
     },
+  });
+
+  //send live response to the user and also notification to the page owner
+  const io = getIO.get();
+  (pages || []).forEach(async (page_id) => {
+    const room = `page:${page_id.toString().trim()}`;
+    io.to(room).emit("removePost-from-page", returnedPost);
   });
 
   //save them
@@ -860,11 +936,11 @@ const searchOnText = asyncHandler(async (req, res) => {
       postVideo: (postObj.postVideo || []).map(getOptimizedVideo),
       owner: postObj.owner
         ? {
-          ...postObj.owner,
-          profileImage: postObj.owner.profileImage
-            ? getOptimizedImage(postObj.owner.profileImage)
-            : null,
-        }
+            ...postObj.owner,
+            profileImage: postObj.owner.profileImage
+              ? getOptimizedImage(postObj.owner.profileImage)
+              : null,
+          }
         : null,
     };
   });
@@ -911,11 +987,11 @@ const getPagePost = asyncHandler(async (req, res) => {
     if (!user) throw new ApiError(401, "Unauthorized access");
 
     const isMember = pageData.members.some(
-      (memberId) => memberId.toString() === user._id.toString()
+      (memberId) => memberId.toString() === user._id.toString(),
     );
     const isOwner = pageData.owner.toString() === user._id.toString();
     const isModerator = pageData.moderators.some(
-      (modId) => modId.toString() === user._id.toString()
+      (modId) => modId.toString() === user._id.toString(),
     );
 
     if (!isMember && !isOwner && !isModerator) {
@@ -938,7 +1014,7 @@ const getPagePost = asyncHandler(async (req, res) => {
     .skip(skip)
     .limit(limitNumber);
 
-  //Transform each image and videos with getoptimised 
+  //Transform each image and videos with getoptimised
   const modifiedPosts = (posts || []).map((post) => {
     const postObj = post.toObject ? post.toObject() : post;
     return {
@@ -947,11 +1023,11 @@ const getPagePost = asyncHandler(async (req, res) => {
       postVideo: (postObj.postVideo || []).map(getOptimizedVideo),
       owner: postObj.owner
         ? {
-          ...postObj.owner,
-          profileImage: postObj.owner.profileImage
-            ? getOptimizedImage(postObj.owner.profileImage)
-            : null,
-        }
+            ...postObj.owner,
+            profileImage: postObj.owner.profileImage
+              ? getOptimizedImage(postObj.owner.profileImage)
+              : null,
+          }
         : null,
     };
   });
@@ -973,8 +1049,8 @@ const getPagePost = asyncHandler(async (req, res) => {
           hasNextPage: pageNumber < totalPages,
         },
       },
-      "Page posts retrieved successfully"
-    )
+      "Page posts retrieved successfully",
+    ),
   );
 });
 
@@ -993,5 +1069,5 @@ export {
   reactToPost,
   removeExistingPostFromPage,
   searchOnText,
-  getPagePost
+  getPagePost,
 };
