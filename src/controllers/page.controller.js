@@ -9,6 +9,8 @@ import {
 } from "../utils/Cloudinary.js";
 import { Post } from "../models/Post.model.js";
 import { JoinRequest } from "../models/Joinrequest.model.js";
+import { getIO } from "../socket.js";
+import { createNotification } from "../utils/createNotification.js";
 
 const createPage = asyncHandler(async (req, res) => {
   //get the info from req.body
@@ -67,7 +69,8 @@ const deletePage = asyncHandler(async (req, res) => {
   const pageImage = req.page.pageProfileImage;
   //its is validated one so just deleted the page
   const deletedPage = await Page.findByIdAndDelete(page_id);
-  if (!deletedPage) throw new ApiError(404, "Page not found or already deleted");
+  if (!deletedPage)
+    throw new ApiError(404, "Page not found or already deleted");
 
   //delete file from cloudinary also
   if (pageImage) {
@@ -80,9 +83,26 @@ const deletePage = asyncHandler(async (req, res) => {
     { pages: page_id },
     { $pull: { pages: page_id } },
   );
-  if (!updatedpost) throw new ApiError(500, "Failed to update associated posts");
+  if (!updatedpost)
+    throw new ApiError(500, "Failed to update associated posts");
 
-  res.status(200).json(new ApiResponse(200, "Page deleted successfully"));
+  //send live news of deleted page to online user and send notification to all members
+  const io = getIO.get();
+  const room = `page:${String(page_id).trim()}`;
+  io.to(room).emit("deleted-page", deletedPage._id);
+
+  for (const mem of deletedPage.members || []) {
+    await createNotification(
+      mem,
+      deletedPage.owner,
+      "page_deleted",
+      `${req.user.username} deleted the page u were member of`,
+      deletedPage._id,
+    );
+  }
+
+  //send response
+  res.status(200).json(new ApiResponse(200, null, "Page deleted successfully"));
 });
 
 const getPages = asyncHandler(async (req, res) => {
@@ -166,15 +186,27 @@ const makeModerator = asyncHandler(async (req, res) => {
   //and we also know upcoming requested users is member of the same page and is an validated array
   const moderators = req.requestedUsers;
   const page_id = req.page._id;
+
   //make him a moderator
-  await Page.updateOne(
+  const updatedPage = await Page.updateOne(
     { _id: page_id },
     {
       $addToSet: {
         moderators: { $each: moderators },
       },
     },
+    { returnDocument: "after" },
   );
+
+  //send notification to the user who became moderator
+  for (const mod of moderators) {
+    await createNotification(
+      mod,
+      updatedPage.owner,
+      "mod_appointed",
+      `${req.user.username} appointed you moderator of the page:${updatedPage.pageName}`,
+    );
+  }
 
   return res
     .status(200)
@@ -193,7 +225,7 @@ const removeModerator = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Owner cannot be removed from moderators");
 
   //make him a moderator
-  await Page.updateOne(
+  const updatedPage = await Page.updateOne(
     { _id: page_id },
     {
       $pullAll: {
@@ -201,6 +233,19 @@ const removeModerator = asyncHandler(async (req, res) => {
       },
     },
   );
+
+  //send notification to the user who became moderator
+  const io=getIO.get();
+  const room=`page:${String(updatedPage._id).trim()}`
+  io.to(room).emit("madeModerator-page",updatedPage)
+  for (const mod of moderators) {
+    await createNotification(
+      mod,
+      updatedPage.owner,
+      "mod_appointed",
+      `${req.user.username} appointed you moderator of the page:${updatedPage.pageName}`,
+    );
+  }
 
   return res
     .status(200)
@@ -269,7 +314,7 @@ const removeUser = asyncHandler(async (req, res) => {
       throw new ApiError(403, "Moderators cannot remove other moderators");
   }
   //remove them
-  await Page.updateOne(
+  const updatedPage=await Page.updateOne(
     { _id: page._id },
     {
       $pull: {
@@ -278,6 +323,22 @@ const removeUser = asyncHandler(async (req, res) => {
       },
     },
   );
+
+  //send live respone and notification too
+  const io=getIO.get();
+  const room=`page:${String(updatedPage._id).trim()}`;
+  io.to(room).emit("removeuser-page",page_id);
+  
+  for(const rem_id of removingUsers){
+    await createNotification(
+      rem_id,
+      req.user._id,
+      "page_removed",
+      `${req.user.username} removed you from page`,
+      updatedPage._id
+    )
+  }
+  
   //send response
   return res
     .status(200)
@@ -300,9 +361,22 @@ const joinPage = asyncHandler(async (req, res) => {
   //then we see if the page is private or open
   if (page.type === "open") {
     //if it is open then just add the user in member list of that page
-    await Page.findByIdAndUpdate(page_id, {
+    const updtedPage=await Page.findByIdAndUpdate(page_id, {
       $push: { members: user_id },
-    });
+    },{returnDocument:'after'});
+
+    //here we have to send notification to the owner of the page and live update to the page members 
+    const io=getIO.get();
+    const room=`page:${String(page_id).trim()}`;
+    io.to(room).emit('joined-page',user_id);
+
+    await createNotification(
+      updatedPage.owner,
+      user_id,
+      "page_join",
+      `${req.user.username} joined ur page`,
+      updatedPage._id
+    )
     return res
       .status(200)
       .json(new ApiResponse(200, "Successfully joined the page"));
@@ -323,8 +397,18 @@ const joinPage = asyncHandler(async (req, res) => {
     requestedBy: user_id,
   });
 
+  await createNotification(
+    page.owner,
+    req.user._id,
+    "join_request",
+    `${req.user.username} want to join ur page`,
+    page._id
+  )
+
   // After creating joinRequest, you need to return something
-  return res.status(201).json(new ApiResponse(201, "Join request sent successfully"));
+  return res
+    .status(201)
+    .json(new ApiResponse(201, "Join request sent successfully"));
 });
 
 const seePendingRequest = asyncHandler(async (req, res) => {
@@ -418,10 +502,25 @@ const approvePendingRequest = asyncHandler(async (req, res) => {
     });
   }
   //send notification to the user of the status
-  //todo
+  const io=getIO.get();
+  const room=`page:${String(page_id).trim()}`
+  io.to(room).emit('responseJoin-page',{
+    pageid:page_id,
+    requestedBy:requestedBy,
+    status:status
+  });
 
+  await createNotification(
+    requestedBy,
+    req.user._id,
+    ((status.toLowerCase().trim() === "approved")?"request_approved": "request_rejected"),
+    `${req.user.username} ${status.toLowerCase().trim()} your request`,
+    page_id
+  )
   //send response
-  return res.status(200).json(new ApiResponse(200, "Request processed successfully"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Request processed successfully"));
 });
 
 const leavePage = asyncHandler(async (req, res) => {
@@ -436,16 +535,10 @@ const leavePage = asyncHandler(async (req, res) => {
   if (req.page.owner.toString() === user_id.toString()) {
     //if he is then ask for new owner id or ownername
     if (!!!req.body)
-      throw new ApiError(
-        400,
-        "Ownership must be transferred before leaving",
-      );
+      throw new ApiError(400, "Ownership must be transferred before leaving");
     const { newOwner } = req.body; //have to pass id
     if (!newOwner)
-      throw new ApiError(
-        400,
-        "Ownership must be transferred before leaving",
-      );
+      throw new ApiError(400, "Ownership must be transferred before leaving");
     const response = req.page.members.some(
       (mem) => mem.toString() === newOwner.toString(),
     );
@@ -529,19 +622,25 @@ const updatePageinfo = asyncHandler(async (req, res) => {
       returnDocument: "after",
     },
   ).select("-moderators -members");
-  
-  if (!updatedpagedata) throw new ApiError(500, "Failed to update page information");
+
+  if (!updatedpagedata)
+    throw new ApiError(500, "Failed to update page information");
 
   if (updatedpagedata && updatedpagedata.pageProfileImage) {
-    updatedpagedata.pageProfileImage = getOptimizedImage(updatedpagedata.pageProfileImage);
+    updatedpagedata.pageProfileImage = getOptimizedImage(
+      updatedpagedata.pageProfileImage,
+    );
   }
+
+  //send live response 
+  const io=getIO.get();
+  const room=`page:${String(updatedpagedata._id).trim()}`;
+  io.to(room).emit("updated-page",updatedpagedata);
 
   //send response
   return res
     .status(200)
-    .json(
-      new ApiResponse(200, updatedpagedata, "Page updated successfully"),
-    );
+    .json(new ApiResponse(200, updatedpagedata, "Page updated successfully"));
 });
 
 const getParticularPage = asyncHandler(async (req, res) => {
@@ -618,16 +717,16 @@ const getParticularPage = asyncHandler(async (req, res) => {
 
 export {
   createPage,
-  deletePage,
+  deletePage, //need socket and notification to members of page
   getPages,
-  makeModerator,
-  removeModerator,
+  makeModerator, //need notification
+  removeModerator, //need notification
   seeMembersList,
-  removeUser,
-  joinPage,
+  removeUser, //both
+  joinPage, //both
   seePendingRequest,
-  approvePendingRequest,
+  approvePendingRequest, //both
   leavePage,
-  updatePageinfo,
+  updatePageinfo, //need socket
   getParticularPage,
 };

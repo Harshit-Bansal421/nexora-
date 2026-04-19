@@ -22,6 +22,8 @@ import bcrypt from "bcryptjs";
 import { v2 as cloudinary } from "cloudinary";
 import { OPTIONS } from "../constants.js";
 import mongoose from "mongoose";
+import { getIO } from "../socket.js";
+import { createNotification } from "../utils/createNotification.js";
 
 const SignupUser = asyncHandler(async (req, res) => {
   //in signin we save data in otpschema which is a temporary database which exist only for 10 min after that it will vanish and user have to verify within that minute and after verify we save the info actually
@@ -652,7 +654,7 @@ const followUser = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, {}, "Already following"));
     }
 
-    await User.findByIdAndUpdate(
+    const followedUser = await User.findByIdAndUpdate(
       user_id,
       {
         $addToSet: { followers: req.user._id },
@@ -660,7 +662,7 @@ const followUser = asyncHandler(async (req, res) => {
       { session },
     );
 
-    await User.findByIdAndUpdate(
+    const followingUser = await User.findByIdAndUpdate(
       req.user._id,
       {
         $addToSet: { following: user_id },
@@ -670,6 +672,21 @@ const followUser = asyncHandler(async (req, res) => {
 
     await session.commitTransaction();
 
+    //send live notification and update
+    const io = getIO.get();
+    const room1 = `user:${String(user_id).trim()}`;
+    const room2 = `user:${String(req.user._id).trim()}`;
+    io.to(room1).emit("followed-user", followedUser);
+    io.to(room2).emit("following-user", followedUser);
+
+    await createNotification(
+      user_id,
+      req.user._id,
+      "follow",
+      `${req.user.username} followed u`,
+    );
+
+    //send response
     res.status(200).json(new ApiResponse(200, {}, "Followed successfully"));
   } catch (error) {
     await session.abortTransaction();
@@ -711,7 +728,7 @@ const unfollowUser = asyncHandler(async (req, res) => {
     }
 
     // remove follower
-    await User.findByIdAndUpdate(
+    const followedUser=await User.findByIdAndUpdate(
       user_id,
       {
         $pull: { followers: req.user._id },
@@ -720,7 +737,7 @@ const unfollowUser = asyncHandler(async (req, res) => {
     );
 
     // remove following
-    await User.findByIdAndUpdate(
+    const followedUser=await User.findByIdAndUpdate(
       req.user._id,
       {
         $pull: { following: user_id },
@@ -730,12 +747,18 @@ const unfollowUser = asyncHandler(async (req, res) => {
 
     await session.commitTransaction();
 
+    const io = getIO.get();
+    const room1 = `user:${String(user_id).trim()}`;
+    const room2 = `user:${String(req.user._id).trim()}`;
+    io.to(room1).emit("followed-user", followedUser);
+    io.to(room2).emit("following-user", followedUser);
+
     res.status(200).json(new ApiResponse(200, {}, "Unfollowed successfully"));
   } catch (error) {
     await session.abortTransaction();
     throw error;
   } finally {
-    session.endSession(); 
+    session.endSession();
   }
 });
 
