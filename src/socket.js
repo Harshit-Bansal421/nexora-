@@ -82,6 +82,16 @@ export const initSocket = (server) => {
       console.log(`${socket.user.username} leave post = ${post_id}`);
     });
 
+    socket.on("join-user",async(user_id)=>{
+      const room=`user:${String(user_id).trim()}`
+      await socket.join(room);
+    })
+
+    socket.on("leave-user",async(user_id)=>{
+      const room=`user:${String(user_id).trim()}`
+      await socket.leave(room);
+    })
+
     socket.on("typing",(post_id) => {
       if (!post_id) return;
       const room = `post:${String(post_id).trim()}`;

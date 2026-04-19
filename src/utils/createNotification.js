@@ -11,7 +11,7 @@ export const createNotification = async (
   comment,
   page,
 ) => {
-  if (recipient.toString() === sender.toString()) return null;
+  if (recipient?.toString() === sender?.toString()) return null;
   const res = await Notification.create({
     recipient,
     sender,

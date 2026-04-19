@@ -677,7 +677,7 @@ const followUser = asyncHandler(async (req, res) => {
     const room1 = `user:${String(user_id).trim()}`;
     const room2 = `user:${String(req.user._id).trim()}`;
     io.to(room1).emit("followed-user", followedUser);
-    io.to(room2).emit("following-user", followedUser);
+    io.to(room2).emit("following-user", followingUser);
 
     await createNotification(
       user_id,
@@ -737,7 +737,7 @@ const unfollowUser = asyncHandler(async (req, res) => {
     );
 
     // remove following
-    const followedUser=await User.findByIdAndUpdate(
+    const followingUser=await User.findByIdAndUpdate(
       req.user._id,
       {
         $pull: { following: user_id },
@@ -751,7 +751,7 @@ const unfollowUser = asyncHandler(async (req, res) => {
     const room1 = `user:${String(user_id).trim()}`;
     const room2 = `user:${String(req.user._id).trim()}`;
     io.to(room1).emit("followed-user", followedUser);
-    io.to(room2).emit("following-user", followedUser);
+    io.to(room2).emit("following-user", followingUser);
 
     res.status(200).json(new ApiResponse(200, {}, "Unfollowed successfully"));
   } catch (error) {

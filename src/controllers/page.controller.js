@@ -188,7 +188,7 @@ const makeModerator = asyncHandler(async (req, res) => {
   const page_id = req.page._id;
 
   //make him a moderator
-  const updatedPage = await Page.updateOne(
+  await Page.updateOne(
     { _id: page_id },
     {
       $addToSet: {
@@ -198,6 +198,7 @@ const makeModerator = asyncHandler(async (req, res) => {
     { returnDocument: "after" },
   );
 
+  const updatedPage=await Page.findById(page_id);
   //send notification to the user who became moderator
   for (const mod of moderators) {
     await createNotification(
@@ -225,7 +226,7 @@ const removeModerator = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Owner cannot be removed from moderators");
 
   //make him a moderator
-  const updatedPage = await Page.updateOne(
+  await Page.updateOne(
     { _id: page_id },
     {
       $pullAll: {
@@ -233,6 +234,8 @@ const removeModerator = asyncHandler(async (req, res) => {
       },
     },
   );
+
+  const updatedPage = await Page.findById(page_id);
 
   //send notification to the user who became moderator
   const io=getIO.get();
@@ -314,7 +317,7 @@ const removeUser = asyncHandler(async (req, res) => {
       throw new ApiError(403, "Moderators cannot remove other moderators");
   }
   //remove them
-  const updatedPage=await Page.updateOne(
+  await Page.updateOne(
     { _id: page._id },
     {
       $pull: {
@@ -326,8 +329,8 @@ const removeUser = asyncHandler(async (req, res) => {
 
   //send live respone and notification too
   const io=getIO.get();
-  const room=`page:${String(updatedPage._id).trim()}`;
-  io.to(room).emit("removeuser-page",page_id);
+  const room=`page:${String(page._id).trim()}`;
+  io.to(room).emit("removeuser-page",page._id);
   
   for(const rem_id of removingUsers){
     await createNotification(
@@ -335,7 +338,7 @@ const removeUser = asyncHandler(async (req, res) => {
       req.user._id,
       "page_removed",
       `${req.user.username} removed you from page`,
-      updatedPage._id
+      page._id
     )
   }
   
@@ -361,7 +364,7 @@ const joinPage = asyncHandler(async (req, res) => {
   //then we see if the page is private or open
   if (page.type === "open") {
     //if it is open then just add the user in member list of that page
-    const updtedPage=await Page.findByIdAndUpdate(page_id, {
+    const updatedPage=await Page.findByIdAndUpdate(page_id, {
       $push: { members: user_id },
     },{returnDocument:'after'});
 
