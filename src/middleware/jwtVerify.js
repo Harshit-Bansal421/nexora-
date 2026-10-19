@@ -30,6 +30,10 @@ const jwtVerify = asyncHandler(async (req, res, next) => {
     }
     throw new ApiError(401, error.message || "Unauthorized access");
   }
+
+  if (decodedToken?.tokenUse) {
+    throw new ApiError(401, "Socket tokens cannot be used for API requests");
+  }
   
   const user = await User.findById(decodedToken?._id).select(
     "-password -refreshToken",

@@ -157,6 +157,19 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     );
 });
 
+const getSocketToken = asyncHandler(async (req, res) => {
+  const token = jwt.sign(
+    { _id: req.user._id, tokenUse: "socket" },
+    process.env.ACCESS_TOKEN_SECRET,
+    { algorithm: "HS256", expiresIn: "2m" },
+  );
+
+  return res
+    .status(200)
+    .set("Cache-Control", "no-store, private")
+    .json(new ApiResponse(200, { token }, "Socket authentication ready"));
+});
+
 const getNewAccessToken = asyncHandler(async (req, res) => {
   const refreshToken = req.cookies?.RefreshToken;
   if (!refreshToken) throw new ApiError(401, "Unauthorized - Session expired");
@@ -905,6 +918,7 @@ const unfollowUser = asyncHandler(async (req, res) => {
 export {
   SignupUser,
   getCurrentUser,
+  getSocketToken,
   getNewAccessToken,
   loginUser,
   logoutUser,

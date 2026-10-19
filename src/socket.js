@@ -63,12 +63,21 @@ export const initSocket = (server) => {
 
   io.use(async (socket, next) => {
     try {
+      const socketToken =
+        typeof socket.handshake.auth?.token === "string" &&
+        socket.handshake.auth.token;
       const token = getAccessToken(socket);
       if (!token) return next(new Error("Unauthorized"));
 
       const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, {
         algorithms: ["HS256"],
       });
+      if (
+        (socketToken && decoded?.tokenUse !== "socket") ||
+        (!socketToken && decoded?.tokenUse)
+      ) {
+        return next(new Error("Unauthorized"));
+      }
       if (!mongoose.Types.ObjectId.isValid(decoded?._id)) {
         return next(new Error("Unauthorized"));
       }

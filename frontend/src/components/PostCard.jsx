@@ -6,6 +6,7 @@ import { postApi } from "../api/client";
 import Avatar from "./Avatar";
 import ImageWithFallback from "./ImageWithFallback";
 import VoteButtons from "./VoteButtons";
+import { getSocket, joinPostRoom, leavePostRoom } from "../api/socket";
 
 export default function PostCard({ post, onUnsave }) {
   const { currentUser, isAuthenticated } = useAuth();
@@ -23,6 +24,51 @@ export default function PostCard({ post, onUnsave }) {
   const initialUpvotes = Array.isArray(post?.upvotes) ? post.upvotes.length : (post?.upvotesCount ?? post?.upvoteCount ?? 0);
   const initialDownvotes = Array.isArray(post?.downvotes) ? post.downvotes.length : (post?.downvotesCount ?? post?.downvoteCount ?? 0);
   const initialUserVote = post?.userVote ?? (post?.upvotes?.some((id) => String(id) === String(currentUser?._id)) ? "up" : post?.downvotes?.some((id) => String(id) === String(currentUser?._id)) ? "down" : null);
+  const [livePostState, setLivePostState] = useState(null);
+
+  useEffect(() => {
+    if (!isAuthenticated || !post?._id) return;
+    const socket = getSocket();
+    const postId = String(post._id);
+    joinPostRoom(postId);
+    const handleVoteUpdate = (update) => {
+      if (String(update?.postId) !== postId) return;
+      setLivePostState((previous) => ({
+        ...(String(previous?.postId) === postId ? previous : {}),
+        postId,
+        upvoteCount: update.upvoteCount,
+        downvoteCount: update.downvoteCount,
+        ...(String(update.voterId) === String(currentUser?._id)
+          ? { userVote: update.userVote }
+          : {}),
+      }));
+    };
+    const handleCommentCount = (update) => {
+      if (String(update?.postId) !== postId) return;
+      setLivePostState((previous) => ({
+        ...(String(previous?.postId) === postId ? previous : {}),
+        postId,
+        commentsCount: update.commentsCount,
+      }));
+    };
+    socket.on("reacted-post", handleVoteUpdate);
+    socket.on("comment-count-updated", handleCommentCount);
+    return () => {
+      socket.off("reacted-post", handleVoteUpdate);
+      socket.off("comment-count-updated", handleCommentCount);
+      leavePostRoom(postId);
+    };
+  }, [post?._id, isAuthenticated, currentUser?._id]);
+
+  const postLiveState = String(livePostState?.postId) === String(post?._id)
+    ? livePostState
+    : null;
+  const displayedUpvotes = postLiveState?.upvoteCount ?? initialUpvotes;
+  const displayedDownvotes = postLiveState?.downvoteCount ?? initialDownvotes;
+  const displayedUserVote = postLiveState && Object.prototype.hasOwnProperty.call(postLiveState, "userVote")
+    ? postLiveState.userVote
+    : initialUserVote;
+  const displayedCommentsCount = postLiveState?.commentsCount ?? post?.commentsCount ?? post?.comments?.length ?? 0;
 
   const votePost = async (vote) => {
     if (!isAuthenticated) {
@@ -202,7 +248,7 @@ export default function PostCard({ post, onUnsave }) {
       {/* Post Action Footer */}
       <footer className="bg-surface-container-low/50 px-5 sm:px-6 py-3 flex items-center justify-between border-t border-outline-variant/10 text-on-surface-variant">
         <div className="flex items-center gap-4 sm:gap-6">
-          <VoteButtons key={`${post._id}:${initialUpvotes}:${initialDownvotes}:${initialUserVote}`} upvoteCount={initialUpvotes} downvoteCount={initialDownvotes} userVote={initialUserVote} onVote={votePost} onError={(err) => { if (err?.message !== "Login required") { console.warn("Post vote failed:", err); error(err?.message || "Failed to register vote"); } }} className="bg-surface-container-lowest rounded-full border border-outline-variant/15 shadow-sm" />
+          <VoteButtons upvoteCount={displayedUpvotes} downvoteCount={displayedDownvotes} userVote={displayedUserVote} onVote={votePost} onError={(err) => { if (err?.message !== "Login required") { console.warn("Post vote failed:", err); error(err?.message || "Failed to register vote"); } }} className="bg-surface-container-lowest rounded-full border border-outline-variant/15 shadow-sm" />
 
           {/* Comment Count / Link */}
           <Link
@@ -213,7 +259,7 @@ export default function PostCard({ post, onUnsave }) {
             <span className="material-symbols-outlined text-lg">
               chat_bubble
             </span>
-            <span>{post?.commentsCount ?? post?.comments?.length ?? 0}</span>
+            <span>{displayedCommentsCount}</span>
           </Link>
         </div>
 

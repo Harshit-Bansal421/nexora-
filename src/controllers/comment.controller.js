@@ -80,6 +80,10 @@ const createComment = asyncHandler(async (req, res) => {
   );
 
   io.to(`post:${post_id}`).emit("new-comment", populatedComment);
+  io.to(`post:${post_id}`).emit("comment-count-updated", {
+    postId: post_id,
+    commentsCount: await Comment.countDocuments({ post: post_id }),
+  });
   //send a response
   return res
     .status(201)
@@ -277,6 +281,10 @@ const deleteComment = asyncHandler(async (req, res) => {
 
   const io = getIO.get();
   io.to(`post:${commentInfo.post}`).emit("comment-deleted", deletedCommentInfo);
+  io.to(`post:${commentInfo.post}`).emit("comment-count-updated", {
+    postId: commentInfo.post,
+    commentsCount: await Comment.countDocuments({ post: commentInfo.post }),
+  });
 
   //send respone
   res.status(200).json(new ApiResponse(200, {}, "comment deleted"));
@@ -387,6 +395,8 @@ const voteComment = asyncHandler(async (req, res) => {
         commentId: updatedComment._id,
         upvoteCount: updatedComment.upvoteCount,
         downvoteCount: updatedComment.downvoteCount,
+        voterId: userId,
+        userVote: isUpvoted ? "up" : isDownvoted ? "down" : null,
       });
     }
 

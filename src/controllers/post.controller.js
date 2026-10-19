@@ -1150,6 +1150,8 @@ const reactToPost = asyncHandler(async (req, res) => {
         postId: updatedPost._id,
         upvoteCount: updatedPost.upvoteCount,
         downvoteCount: updatedPost.downvoteCount,
+        voterId: userId,
+        userVote: isUpvoted ? "up" : isDownvoted ? "down" : null,
       });
       (oldPost.pages || []).forEach((page) => {
         const r = `page:${String(page).trim()}`;
@@ -1157,6 +1159,8 @@ const reactToPost = asyncHandler(async (req, res) => {
           postId: updatedPost._id,
           upvoteCount: updatedPost.upvoteCount,
           downvoteCount: updatedPost.downvoteCount,
+          voterId: userId,
+          userVote: isUpvoted ? "up" : isDownvoted ? "down" : null,
         });
       });
     }

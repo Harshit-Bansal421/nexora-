@@ -10,34 +10,41 @@ export default function VoteButtons({
   onError,
   className = "",
 }) {
-  const [counts, setCounts] = useState(() => ({
-    up: countValue(upvoteCount),
-    down: countValue(downvoteCount),
-  }));
-  const [vote, setVote] = useState(userVote === "up" || userVote === "down" ? userVote : null);
+  const normalizedUpvotes = countValue(upvoteCount);
+  const normalizedDownvotes = countValue(downvoteCount);
+  const normalizedUserVote = userVote === "up" || userVote === "down" ? userVote : null;
+  const propStateKey = `${normalizedUpvotes}:${normalizedDownvotes}:${normalizedUserVote || "none"}`;
+  const [localState, setLocalState] = useState(null);
+  const stateIsCurrent = localState?.propStateKey === propStateKey;
+  const counts = stateIsCurrent
+    ? localState.counts
+    : { up: normalizedUpvotes, down: normalizedDownvotes };
+  const vote = stateIsCurrent ? localState.vote : normalizedUserVote;
   const [isVoting, setIsVoting] = useState(false);
 
   const handleVote = async (target) => {
     if (isVoting || !onVote) return;
     const previous = { counts, vote };
+    const requestStateKey = propStateKey;
     const nextVote = vote === target ? null : target;
     const nextCounts = { ...counts };
     if (vote) nextCounts[vote] = Math.max(0, nextCounts[vote] - 1);
     if (nextVote) nextCounts[nextVote] += 1;
     setIsVoting(true);
-    setVote(nextVote);
-    setCounts(nextCounts);
+    setLocalState({ propStateKey: requestStateKey, counts: nextCounts, vote: nextVote });
     try {
       const response = await onVote(target);
       const data = response?.data || response || {};
-      setCounts({
-        up: countValue(data.upvoteCount ?? data.upvotesCount ?? nextCounts.up),
-        down: countValue(data.downvoteCount ?? data.downvotesCount ?? nextCounts.down),
+      setLocalState({
+        propStateKey: requestStateKey,
+        counts: {
+          up: countValue(data.upvoteCount ?? data.upvotesCount ?? nextCounts.up),
+          down: countValue(data.downvoteCount ?? data.downvotesCount ?? nextCounts.down),
+        },
+        vote: data.userVote === "up" || data.userVote === "down" ? data.userVote : null,
       });
-      setVote(data.userVote === "up" || data.userVote === "down" ? data.userVote : null);
     } catch (error) {
-      setCounts(previous.counts);
-      setVote(previous.vote);
+      setLocalState({ propStateKey: requestStateKey, ...previous });
       onError?.(error);
     } finally {
       setIsVoting(false);

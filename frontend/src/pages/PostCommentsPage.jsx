@@ -109,17 +109,47 @@ export default function PostCommentsPage() {
       socket = getSocket();
     }
     const handleNewComment = (comment) => {
-      setComments((prev) => [comment, ...prev]);
+      setComments((prev) => {
+        if (prev.some((item) => String(item._id) === String(comment._id))) return prev;
+        const parentId = comment.parentComment?._id || comment.parentComment;
+        if (!parentId) return [comment, ...prev];
+        const appendReply = (items) => items.map((item) => String(item._id) === String(parentId)
+          ? { ...item, replies: [...(item.replies || []), comment] }
+          : { ...item, replies: appendReply(item.replies || []) });
+        return appendReply(prev);
+      });
     };
-    const handleVoteUpdate = ({ commentId, upvoteCount, downvoteCount }) => {
+    const handleVoteUpdate = ({ commentId, upvoteCount, downvoteCount, voterId, userVote }) => {
       const updateTree = (items) => items.map((comment) => comment._id === commentId
-        ? { ...comment, upvoteCount, downvoteCount, replies: updateTree(comment.replies || []) }
+        ? { ...comment, upvoteCount, downvoteCount, ...(String(voterId) === String(currentUser?._id) ? { userVote } : {}), replies: updateTree(comment.replies || []) }
+        : { ...comment, replies: updateTree(comment.replies || []) });
+      setComments(updateTree);
+    };
+    const handleCommentUpdate = ({ comment_id, body }) => {
+      const updateTree = (items) => items.map((comment) => String(comment._id) === String(comment_id)
+        ? { ...comment, body }
+        : { ...comment, replies: updateTree(comment.replies || []) });
+      setComments(updateTree);
+    };
+    const handleCommentDelete = (deleted = []) => {
+      const deletedIds = new Set(deleted.map(({ id }) => String(id)));
+      const removeTree = (items) => items
+        .filter((comment) => !deletedIds.has(String(comment._id)))
+        .map((comment) => ({ ...comment, replies: removeTree(comment.replies || []) }));
+      setComments(removeTree);
+    };
+    const handleCommentStatus = ({ id, status }) => {
+      const updateTree = (items) => items.map((comment) => String(comment._id) === String(id)
+        ? { ...comment, status: status === "none" ? undefined : status }
         : { ...comment, replies: updateTree(comment.replies || []) });
       setComments(updateTree);
     };
 
     socket?.on("new-comment", handleNewComment);
     socket?.on("comment-vote-update", handleVoteUpdate);
+    socket?.on("comment-updated", handleCommentUpdate);
+    socket?.on("comment-deleted", handleCommentDelete);
+    socket?.on("comment-status", handleCommentStatus);
 
     return () => {
       isMounted = false;
@@ -127,6 +157,9 @@ export default function PostCommentsPage() {
         leavePostRoom(postId);
         socket.off("new-comment", handleNewComment);
         socket.off("comment-vote-update", handleVoteUpdate);
+        socket.off("comment-updated", handleCommentUpdate);
+        socket.off("comment-deleted", handleCommentDelete);
+        socket.off("comment-status", handleCommentStatus);
       }
     };
   }, [
@@ -136,6 +169,7 @@ export default function PostCommentsPage() {
     retryCount,
     getCommentTree,
     isAuthenticated,
+    currentUser?._id,
   ]);
 
   const handleSortChange = (newOrder) => {
@@ -218,7 +252,7 @@ export default function PostCommentsPage() {
             {reply.body}
           </p>
           <div className="flex gap-3 pl-9">
-            <VoteButtons key={`${reply._id}:${reply.upvoteCount ?? reply.upvotesCount ?? 0}:${reply.downvoteCount ?? reply.downvotesCount ?? 0}:${reply.userVote}`} upvoteCount={reply.upvoteCount ?? reply.upvotesCount ?? reply.upvotes?.length ?? 0} downvoteCount={reply.downvoteCount ?? reply.downvotesCount ?? reply.downvotes?.length ?? 0} userVote={reply.userVote} onVote={(vote) => handleCommentVote(reply._id, vote)} onError={(err) => { if (err?.message !== "Login required") error("Failed to register vote."); }} />
+            <VoteButtons upvoteCount={reply.upvoteCount ?? reply.upvotesCount ?? reply.upvotes?.length ?? 0} downvoteCount={reply.downvoteCount ?? reply.downvotesCount ?? reply.downvotes?.length ?? 0} userVote={reply.userVote} onVote={(vote) => handleCommentVote(reply._id, vote)} onError={(err) => { if (err?.message !== "Login required") error("Failed to register vote."); }} />
             <button
               type="button"
               onClick={() =>
@@ -499,7 +533,7 @@ export default function PostCommentsPage() {
                 </p>
 
                 <div className="flex items-center justify-between pt-3 border-t border-outline-variant/10">
-<VoteButtons key={`${comment._id}:${comment.upvoteCount ?? comment.upvotesCount ?? 0}:${comment.downvoteCount ?? comment.downvotesCount ?? 0}:${comment.userVote}`} upvoteCount={comment.upvoteCount ?? comment.upvotesCount ?? comment.upvotes?.length ?? 0} downvoteCount={comment.downvoteCount ?? comment.downvotesCount ?? comment.downvotes?.length ?? 0} userVote={comment.userVote} onVote={(vote) => handleCommentVote(comment._id, vote)} onError={(err) => { if (err?.message !== "Login required") error("Failed to register vote."); }} />
+<VoteButtons upvoteCount={comment.upvoteCount ?? comment.upvotesCount ?? comment.upvotes?.length ?? 0} downvoteCount={comment.downvoteCount ?? comment.downvotesCount ?? comment.downvotes?.length ?? 0} userVote={comment.userVote} onVote={(vote) => handleCommentVote(comment._id, vote)} onError={(err) => { if (err?.message !== "Login required") error("Failed to register vote."); }} />
                   {isPostOwner && (
                     <button
                       onClick={() => handleSetStatus(comment._id, "none")}
@@ -559,7 +593,7 @@ export default function PostCommentsPage() {
 
                 <div className="flex items-center justify-between pt-2 border-t border-outline-variant/10 text-xs">
                   <div className="flex items-center gap-3 pl-12">
-<VoteButtons key={`${comment._id}:${comment.upvoteCount ?? comment.upvotesCount ?? 0}:${comment.downvoteCount ?? comment.downvotesCount ?? 0}:${comment.userVote}`} upvoteCount={comment.upvoteCount ?? comment.upvotesCount ?? comment.upvotes?.length ?? 0} downvoteCount={comment.downvoteCount ?? comment.downvotesCount ?? comment.downvotes?.length ?? 0} userVote={comment.userVote} onVote={(vote) => handleCommentVote(comment._id, vote)} onError={(err) => { if (err?.message !== "Login required") error("Failed to register vote."); }} />
+<VoteButtons upvoteCount={comment.upvoteCount ?? comment.upvotesCount ?? comment.upvotes?.length ?? 0} downvoteCount={comment.downvoteCount ?? comment.downvotesCount ?? comment.downvotes?.length ?? 0} userVote={comment.userVote} onVote={(vote) => handleCommentVote(comment._id, vote)} onError={(err) => { if (err?.message !== "Login required") error("Failed to register vote."); }} />
 
                     <button
                       onClick={() => {

@@ -4,6 +4,7 @@ import { upload } from "../middleware/localUpload.js";
 import {
   SignupUser,
   getCurrentUser,
+  getSocketToken,
   getNewAccessToken,
   loginUser,
   logoutUser,
@@ -40,6 +41,7 @@ router.route("/reset-password").post(ratelimit.sensitiveLimiter(), resetPassword
 router.route("/follow/:user_id").post(jwtVerify, ratelimit.writeLimiter(), followUser);
 router.route("/unfollow/:user_id").delete(jwtVerify, ratelimit.writeLimiter(), unfollowUser);
 router.route("/currentuser").get(jwtVerify, ratelimit.readLimiter(), getCurrentUser);
+router.route("/socket-token").get(jwtVerify, ratelimit.readLimiter(), getSocketToken);
 router.route("/logout").post(jwtVerify, ratelimit.writeLimiter(), logoutUser);
 router.route("/logout-all").post(jwtVerify, ratelimit.sensitiveLimiter(), logoutUserAllDevice);
 router.route("/update-username").patch(jwtVerify, ratelimit.writeLimiter(), updateUsername);
