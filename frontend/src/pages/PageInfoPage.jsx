@@ -34,6 +34,7 @@ export default function PageInfoPage() {
     pageName: "",
     title: "",
     pageDescription: "",
+    type: "open",
   });
   const [updating, setUpdating] = useState(false);
 
@@ -55,6 +56,7 @@ export default function PageInfoPage() {
         pageName: pageData?.pageName || "",
         title: pageData?.title || "",
         pageDescription: pageData?.pageDescription || "",
+        type: pageData?.type || "open",
       });
 
       const canViewMembers = ["member", "moderator", "owner"].includes(
@@ -133,6 +135,7 @@ export default function PageInfoPage() {
       formData.append("pageName", editForm.pageName);
       formData.append("title", editForm.title);
       formData.append("pageDescription", editForm.pageDescription);
+      formData.append("type", editForm.type);
 
       await pageApi.updatePage(pageId, formData);
       success("Community information updated!");
@@ -656,6 +659,35 @@ export default function PageInfoPage() {
                     className="w-full px-4 py-2.5 bg-surface-container-low rounded-xl text-sm border-none focus:ring-2 focus:ring-primary/40 resize-none"
                   />
                 </div>
+
+                <fieldset className="space-y-2">
+                  <legend className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+                    Community access
+                  </legend>
+                  <label className="flex min-h-11 items-center gap-2 text-sm font-semibold text-on-surface">
+                    <input
+                      type="radio"
+                      name="community-access"
+                      value="open"
+                      checked={editForm.type === "open"}
+                      onChange={() => setEditForm({ ...editForm, type: "open" })}
+                    />
+                    Public (anyone can join)
+                  </label>
+                  <label className="flex min-h-11 items-center gap-2 text-sm font-semibold text-on-surface">
+                    <input
+                      type="radio"
+                      name="community-access"
+                      value="private"
+                      checked={editForm.type === "private"}
+                      onChange={() => setEditForm({ ...editForm, type: "private" })}
+                    />
+                    Private (approval required)
+                  </label>
+                  <p className="text-xs text-on-surface-variant">
+                    Private communities remain discoverable, but only members can view their posts.
+                  </p>
+                </fieldset>
 
                 <div className="flex justify-end gap-3 pt-2">
                   <button

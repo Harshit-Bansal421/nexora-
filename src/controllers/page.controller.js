@@ -134,17 +134,10 @@ const getPages = asyncHandler(async (req, res) => {
   );
   const { search, topic, title } = req.query;
 
+  // Communities are discoverable regardless of access type. Private access is
+  // enforced by getParticularPage and joinPage; hiding them here prevents users
+  // from finding a hub and requesting membership.
   const filter = {};
-  filter.type = "open";
-  if (req.user?._id) {
-    filter.$or = [
-      { type: "open" },
-      { owner: req.user._id },
-      { moderators: req.user._id },
-      { members: req.user._id },
-    ];
-    delete filter.type;
-  }
   if (search) {
     if (typeof search !== "string" || !search.trim() || search.length > 100) {
       throw new ApiError(400, "Search query cannot exceed 100 characters");
@@ -196,7 +189,9 @@ const getPages = asyncHandler(async (req, res) => {
       },
       pageProfileImage: page?.pageProfileImage,
       pageName: page?.pageName,
+      pageDescription: page?.pageDescription,
       title: page.title,
+      type: page.type,
       membersCount: page.membersCount,
     }));
   }
