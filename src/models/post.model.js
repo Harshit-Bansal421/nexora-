@@ -37,6 +37,14 @@ const PostSchema = mongoose.Schema(
       },
       default: [],
     },
+    upvoteCount: {
+      type: Number,
+      default: 0,
+    },
+    downvoteCount: {
+      type: Number,
+      default: 0,
+    },
     upvotes: [
       {
         type: mongoose.Schema.Types.ObjectId,

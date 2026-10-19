@@ -7,6 +7,7 @@ import { useToast } from "../context/toastContextValue";
 import { joinPostRoom, leavePostRoom, getSocket } from "../api/socket";
 import Avatar from "../components/Avatar";
 import ImageWithFallback from "../components/ImageWithFallback";
+import VoteButtons from "../components/VoteButtons";
 
 export default function PostCommentsPage() {
   const { postId } = useParams();
@@ -110,10 +111,11 @@ export default function PostCommentsPage() {
     const handleNewComment = (comment) => {
       setComments((prev) => [comment, ...prev]);
     };
-    const handleVoteUpdate = ({ commentId, upvotesCount }) => {
-      setComments((prev) =>
-        prev.map((c) => (c._id === commentId ? { ...c, upvotesCount } : c)),
-      );
+    const handleVoteUpdate = ({ commentId, upvoteCount, downvoteCount }) => {
+      const updateTree = (items) => items.map((comment) => comment._id === commentId
+        ? { ...comment, upvoteCount, downvoteCount, replies: updateTree(comment.replies || []) }
+        : { ...comment, replies: updateTree(comment.replies || []) });
+      setComments(updateTree);
     };
 
     socket?.on("new-comment", handleNewComment);
@@ -167,30 +169,19 @@ export default function PostCommentsPage() {
     }
   };
 
-  const handleUpvoteComment = async (commentId) => {
+  const handleCommentVote = async (commentId, voteType) => {
     if (!isAuthenticated) {
-      info("Please log in to upvote solutions.");
-      return;
+      info("Please log in to vote on comments.");
+      throw new Error("Login required");
     }
-
-    try {
-      const response = await commentApi.upvoteComment(commentId);
-      const vote = response?.data || response;
-      if (Number.isInteger(vote?.upvotesCount)) {
-        setComments((prev) =>
-          prev.map((comment) =>
-            comment._id === commentId
-              ? { ...comment, upvotesCount: vote.upvotesCount }
-              : comment,
-          ),
-        );
-      }
-    } catch (err) {
-      console.warn("Comment upvote failed:", err);
-      error("Failed to register upvote.");
-    }
+    const response = await commentApi.voteComment(commentId, voteType);
+    const vote = response?.data || response || {};
+    const updateTree = (items) => items.map((comment) => comment._id === commentId
+      ? { ...comment, upvoteCount: vote.upvoteCount ?? vote.upvotesCount ?? comment.upvoteCount, downvoteCount: vote.downvoteCount ?? vote.downvotesCount ?? comment.downvoteCount, userVote: vote.userVote, replies: updateTree(comment.replies || []) }
+      : { ...comment, replies: updateTree(comment.replies || []) });
+    setComments(updateTree);
+    return response;
   };
-
   const handleSetStatus = async (commentId, status) => {
     try {
       await commentApi.setCommentStatus(postId, commentId, status);
@@ -227,13 +218,7 @@ export default function PostCommentsPage() {
             {reply.body}
           </p>
           <div className="flex gap-3 pl-9">
-            <button
-              type="button"
-              onClick={() => handleUpvoteComment(reply._id)}
-              className="min-h-11 text-xs font-semibold text-on-surface-variant hover:text-primary"
-            >
-              Upvote {reply.upvotesCount || reply.upvotes?.length || 0}
-            </button>
+            <VoteButtons key={`${reply._id}:${reply.upvoteCount ?? reply.upvotesCount ?? 0}:${reply.downvoteCount ?? reply.downvotesCount ?? 0}:${reply.userVote}`} upvoteCount={reply.upvoteCount ?? reply.upvotesCount ?? reply.upvotes?.length ?? 0} downvoteCount={reply.downvoteCount ?? reply.downvotesCount ?? reply.downvotes?.length ?? 0} userVote={reply.userVote} onVote={(vote) => handleCommentVote(reply._id, vote)} onError={(err) => { if (err?.message !== "Login required") error("Failed to register vote."); }} />
             <button
               type="button"
               onClick={() =>
@@ -514,17 +499,7 @@ export default function PostCommentsPage() {
                 </p>
 
                 <div className="flex items-center justify-between pt-3 border-t border-outline-variant/10">
-                  <button
-                    onClick={() => handleUpvoteComment(comment._id)}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-surface-container-low hover:bg-surface-container rounded-full text-xs font-bold text-on-surface transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-base">
-                      thumb_up
-                    </span>
-                    <span>
-                      {comment.upvotesCount || comment.upvotes?.length || 0}
-                    </span>
-                  </button>
+<VoteButtons key={`${comment._id}:${comment.upvoteCount ?? comment.upvotesCount ?? 0}:${comment.downvoteCount ?? comment.downvotesCount ?? 0}:${comment.userVote}`} upvoteCount={comment.upvoteCount ?? comment.upvotesCount ?? comment.upvotes?.length ?? 0} downvoteCount={comment.downvoteCount ?? comment.downvotesCount ?? comment.downvotes?.length ?? 0} userVote={comment.userVote} onVote={(vote) => handleCommentVote(comment._id, vote)} onError={(err) => { if (err?.message !== "Login required") error("Failed to register vote."); }} />
                   {isPostOwner && (
                     <button
                       onClick={() => handleSetStatus(comment._id, "none")}
@@ -584,17 +559,7 @@ export default function PostCommentsPage() {
 
                 <div className="flex items-center justify-between pt-2 border-t border-outline-variant/10 text-xs">
                   <div className="flex items-center gap-3 pl-12">
-                    <button
-                      onClick={() => handleUpvoteComment(comment._id)}
-                      className="flex items-center gap-1 text-on-surface-variant hover:text-primary transition-colors font-bold"
-                    >
-                      <span className="material-symbols-outlined text-base">
-                        thumb_up
-                      </span>
-                      <span>
-                        {comment.upvotesCount || comment.upvotes?.length || 0}
-                      </span>
-                    </button>
+<VoteButtons key={`${comment._id}:${comment.upvoteCount ?? comment.upvotesCount ?? 0}:${comment.downvoteCount ?? comment.downvotesCount ?? 0}:${comment.userVote}`} upvoteCount={comment.upvoteCount ?? comment.upvotesCount ?? comment.upvotes?.length ?? 0} downvoteCount={comment.downvoteCount ?? comment.downvotesCount ?? comment.downvotes?.length ?? 0} userVote={comment.userVote} onVote={(vote) => handleCommentVote(comment._id, vote)} onError={(err) => { if (err?.message !== "Login required") error("Failed to register vote."); }} />
 
                     <button
                       onClick={() => {

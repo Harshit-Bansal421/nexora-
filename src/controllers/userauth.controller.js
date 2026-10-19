@@ -23,6 +23,7 @@ import { OPTIONS } from "../constants.js";
 import mongoose from "mongoose";
 import { getIO } from "../socket.js";
 import { createNotification } from "../utils/createNotification.js";
+import { parsePagination } from "../utils/pagination.js";
 
 const normalizeEmail = (email) =>
   typeof email === "string" ? email.trim().toLowerCase() : "";
@@ -346,13 +347,44 @@ const updateProfile = asyncHandler(async (req, res) => {
     if (bio.length > 150) {
       throw new ApiError(400, "Bio cannot exceed 150 characters");
     }
-    // Atomic update of bio field
-    await User.findByIdAndUpdate(req.user._id, { $set: { bio } });
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: { bio: bio.trim() } },
+      { new: true, runValidators: true },
+    ).select("bio");
+    return res.status(200).json(
+      new ApiResponse(200, { bio: updatedUser.bio }, "Profile updated successfully"),
+    );
   }
   // Could handle other profile fields here
   return res
     .status(200)
     .json(new ApiResponse(200, null, "Profile updated successfully"));
+});
+
+const getFollowList = asyncHandler(async (req, res) => {
+  const { user_id: userId, listType } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(userId)) throw new ApiError(400, "Invalid user ID");
+  if (!["followers", "following"].includes(listType)) throw new ApiError(400, "List type must be followers or following");
+  const { page, limit, skip } = parsePagination(req.query);
+  const user = await User.findById(userId).select(listType);
+  if (!user) throw new ApiError(404, "User not found");
+  const ids = user[listType] || [];
+  const pageIds = ids.slice(skip, skip + limit);
+  const users = await User.find({ _id: { $in: pageIds } })
+    .select("username profileImage title badge")
+    .lean();
+  const byId = new Map(users.map((person) => [String(person._id), person]));
+  const people = pageIds.map((id) => byId.get(String(id))).filter(Boolean).map((person) => ({
+    ...person,
+    profileImage: getOptimizedImage(person.profileImage),
+  }));
+  const total = ids.length;
+  const totalPages = Math.ceil(total / limit);
+  return res.status(200).json(new ApiResponse(200, {
+    users: people,
+    pagination: { total, page, limit, totalPages, hasNextPage: page < totalPages },
+  }, `${listType} retrieved successfully`));
 });
 
 const UpdatePassword = asyncHandler(async (req, res) => {
@@ -670,13 +702,19 @@ const followUser = asyncHandler(async (req, res) => {
     }
 
     // check already following
-    const alreadyFollowing = userToFollow.followers?.includes(req.user._id);
+    const alreadyFollowing = userToFollow.followers?.some(
+      (followerId) => String(followerId) === String(req.user._id),
+    );
 
     if (alreadyFollowing) {
       await session.abortTransaction();
       return res
         .status(200)
-        .json(new ApiResponse(200, {}, "Already following"));
+        .json(new ApiResponse(200, {
+          isFollowing: true,
+          followersCount: userToFollow.followers.length,
+          followingCount: req.user.following?.length || 0,
+        }, "Already following"));
     }
 
     const followedUser = await User.findByIdAndUpdate(
@@ -684,7 +722,7 @@ const followUser = asyncHandler(async (req, res) => {
       {
         $addToSet: { followers: req.user._id },
       },
-      { session },
+      { session, new: true },
     );
 
     const followingUser = await User.findByIdAndUpdate(
@@ -692,7 +730,7 @@ const followUser = asyncHandler(async (req, res) => {
       {
         $addToSet: { following: user_id },
       },
-      { session },
+      { session, new: true },
     );
 
     await session.commitTransaction();
@@ -712,7 +750,11 @@ const followUser = asyncHandler(async (req, res) => {
     );
 
     //send response
-    res.status(200).json(new ApiResponse(200, {}, "Followed successfully"));
+    res.status(200).json(new ApiResponse(200, {
+      isFollowing: true,
+      followersCount: followedUser.followers.length,
+      followingCount: followingUser.following.length,
+    }, "Followed successfully"));
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -743,13 +785,19 @@ const unfollowUser = asyncHandler(async (req, res) => {
     }
 
     // check if actually following
-    const isFollowing = userToUnfollow.followers?.includes(req.user._id);
+    const isFollowing = userToUnfollow.followers?.some(
+      (followerId) => String(followerId) === String(req.user._id),
+    );
 
     if (!isFollowing) {
       await session.abortTransaction();
       return res
         .status(200)
-        .json(new ApiResponse(200, {}, "You are not following this user"));
+        .json(new ApiResponse(200, {
+          isFollowing: false,
+          followersCount: userToUnfollow.followers.length,
+          followingCount: req.user.following?.length || 0,
+        }, "You are not following this user"));
     }
 
     // remove follower
@@ -758,7 +806,7 @@ const unfollowUser = asyncHandler(async (req, res) => {
       {
         $pull: { followers: req.user._id },
       },
-      { session },
+      { session, new: true },
     );
 
     // remove following
@@ -767,7 +815,7 @@ const unfollowUser = asyncHandler(async (req, res) => {
       {
         $pull: { following: user_id },
       },
-      { session },
+      { session, new: true },
     );
 
     await session.commitTransaction();
@@ -775,10 +823,14 @@ const unfollowUser = asyncHandler(async (req, res) => {
     const io = getIO.get();
     const room1 = `user:${String(user_id).trim()}`;
     const room2 = `user:${String(req.user._id).trim()}`;
-    io.to(room1).emit("followed-user", followedUser);
+    io.to(room1).emit("unfollowed-user", followedUser);
     io.to(room2).emit("following-user", followingUser);
 
-    res.status(200).json(new ApiResponse(200, {}, "Unfollowed successfully"));
+    res.status(200).json(new ApiResponse(200, {
+      isFollowing: false,
+      followersCount: followedUser.followers.length,
+      followingCount: followingUser.following.length,
+    }, "Unfollowed successfully"));
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -804,4 +856,5 @@ export {
   resetPassword,
   followUser,
   unfollowUser,
+  getFollowList,
 };

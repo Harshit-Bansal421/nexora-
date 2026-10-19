@@ -40,10 +40,17 @@ import CommentRoute from "./routes/comment.route.js";
 import notificationRoute from "./routes/notification.route.js";
 
 app.use("/api/v1/users", userRoute);
+app.use("/api/users", userRoute);
 app.use("/api/v1/posts", postRoute);
+app.use("/api/posts", postRoute);
+app.use("/api/post", postRoute);
 app.use("/api/v1/pages", PageRoute);
+app.use("/api/pages", PageRoute);
 app.use("/api/v1/comments", CommentRoute);
+app.use("/api/comments", CommentRoute);
+app.use("/api/comment", CommentRoute);
 app.use("/api/v1/notifications", notificationRoute);
+app.use("/api/notifications", notificationRoute);
 
 app.use((req, res, next) => {
   next(new ApiError(404, "Route not found"));

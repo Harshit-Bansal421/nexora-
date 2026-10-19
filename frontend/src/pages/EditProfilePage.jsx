@@ -31,6 +31,7 @@ export default function EditProfilePage() {
           username: username.trim().toLowerCase(),
         });
       }
+      await authApi.updateProfile({ bio: bio.trim() });
       await refreshUser();
       success("Profile updated successfully!");
       navigate(`/profile/${username.trim().toLowerCase()}`);
@@ -133,12 +134,12 @@ export default function EditProfilePage() {
                   About Bio
                 </label>
                 <span className="text-[11px] text-on-surface-variant">
-                  {bio.length}/300
+                  {bio.length}/150
                 </span>
               </div>
               <textarea
                 rows={4}
-                maxLength={300}
+                maxLength={150}
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 placeholder="Share your learning goals, skills you enjoy helping with, or projects you're building..."

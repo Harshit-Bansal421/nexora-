@@ -5,6 +5,7 @@ import { useToast } from "../context/toastContextValue";
 import { postApi } from "../api/client";
 import Avatar from "./Avatar";
 import ImageWithFallback from "./ImageWithFallback";
+import VoteButtons from "./VoteButtons";
 
 export default function PostCard({ post, onUnsave }) {
   const { currentUser, isAuthenticated } = useAuth();
@@ -19,37 +20,21 @@ export default function PostCard({ post, onUnsave }) {
       title: "Contributor",
     };
 
-  // Vote calculation
-  const initialUpvotes = Array.isArray(post?.upvotes)
-    ? post.upvotes.length
-    : (post?.upvotesCount ?? post?.upvoteCount ?? 0);
-  const initialDownvotes = Array.isArray(post?.downvotes)
-    ? post.downvotes.length
-    : (post?.downvotesCount ?? post?.downvoteCount ?? 0);
-  const userUpvoted =
-    currentUser &&
-    Array.isArray(post?.upvotes) &&
-    post.upvotes.includes(currentUser._id);
-  const userDownvoted =
-    currentUser &&
-    Array.isArray(post?.downvotes) &&
-    post.downvotes.includes(currentUser._id);
-  const initialUserVote =
-    post?.userVote ??
-    (userUpvoted ? "upvote" : userDownvoted ? "downvote" : null);
+  const initialUpvotes = Array.isArray(post?.upvotes) ? post.upvotes.length : (post?.upvotesCount ?? post?.upvoteCount ?? 0);
+  const initialDownvotes = Array.isArray(post?.downvotes) ? post.downvotes.length : (post?.downvotesCount ?? post?.downvoteCount ?? 0);
+  const initialUserVote = post?.userVote ?? (post?.upvotes?.some((id) => String(id) === String(currentUser?._id)) ? "up" : post?.downvotes?.some((id) => String(id) === String(currentUser?._id)) ? "down" : null);
 
-  const [voteCount, setVoteCount] = useState(initialUpvotes - initialDownvotes);
-  const [voteState, setVoteState] = useState(
-    initialUserVote === "upvote"
-      ? "up"
-      : initialUserVote === "downvote"
-        ? "down"
-        : null,
-  );
+  const votePost = async (vote) => {
+    if (!isAuthenticated) {
+      info("Please log in to vote on posts");
+      navigate("/login");
+      throw new Error("Login required");
+    }
+    return postApi.votePost(post._id, vote);
+  };
   const [isSaved, setIsSaved] = useState(
     Boolean(post?.isSaved || post?.savedPost || typeof onUnsave === "function"),
   );
-  const [isVoting, setIsVoting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [now, setNow] = useState(Date.now);
 
@@ -57,71 +42,6 @@ export default function PostCard({ post, onUnsave }) {
     const intervalId = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(intervalId);
   }, []);
-
-  const handleVote = async (type) => {
-    if (!isAuthenticated) {
-      info("Please log in to vote on posts");
-      navigate("/login");
-      return;
-    }
-    if (isVoting) return;
-
-    setIsVoting(true);
-    const prevVoteState = voteState;
-    const prevVoteCount = voteCount;
-
-    // Optimistic calculation
-    if (type === "upvote") {
-      if (voteState === "up") {
-        setVoteState(null);
-        setVoteCount(prevVoteCount - 1);
-      } else if (voteState === "down") {
-        setVoteState("up");
-        setVoteCount(prevVoteCount + 2);
-      } else {
-        setVoteState("up");
-        setVoteCount(prevVoteCount + 1);
-      }
-    } else {
-      if (voteState === "down") {
-        setVoteState(null);
-        setVoteCount(prevVoteCount + 1);
-      } else if (voteState === "up") {
-        setVoteState("down");
-        setVoteCount(prevVoteCount - 2);
-      } else {
-        setVoteState("down");
-        setVoteCount(prevVoteCount - 1);
-      }
-    }
-
-    try {
-      const response = await postApi.votePost(post._id, type);
-      const vote = response?.data || response;
-      if (
-        Number.isInteger(vote?.upvoteCount) &&
-        Number.isInteger(vote?.downvoteCount)
-      ) {
-        setVoteCount(vote.upvoteCount - vote.downvoteCount);
-      }
-      if (Object.hasOwn(vote || {}, "userVote")) {
-        setVoteState(
-          vote.userVote === "upvote"
-            ? "up"
-            : vote.userVote === "downvote"
-              ? "down"
-              : null,
-        );
-      }
-    } catch (err) {
-      setVoteState(prevVoteState);
-      setVoteCount(prevVoteCount);
-      console.warn("Post vote failed:", err);
-      error(err?.message || "Failed to register vote");
-    } finally {
-      setIsVoting(false);
-    }
-  };
 
   const handleSaveToggle = async () => {
     if (!isAuthenticated) {
@@ -282,50 +202,7 @@ export default function PostCard({ post, onUnsave }) {
       {/* Post Action Footer */}
       <footer className="bg-surface-container-low/50 px-5 sm:px-6 py-3 flex items-center justify-between border-t border-outline-variant/10 text-on-surface-variant">
         <div className="flex items-center gap-4 sm:gap-6">
-          {/* Vote Bar */}
-          <div className="flex items-center bg-surface-container-lowest rounded-full px-2 py-1 gap-1 border border-outline-variant/15 shadow-sm">
-            <button
-              onClick={() => handleVote("upvote")}
-              className={`p-1 rounded-full transition-colors active:scale-110 ${
-                voteState === "up"
-                  ? "text-primary bg-primary-container/30"
-                  : "hover:text-primary hover:bg-surface-container"
-              }`}
-              title="Upvote"
-            >
-              <span
-                className={`material-symbols-outlined text-lg ${voteState === "up" ? "filled" : ""}`}
-              >
-                thumb_up
-              </span>
-            </button>
-            <span
-              className={`text-xs font-bold px-1.5 ${
-                voteCount > 0
-                  ? "text-primary"
-                  : voteCount < 0
-                    ? "text-error"
-                    : "text-on-surface-variant"
-              }`}
-            >
-              {voteCount}
-            </span>
-            <button
-              onClick={() => handleVote("downvote")}
-              className={`p-1 rounded-full transition-colors active:scale-110 ${
-                voteState === "down"
-                  ? "text-error bg-error-container/30"
-                  : "hover:text-error hover:bg-surface-container"
-              }`}
-              title="Downvote"
-            >
-              <span
-                className={`material-symbols-outlined text-lg ${voteState === "down" ? "filled" : ""}`}
-              >
-                thumb_down
-              </span>
-            </button>
-          </div>
+          <VoteButtons key={`${post._id}:${initialUpvotes}:${initialDownvotes}:${initialUserVote}`} upvoteCount={initialUpvotes} downvoteCount={initialDownvotes} userVote={initialUserVote} onVote={votePost} onError={(err) => { if (err?.message !== "Login required") { console.warn("Post vote failed:", err); error(err?.message || "Failed to register vote"); } }} className="bg-surface-container-lowest rounded-full border border-outline-variant/15 shadow-sm" />
 
           {/* Comment Count / Link */}
           <Link
@@ -336,7 +213,7 @@ export default function PostCard({ post, onUnsave }) {
             <span className="material-symbols-outlined text-lg">
               chat_bubble
             </span>
-            <span>{post?.commentsCount || post?.comments?.length || 0}</span>
+            <span>{post?.commentsCount ?? post?.comments?.length ?? 0}</span>
           </Link>
         </div>
 

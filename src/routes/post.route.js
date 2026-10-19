@@ -28,9 +28,9 @@ const router = Router();
 
 //publc route any one can access them
 router.route("/").get(ratelimit.readLimiter(), verifyOptional, getPost);
-router.route("/search").get(ratelimit.readLimiter(), searchOnText);
-router.route("/topic/:topic").get(ratelimit.readLimiter(), getTopicPosts);
-router.route("/user/:username").get(ratelimit.readLimiter(), getUserPosts);
+router.route("/search").get(ratelimit.readLimiter(), verifyOptional, searchOnText);
+router.route("/topic/:topic").get(ratelimit.readLimiter(), verifyOptional, getTopicPosts);
+router.route("/user/:username").get(ratelimit.readLimiter(), verifyOptional, getUserPosts);
 
 //login user can access them
  //-> getting saved post of a user and user can also provide query of limit,page

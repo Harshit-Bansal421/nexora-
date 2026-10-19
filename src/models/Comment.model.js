@@ -23,6 +23,14 @@ const CommentSchema = new mongoose.Schema(
       trim: true,
       maxlength: [1000, "Comment cannot exceed 1000 characters"],
     },
+    upvoteCount: {
+      type: Number,
+      default: 0,
+    },
+    downvoteCount: {
+      type: Number,
+      default: 0,
+    },
     upvotes: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -47,15 +55,6 @@ const CommentSchema = new mongoose.Schema(
     toObject: { virtuals: true },
   },
 );
-
-// Virtuals
-CommentSchema.virtual("upvoteCount").get(function () {
-  return this.upvotes?.length || 0;
-});
-
-CommentSchema.virtual("downvoteCount").get(function () {
-  return this.downvotes?.length || 0;
-});
 
 // Indexes
 CommentSchema.index({ post: 1, createdAt: -1 }); // new comments

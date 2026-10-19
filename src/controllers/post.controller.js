@@ -1,4 +1,5 @@
 import { Post } from "../models/Post.model.js";
+import { Comment } from "../models/Comment.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -19,6 +20,24 @@ import {
   publicPostVisibilityStages,
 } from "../utils/postAccess.js";
 import { parsePagination } from "../utils/pagination.js";
+
+const attachCommentCounts = async (posts) => {
+  if (!posts.length) return posts;
+  const counts = await Comment.aggregate([
+    {
+      $match: {
+        post: { $in: posts.map((post) => new mongoose.Types.ObjectId(post._id)) },
+        parentComment: null,
+      },
+    },
+    { $group: { _id: "$post", count: { $sum: 1 } } },
+  ]);
+  const countByPostId = new Map(counts.map((row) => [String(row._id), row.count]));
+  return posts.map((post) => ({
+    ...post,
+    commentsCount: countByPostId.get(String(post._id)) || 0,
+  }));
+};
 
 const createPost = asyncHandler(async (req, res) => {
   //get all the info from req.body,req.user,req.files
@@ -391,22 +410,29 @@ const getPostById = asyncHandler(async (req, res) => {
     },
     {
       $addFields: {
+        upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+        downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
         upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
         downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
         userVote: req.user?._id
           ? {
               $cond: [
-                { $in: [req.user._id, { $ifNull: ["$upvotes", []] }] },
-                "upvote",
+                {
+                  $in: [
+                    new mongoose.Types.ObjectId(req.user._id),
+                    { $ifNull: ["$upvotes", []] },
+                  ],
+                },
+                "up",
                 {
                   $cond: [
                     {
                       $in: [
-                        req.user._id,
+                        new mongoose.Types.ObjectId(req.user._id),
                         { $ifNull: ["$downvotes", []] },
                       ],
                     },
-                    "downvote",
+                    "down",
                     null,
                   ],
                 },
@@ -419,6 +445,8 @@ const getPostById = asyncHandler(async (req, res) => {
       $project: {
         _id: 1,
         owner: "$ownerInfo",
+        upvoteCount: 1,
+        downvoteCount: 1,
         upvotesCount: 1,
         downvotesCount: 1,
         userVote: 1,
@@ -437,10 +465,11 @@ const getPostById = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Post not found");
 
   const post = postdata[0];
+  const postWithCommentCount = (await attachCommentCounts([post]))[0];
   const postResponse = {
-    ...post,
-    postImage: (post.postImage || []).map(getOptimizedImage),
-    postVideo: (post.postVideo || []).map(getOptimizedVideo),
+    ...postWithCommentCount,
+    postImage: (postWithCommentCount.postImage || []).map(getOptimizedImage),
+    postVideo: (postWithCommentCount.postVideo || []).map(getOptimizedVideo),
   };
 
   return res
@@ -544,6 +573,33 @@ const getSavePost = asyncHandler(async (req, res) => {
       $addFields: {
         upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
         downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
+        upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
+        downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
+        userVote: userid
+          ? {
+              $cond: [
+                {
+                  $in: [
+                    new mongoose.Types.ObjectId(userid),
+                    { $ifNull: ["$upvotes", []] },
+                  ],
+                },
+                "up",
+                {
+                  $cond: [
+                    {
+                      $in: [
+                        new mongoose.Types.ObjectId(userid),
+                        { $ifNull: ["$downvotes", []] },
+                      ],
+                    },
+                    "down",
+                    null,
+                  ],
+                },
+              ],
+            }
+          : null,
       },
     },
     {
@@ -554,9 +610,13 @@ const getSavePost = asyncHandler(async (req, res) => {
         title: 1,
         description: 1,
         topic: 1,
+        owner: "$ownerInfo",
         ownerInfo: 1,
         upvoteCount: 1,
         downvoteCount: 1,
+        upvotesCount: 1,
+        downvotesCount: 1,
+        userVote: 1,
         createdAt: 1,
       },
     },
@@ -569,7 +629,8 @@ const getSavePost = asyncHandler(async (req, res) => {
   ]);
   const total = countResult[0]?.count || 0;
 
-  const modifiedSavedPosts = posts.map((post) => ({
+  const savedPostsWithCounts = await attachCommentCounts(posts);
+  const modifiedSavedPosts = savedPostsWithCounts.map((post) => ({
     ...post,
     postImage: (post.postImage || []).map(getOptimizedImage),
     postVideo: (post.postVideo || []).map(getOptimizedVideo),
@@ -614,6 +675,62 @@ const getUserPosts = asyncHandler(async (req, res) => {
           { $skip: (pageNumber - 1) * limitNumber },
           { $limit: limitNumber },
           {
+            $lookup: {
+              from: "comments",
+              let: { postId: "$_id" },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        { $eq: ["$post", "$$postId"] },
+                        { $eq: ["$parentComment", null] },
+                      ],
+                    },
+                  },
+                },
+                { $count: "count" },
+              ],
+              as: "commentCountLookup",
+            },
+          },
+          {
+            $addFields: {
+              commentsCount: {
+                $ifNull: [{ $arrayElemAt: ["$commentCountLookup.count", 0] }, 0],
+              },
+              upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
+              upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
+              userVote: req.user?._id
+                ? {
+                    $cond: [
+                      {
+                        $in: [
+                          new mongoose.Types.ObjectId(req.user._id),
+                          { $ifNull: ["$upvotes", []] },
+                        ],
+                      },
+                      "up",
+                      {
+                        $cond: [
+                          {
+                            $in: [
+                              new mongoose.Types.ObjectId(req.user._id),
+                              { $ifNull: ["$downvotes", []] },
+                            ],
+                          },
+                          "down",
+                          null,
+                        ],
+                      },
+                    ],
+                  }
+                : null,
+            },
+          },
+          {
             $project: {
               _id: 1,
               postImage: 1,
@@ -623,8 +740,12 @@ const getUserPosts = asyncHandler(async (req, res) => {
               title: 1,
               createdAt: 1,
               updatedAt: 1,
-              upvotes: 1,
-              downvotes: 1,
+              upvoteCount: 1,
+              downvoteCount: 1,
+              upvotesCount: 1,
+              downvotesCount: 1,
+              userVote: 1,
+              commentsCount: 1,
               owner: 1,
             },
           },
@@ -637,7 +758,8 @@ const getUserPosts = asyncHandler(async (req, res) => {
   const total = result?.totalCount?.[0]?.count || 0;
   const totalPages = Math.ceil(total / limitNumber);
 
-  const modifiedPosts = posts.map((postObj) => {
+  const postsWithCommentCounts = await attachCommentCounts(posts);
+  const modifiedPosts = postsWithCommentCounts.map((postObj) => {
     return {
       ...postObj,
       postImage: (postObj.postImage || []).map(getOptimizedImage),
@@ -656,6 +778,14 @@ const getUserPosts = asyncHandler(async (req, res) => {
           _id: user.id,
           title: user.title,
           badge: user.badge,
+          bio: user.bio || "",
+          createdAt: user.createdAt,
+          point: user.point || 0,
+          followersCount: user.followers?.length || 0,
+          followingCount: user.following?.length || 0,
+          isFollowing: Boolean(
+            req.user && user.followers?.some((followerId) => String(followerId) === String(req.user._id)),
+          ),
         },
         pagination: {
           total,
@@ -709,12 +839,35 @@ const getTopicPosts = asyncHandler(async (req, res) => {
           },
           {
             $addFields: {
-              upvotesCount: {
-                $size: { $ifNull: ["$upvotes", []] },
-              },
-              downvotesCount: {
-                $size: { $ifNull: ["$downvotes", []] },
-              },
+              upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
+              upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
+              userVote: req.user?._id
+                ? {
+                    $cond: [
+                      {
+                        $in: [
+                          new mongoose.Types.ObjectId(req.user._id),
+                          { $ifNull: ["$upvotes", []] },
+                        ],
+                      },
+                      "up",
+                      {
+                        $cond: [
+                          {
+                            $in: [
+                              new mongoose.Types.ObjectId(req.user._id),
+                              { $ifNull: ["$downvotes", []] },
+                            ],
+                          },
+                          "down",
+                          null,
+                        ],
+                      },
+                    ],
+                  }
+                : null,
             },
           },
           {
@@ -728,8 +881,11 @@ const getTopicPosts = asyncHandler(async (req, res) => {
               description: 1,
               createdAt: 1,
               updatedAt: 1,
+              upvoteCount: 1,
+              downvoteCount: 1,
               upvotesCount: 1,
               downvotesCount: 1,
+              userVote: 1,
             },
           },
         ],
@@ -747,7 +903,8 @@ const getTopicPosts = asyncHandler(async (req, res) => {
   //send response
   const result = posts[0];
 
-  const modifiedTopicPosts = (result.posts || []).map((post) => ({
+  const topicPostsWithCounts = await attachCommentCounts(result.posts || []);
+  const modifiedTopicPosts = topicPostsWithCounts.map((post) => ({
     ...post,
     postImage: (post.postImage || []).map(getOptimizedImage),
     postVideo: (post.postVideo || []).map(getOptimizedVideo),
@@ -817,22 +974,29 @@ const getPost = asyncHandler(async (req, res) => {
           },
           {
             $addFields: {
+              upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
               upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
               downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
               userVote: req.user?._id
                 ? {
                     $cond: [
-                      { $in: [req.user._id, { $ifNull: ["$upvotes", []] }] },
-                      "upvote",
+                      {
+                        $in: [
+                          new mongoose.Types.ObjectId(req.user._id),
+                          { $ifNull: ["$upvotes", []] },
+                        ],
+                      },
+                      "up",
                       {
                         $cond: [
                           {
                             $in: [
-                              req.user._id,
+                              new mongoose.Types.ObjectId(req.user._id),
                               { $ifNull: ["$downvotes", []] },
                             ],
                           },
-                          "downvote",
+                          "down",
                           null,
                         ],
                       },
@@ -845,6 +1009,8 @@ const getPost = asyncHandler(async (req, res) => {
             $project: {
               _id: 1,
               owner: "$ownerInfo",
+              upvoteCount: 1,
+              downvoteCount: 1,
               upvotesCount: 1,
               downvotesCount: 1,
               userVote: 1,
@@ -865,7 +1031,8 @@ const getPost = asyncHandler(async (req, res) => {
 
   const result = postData[0] || { posts: [], totalCount: [] };
 
-  const posts = (result.posts || []).map((post) => ({
+  const postsWithCounts = await attachCommentCounts(result.posts || []);
+  const posts = postsWithCounts.map((post) => ({
     ...post,
     postImage: (post.postImage || []).map(getOptimizedImage),
     postVideo: (post.postVideo || []).map(getOptimizedVideo),
@@ -891,12 +1058,19 @@ const getPost = asyncHandler(async (req, res) => {
 });
 
 const reactToPost = asyncHandler(async (req, res) => {
-  const { type } = req.body || {};
   const { post_id } = req.params;
   const user_id = req.user._id;
-  if (!["upvote", "downvote"].includes(type)) {
-    throw new ApiError(400, "Reaction type must be upvote or downvote");
+  const userId = new mongoose.Types.ObjectId(user_id);
+
+  let targetVote = req.body?.vote;
+  if (targetVote === undefined && req.body?.type) {
+    if (req.body.type === "upvote") targetVote = "up";
+    else if (req.body.type === "downvote") targetVote = "down";
   }
+  if (!["up", "down", null].includes(targetVote)) {
+    throw new ApiError(400, "Vote must be 'up', 'down', or null");
+  }
+
   if (!mongoose.Types.ObjectId.isValid(post_id)) {
     throw new ApiError(400, "Invalid post ID");
   }
@@ -906,66 +1080,108 @@ const reactToPost = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const post = await Post.findById(post_id).session(session);
-    if (!post) throw new ApiError(404, "Post not found");
+    const oldPost = await Post.findById(post_id)
+      .select("owner upvotes downvotes pages")
+      .session(session);
+    if (!oldPost) throw new ApiError(404, "Post not found");
 
-    const alreadyUpvoted = post.upvotes.some((id) => id.toString() === user_id.toString());
-    const alreadyDownvoted = post.downvotes.some((id) => id.toString() === user_id.toString());
+    const wasUpvoted = (oldPost.upvotes || []).some(
+      (id) => id.toString() === userId.toString(),
+    );
+    const wasDownvoted = (oldPost.downvotes || []).some(
+      (id) => id.toString() === userId.toString(),
+    );
 
-    let contributionDelta = 0;
-    if (type === "upvote") {
-      if (alreadyUpvoted) {
-        post.upvotes.pull(user_id);
-        contributionDelta = -10;
-      } else {
-        post.upvotes.addToSet(user_id);
-        if (alreadyDownvoted) post.downvotes.pull(user_id);
-        contributionDelta = 10;
-      }
-    } else {
-      // downvote
-      if (alreadyDownvoted) {
-        post.downvotes.pull(user_id);
-        contributionDelta = 10; // removing a downvote restores points
-      } else {
-        post.downvotes.addToSet(user_id);
-        if (alreadyUpvoted) post.upvotes.pull(user_id);
-        contributionDelta = -10;
-      }
+    const updatedPost = await Post.findOneAndUpdate(
+      { _id: post_id },
+      [
+        {
+          $set: {
+            upvotes: {
+              $cond: [
+                { $eq: [targetVote, "up"] },
+                { $setUnion: [{ $ifNull: ["$upvotes", []] }, [userId]] },
+                { $setDifference: [{ $ifNull: ["$upvotes", []] }, [userId]] },
+              ],
+            },
+            downvotes: {
+              $cond: [
+                { $eq: [targetVote, "down"] },
+                { $setUnion: [{ $ifNull: ["$downvotes", []] }, [userId]] },
+                { $setDifference: [{ $ifNull: ["$downvotes", []] }, [userId]] },
+              ],
+            },
+          },
+        },
+        {
+          $set: {
+            upvoteCount: { $size: "$upvotes" },
+            downvoteCount: { $size: "$downvotes" },
+          },
+        },
+      ],
+      { returnDocument: "after", session, updatePipeline: true },
+    );
+
+    if (!updatedPost) throw new ApiError(404, "Post not found");
+
+    const isUpvoted = (updatedPost.upvotes || []).some(
+      (id) => id.toString() === userId.toString(),
+    );
+    const isDownvoted = (updatedPost.downvotes || []).some(
+      (id) => id.toString() === userId.toString(),
+    );
+
+    const oldVal = wasUpvoted ? 1 : wasDownvoted ? -1 : 0;
+    const newVal = isUpvoted ? 1 : isDownvoted ? -1 : 0;
+    const contributionDelta = (newVal - oldVal) * 10;
+
+    if (contributionDelta !== 0 && oldPost.owner) {
+      await User.applyContribution(oldPost.owner, contributionDelta, session);
     }
 
-    await post.save({ session });
-    // Update author contribution atomically
-    await User.applyContribution(post.owner, contributionDelta, session);
     await session.commitTransaction();
 
     // Emit live updates
     const io = getIO.get();
-    const room = `post:${String(post._id).trim()}`;
-    io.to(room).emit("reacted-post", post);
-    post.pages.forEach((page) => {
-      const r = `page:${String(page).trim()}`;
-      io.to(r).emit("reacted-post", post);
-    });
+    if (io) {
+      const room = `post:${String(updatedPost._id).trim()}`;
+      io.to(room).emit("reacted-post", {
+        postId: updatedPost._id,
+        upvoteCount: updatedPost.upvoteCount,
+        downvoteCount: updatedPost.downvoteCount,
+      });
+      (oldPost.pages || []).forEach((page) => {
+        const r = `page:${String(page).trim()}`;
+        io.to(r).emit("reacted-post", {
+          postId: updatedPost._id,
+          upvoteCount: updatedPost.upvoteCount,
+          downvoteCount: updatedPost.downvoteCount,
+        });
+      });
+    }
 
-    await createNotification(
-      post.owner,
-      user_id,
-      type === "downvote" ? "post_downvote" : "post_upvote",
-      `${req.user.username} has ${type === "downvote" ? "downvoted" : "upvoted"} your post`,
-      post._id,
-    );
+    if (targetVote && oldPost.owner?.toString() !== userId.toString()) {
+      await createNotification(
+        oldPost.owner,
+        userId,
+        targetVote === "down" ? "post_downvote" : "post_upvote",
+        `${req.user.username} has ${targetVote === "down" ? "downvoted" : "upvoted"} your post`,
+        updatedPost._id,
+      );
+    }
 
-    const upvoteCount = post.upvotes.length;
-    const downvoteCount = post.downvotes.length;
-    const userVote = post.upvotes.includes(user_id)
-      ? "upvote"
-      : post.downvotes.includes(user_id)
-      ? "downvote"
-      : null;
-
-    res.status(200).json(
-      new ApiResponse(200, { upvoteCount, downvoteCount, userVote }, "Successfully reacted to post"),
+    const userVote = isUpvoted ? "up" : isDownvoted ? "down" : null;
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          upvoteCount: updatedPost.upvoteCount,
+          downvoteCount: updatedPost.downvoteCount,
+          userVote,
+        },
+        "Successfully reacted to post",
+      ),
     );
   } catch (err) {
     await session.abortTransaction();
@@ -1039,6 +1255,39 @@ const searchOnText = asyncHandler(async (req, res) => {
             },
           },
           { $unwind: { path: "$owner", preserveNullAndEmptyArrays: true } },
+          {
+            $addFields: {
+              upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
+              upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
+              userVote: req.user?._id
+                ? {
+                    $cond: [
+                      {
+                        $in: [
+                          new mongoose.Types.ObjectId(req.user._id),
+                          { $ifNull: ["$upvotes", []] },
+                        ],
+                      },
+                      "up",
+                      {
+                        $cond: [
+                          {
+                            $in: [
+                              new mongoose.Types.ObjectId(req.user._id),
+                              { $ifNull: ["$downvotes", []] },
+                            ],
+                          },
+                          "down",
+                          null,
+                        ],
+                      },
+                    ],
+                  }
+                : null,
+            },
+          },
         ],
         totalCount: [{ $count: "count" }],
       },
@@ -1047,7 +1296,8 @@ const searchOnText = asyncHandler(async (req, res) => {
   const posts = result?.posts || [];
   const total = result?.totalCount?.[0]?.count || 0;
 
-  const modifiedPosts = posts.map((postObj) => {
+  const postsWithCommentCounts = await attachCommentCounts(posts);
+  const modifiedPosts = postsWithCommentCounts.map((postObj) => {
     return {
       ...postObj,
       postImage: (postObj.postImage || []).map(getOptimizedImage),
@@ -1147,6 +1397,39 @@ const getPagePost = asyncHandler(async (req, res) => {
             },
           },
           { $unwind: { path: "$owner", preserveNullAndEmptyArrays: true } },
+          {
+            $addFields: {
+              upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
+              upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
+              userVote: req.user?._id
+                ? {
+                    $cond: [
+                      {
+                        $in: [
+                          new mongoose.Types.ObjectId(req.user._id),
+                          { $ifNull: ["$upvotes", []] },
+                        ],
+                      },
+                      "up",
+                      {
+                        $cond: [
+                          {
+                            $in: [
+                              new mongoose.Types.ObjectId(req.user._id),
+                              { $ifNull: ["$downvotes", []] },
+                            ],
+                          },
+                          "down",
+                          null,
+                        ],
+                      },
+                    ],
+                  }
+                : null,
+            },
+          },
         ],
         totalCount: [{ $count: "count" }],
       },
@@ -1154,7 +1437,8 @@ const getPagePost = asyncHandler(async (req, res) => {
   ]);
 
   const result = posts[0] || { posts: [], totalCount: [] };
-  const modifiedPosts = result.posts.map((postObj) => {
+  const pagePostsWithCounts = await attachCommentCounts(result.posts);
+  const modifiedPosts = pagePostsWithCounts.map((postObj) => {
     return {
       ...postObj,
       postImage: (postObj.postImage || []).map(getOptimizedImage),

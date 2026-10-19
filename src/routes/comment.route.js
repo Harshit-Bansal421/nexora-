@@ -9,7 +9,7 @@ import {
   getComnment,
   editComment,
   deleteComment,
-  upvoteComment,
+  voteComment,
   statusComment,
 } from "../controllers/comment.controller.js";
 
@@ -26,7 +26,7 @@ router.route("/:comment_id").delete(jwtVerify, ratelimit.writeLimiter(), isComme
 router.route("/:comment_id").patch(jwtVerify, ratelimit.writeLimiter(), isCommentOwner, editComment);
 
 //any logged in user
-router.route("/:comment_id/upvote").post(jwtVerify, ratelimit.writeLimiter(), upvoteComment);
+router.route("/:comment_id/vote").post(jwtVerify, ratelimit.writeLimiter(), voteComment);
 
 //only post owner can do this
 router

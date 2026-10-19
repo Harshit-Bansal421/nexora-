@@ -147,7 +147,35 @@ const getComnment = asyncHandler(async (req, res) => {
     },
     {
       $addFields: {
-        upvotesCount: { $size: "$upvotes" },
+        upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+        downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
+        upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
+        downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
+        userVote: req.user?._id
+          ? {
+              $cond: [
+                {
+                  $in: [
+                    new mongoose.Types.ObjectId(req.user._id),
+                    { $ifNull: ["$upvotes", []] },
+                  ],
+                },
+                "up",
+                {
+                  $cond: [
+                    {
+                      $in: [
+                        new mongoose.Types.ObjectId(req.user._id),
+                        { $ifNull: ["$downvotes", []] },
+                      ],
+                    },
+                    "down",
+                    null,
+                  ],
+                },
+              ],
+            }
+          : null,
         replyCount: { $size: "$replies" },
         hasChildren: { $gt: [{ $size: "$replies" }, 0] },
         statusPriority: {
@@ -265,9 +293,19 @@ const deleteCommentAndreply = async (comment_id, deletedCommentInfo) => {
   deletedCommentInfo.push({ id: info._id, body: info.body });
 };
 
-const upvoteComment = asyncHandler(async (req, res) => {
+const voteComment = asyncHandler(async (req, res) => {
   const { comment_id } = req.params;
   const user_id = req.user._id;
+  const userId = new mongoose.Types.ObjectId(user_id);
+
+  let targetVote = req.body?.vote;
+  if (targetVote === undefined && req.body?.type) {
+    if (req.body.type === "upvote") targetVote = "up";
+    else if (req.body.type === "downvote") targetVote = "down";
+  }
+  if (!["up", "down", null].includes(targetVote)) {
+    throw new ApiError(400, "Vote must be 'up', 'down', or null");
+  }
 
   if (!mongoose.Types.ObjectId.isValid(comment_id)) {
     throw new ApiError(400, "Invalid comment ID");
@@ -277,45 +315,91 @@ const upvoteComment = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const comment = await Comment.findById(comment_id).session(session);
-    if (!comment) throw new ApiError(404, "Comment not found");
-    await assertPostAccess(comment.post, user_id);
+    const oldComment = await Comment.findById(comment_id).session(session);
+    if (!oldComment) throw new ApiError(404, "Comment not found");
+    await assertPostAccess(oldComment.post, user_id);
 
-    const alreadyUpvoted = comment.upvotes.some(
-      (id) => id.toString() === user_id.toString(),
+    const wasUpvoted = (oldComment.upvotes || []).some(
+      (id) => id.toString() === userId.toString(),
     );
-    let contributionDelta = 0;
-    if (alreadyUpvoted) {
-      // remove upvote
-      comment.upvotes.pull(user_id);
-      contributionDelta = -10;
-    } else {
-      // add upvote
-      comment.upvotes.addToSet(user_id);
-      contributionDelta = 10;
-    }
+    const wasDownvoted = (oldComment.downvotes || []).some(
+      (id) => id.toString() === userId.toString(),
+    );
 
-    await comment.save({ session });
-    // Update comment author contribution atomically
-    if (comment.author.toString() !== user_id.toString()) {
-      await User.applyContribution(comment.author, contributionDelta, session);
+    const updatedComment = await Comment.findOneAndUpdate(
+      { _id: comment_id },
+      [
+        {
+          $set: {
+            upvotes: {
+              $cond: [
+                { $eq: [targetVote, "up"] },
+                { $setUnion: [{ $ifNull: ["$upvotes", []] }, [userId]] },
+                { $setDifference: [{ $ifNull: ["$upvotes", []] }, [userId]] },
+              ],
+            },
+            downvotes: {
+              $cond: [
+                { $eq: [targetVote, "down"] },
+                { $setUnion: [{ $ifNull: ["$downvotes", []] }, [userId]] },
+                { $setDifference: [{ $ifNull: ["$downvotes", []] }, [userId]] },
+              ],
+            },
+          },
+        },
+        {
+          $set: {
+            upvoteCount: { $size: "$upvotes" },
+            downvoteCount: { $size: "$downvotes" },
+          },
+        },
+      ],
+      { returnDocument: "after", session, updatePipeline: true },
+    );
+
+    if (!updatedComment) throw new ApiError(404, "Comment not found");
+
+    const isUpvoted = (updatedComment.upvotes || []).some(
+      (id) => id.toString() === userId.toString(),
+    );
+    const isDownvoted = (updatedComment.downvotes || []).some(
+      (id) => id.toString() === userId.toString(),
+    );
+
+    const oldVal = wasUpvoted ? 1 : wasDownvoted ? -1 : 0;
+    const newVal = isUpvoted ? 1 : isDownvoted ? -1 : 0;
+    const contributionDelta = (newVal - oldVal) * 10;
+
+    if (
+      contributionDelta !== 0 &&
+      oldComment.author &&
+      oldComment.author.toString() !== userId.toString()
+    ) {
+      await User.applyContribution(oldComment.author, contributionDelta, session);
     }
 
     await session.commitTransaction();
 
     // Emit live update to post room
     const io = getIO.get();
-    io.to(`post:${comment.post}`).emit("comment-vote-update", {
-      commentId: comment_id,
-      upvotesCount: comment.upvotes.length,
-      userUpvoted: !alreadyUpvoted,
-    });
+    if (io) {
+      io.to(`post:${updatedComment.post}`).emit("comment-vote-update", {
+        commentId: updatedComment._id,
+        upvoteCount: updatedComment.upvoteCount,
+        downvoteCount: updatedComment.downvoteCount,
+      });
+    }
 
+    const userVote = isUpvoted ? "up" : isDownvoted ? "down" : null;
     return res.status(200).json(
       new ApiResponse(
         200,
-        { upvotesCount: comment.upvotes.length, userUpvoted: !alreadyUpvoted },
-        "Comment vote recorded",
+        {
+          upvoteCount: updatedComment.upvoteCount,
+          downvoteCount: updatedComment.downvoteCount,
+          userVote,
+        },
+        "Comment vote recorded successfully",
       ),
     );
   } catch (err) {
@@ -383,6 +467,6 @@ export {
   getComnment,
   editComment,
   deleteComment,
-  upvoteComment,
+  voteComment,
   statusComment,
 };

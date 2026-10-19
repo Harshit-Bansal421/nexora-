@@ -160,10 +160,10 @@ export default function PageViewPage() {
 
   return (
     <Layout>
-      <div className="max-w-5xl mx-auto pb-24 space-y-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-5 pb-24 space-y-8">
         {/* Community Banner & Header */}
-        <section className="relative">
-          <div className="h-44 sm:h-60 w-full overflow-hidden bg-surface-container-highest relative">
+        <section className="overflow-hidden rounded-3xl border border-outline-variant/15 bg-surface-container-lowest shadow-stitch-soft">
+          <div className="h-40 sm:h-52 w-full overflow-hidden bg-surface-container-highest relative">
             <ImageWithFallback
               src={
                 page?.pageProfileImage ||
@@ -171,13 +171,18 @@ export default function PageViewPage() {
               }
               alt={page?.pageName}
               className="w-full h-full object-cover"
+              fallback={
+                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary to-primary-fixed text-white" aria-hidden="true">
+                  <span className="material-symbols-outlined text-6xl">groups</span>
+                </div>
+              }
             />
-            <div className="absolute inset-0 bg-black/30" />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/5" />
           </div>
 
-          <div className="px-4 sm:px-6 -mt-12 sm:-mt-16 relative z-10 flex flex-col md:flex-row md:items-end md:justify-between gap-5">
-            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-end">
-              <div className="h-24 w-24 sm:h-28 sm:w-28 rounded-3xl bg-surface-container-lowest p-1.5 shadow-stitch-ambient">
+          <div className="flex flex-col gap-5 p-5 sm:p-7 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+              <div className="-mt-12 h-20 w-20 shrink-0 rounded-2xl bg-surface-container-lowest p-1.5 shadow-stitch-ambient sm:-mt-14 sm:h-24 sm:w-24">
                 <div className="w-full h-full rounded-2xl bg-gradient-to-br from-primary to-primary-dim flex items-center justify-center text-on-primary">
                   <span className="material-symbols-outlined text-4xl">
                     groups
@@ -185,11 +190,11 @@ export default function PageViewPage() {
                 </div>
               </div>
 
-              <div className="pb-1">
-                <h1 className="text-2xl sm:text-4xl font-headline font-extrabold text-on-surface tracking-tight">
+              <div className="min-w-0 pb-1">
+                <h1 className="break-words text-2xl sm:text-3xl font-headline font-extrabold text-on-surface tracking-tight">
                   {page?.pageName || "Community Hub"}
                 </h1>
-                <div className="flex items-center gap-4 mt-1.5">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-1.5">
                   <span className="text-on-surface-variant font-medium flex items-center gap-1 text-xs">
                     <span className="material-symbols-outlined text-sm">
                       groups
@@ -209,11 +214,11 @@ export default function PageViewPage() {
             </div>
 
             {/* Actions: Join & Info */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 md:shrink-0">
               <button
                 onClick={handleJoinToggle}
                 disabled={joining || isOwner}
-                className={`px-8 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md active:scale-95 ${
+                className={`min-h-11 rounded-xl px-6 py-2.5 font-bold text-xs transition-all shadow-sm active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60 ${
                   isMember || isOwner
                     ? "bg-surface-container-high text-on-surface hover:bg-surface-container-highest"
                     : "bg-primary text-white hover:bg-primary-dim"
@@ -234,7 +239,7 @@ export default function PageViewPage() {
 
               <Link
                 to={`/pages/${pageId}/info`}
-                className="bg-surface-container-highest hover:bg-surface-variant text-on-surface p-2.5 rounded-xl transition-all shadow-sm flex items-center"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-surface-container-highest text-on-surface shadow-sm transition-colors hover:bg-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 title="Hub Info & Roster"
               >
                 <span className="material-symbols-outlined text-lg">info</span>
@@ -244,7 +249,7 @@ export default function PageViewPage() {
         </section>
 
         {/* Content Section: Quick Post Box & Feed */}
-        <div className="px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Feed Column */}
           <div className="lg:col-span-2 space-y-6">
             {/* Quick Post Prompt */}

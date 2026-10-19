@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useParams, Link } from "react-router-dom";
 import Layout from "../components/Layout";
 import PostCard from "../components/PostCard";
@@ -26,6 +27,13 @@ export default function UserProfilePage() {
   const [followingCount, setFollowingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [isFollowingBusy, setIsFollowingBusy] = useState(false);
+  const pendingFollowAction = useRef(false);
+  const [followListType, setFollowListType] = useState(null);
+  const [followList, setFollowList] = useState([]);
+  const [followListPage, setFollowListPage] = useState(1);
+  const [followListTotalPages, setFollowListTotalPages] = useState(1);
+  const [followListLoading, setFollowListLoading] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -67,9 +75,11 @@ export default function UserProfilePage() {
 
           const followers = userObj.followers || [];
           const following = userObj.following || [];
-          setFollowerCount(followers.length);
-          setFollowingCount(following.length);
-          setIsFollowing(currentUser && followers.includes(currentUser._id));
+          setFollowerCount(userObj.followersCount ?? followers.length);
+          setFollowingCount(userObj.followingCount ?? following.length);
+          setIsFollowing(
+            Boolean(currentUser && (userObj.isFollowing ?? followers.some((follower) => String(follower?._id || follower) === String(currentUser._id)))),
+          );
         }
       } catch (err) {
         console.warn("Error fetching user posts:", err);
@@ -111,11 +121,13 @@ export default function UserProfilePage() {
     const socket = getSocket();
     joinUserRoom(profileUser._id);
 
-    const handleFollowed = () => {
-      setFollowerCount((prev) => prev + 1);
+    const handleFollowed = (user) => {
+      if (pendingFollowAction.current) return;
+      if (Array.isArray(user?.followers)) setFollowerCount(user.followers.length);
     };
-    const handleUnfollowed = () => {
-      setFollowerCount((prev) => Math.max(0, prev - 1));
+    const handleUnfollowed = (user) => {
+      if (pendingFollowAction.current) return;
+      if (Array.isArray(user?.followers)) setFollowerCount(user.followers.length);
     };
 
     socket.on("followed-user", handleFollowed);
@@ -128,23 +140,63 @@ export default function UserProfilePage() {
     };
   }, [profileUser?._id]);
 
+  useEffect(() => {
+    if (!followListType || !profileUser?._id) return;
+    let active = true;
+    authApi.getFollowList(profileUser._id, followListType, { page: followListPage, limit: 20 })
+      .then((response) => {
+        if (!active) return;
+        const data = response?.data || response || {};
+        const people = data.users || [];
+        setFollowList((current) => followListPage === 1 ? people : [...current, ...people]);
+        setFollowListTotalPages(data.pagination?.totalPages || 1);
+      })
+      .catch((err) => {
+        if (active) {
+          if (followListPage > 1) setFollowListPage((page) => Math.max(1, page - 1));
+          error(err?.message || "Could not load this list.");
+        }
+      })
+      .finally(() => {
+        if (active) setFollowListLoading(false);
+      });
+    return () => { active = false; };
+  }, [error, followListPage, followListType, profileUser?._id]);
+
+  const openFollowList = (type) => {
+    setFollowList([]);
+    setFollowListPage(1);
+    setFollowListTotalPages(1);
+    setFollowListLoading(true);
+    setFollowListType(type);
+  };
+
   const handleFollowToggle = async () => {
     if (!isAuthenticated) {
       info("Please log in to follow creators.");
       return;
     }
     if (!profileUser?._id) return;
+    if (isFollowingBusy) return;
 
     const nextState = !isFollowing;
     setIsFollowing(nextState);
     setFollowerCount((prev) => (nextState ? prev + 1 : Math.max(0, prev - 1)));
+    setIsFollowingBusy(true);
+    pendingFollowAction.current = true;
 
     try {
       if (nextState) {
-        await authApi.followUser(profileUser._id);
+        const response = await authApi.followUser(profileUser._id);
+        const data = response?.data || response || {};
+        if (Number.isFinite(data.followersCount)) setFollowerCount(data.followersCount);
+        setIsFollowing(data.isFollowing ?? true);
         success(`You are now following ${profileUser.username}`);
       } else {
-        await authApi.unfollowUser(profileUser._id);
+        const response = await authApi.unfollowUser(profileUser._id);
+        const data = response?.data || response || {};
+        if (Number.isFinite(data.followersCount)) setFollowerCount(data.followersCount);
+        setIsFollowing(data.isFollowing ?? false);
         info(`Unfollowed ${profileUser.username}`);
       }
     } catch (err) {
@@ -153,6 +205,9 @@ export default function UserProfilePage() {
         !nextState ? prev + 1 : Math.max(0, prev - 1),
       );
       error(err?.message || "Failed to update follow status.");
+    } finally {
+      pendingFollowAction.current = false;
+      setIsFollowingBusy(false);
     }
   };
 
@@ -199,15 +254,16 @@ export default function UserProfilePage() {
 
   return (
     <Layout>
-      <div className="max-w-5xl mx-auto pb-24">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-5 pb-24">
         {/* Cover Banner */}
-        <section className="relative">
-          <div className="h-44 sm:h-56 md:h-64 w-full bg-gradient-to-r from-primary via-primary-dim to-primary-fixed relative overflow-hidden">
-            <div className="absolute inset-0 bg-black/15" />
+        <section className="relative rounded-3xl border border-outline-variant/15 bg-surface-container-lowest shadow-stitch-soft">
+          <div className="h-36 sm:h-48 md:h-56 w-full rounded-t-3xl bg-gradient-to-br from-primary via-primary-dim to-primary-fixed relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent" />
+            <div aria-hidden="true" className="absolute -right-10 -top-16 h-56 w-56 rounded-full border-[28px] border-white/10" />
           </div>
 
           {/* Profile Info Header */}
-          <div className="px-4 sm:px-6 -mt-12 sm:-mt-16 flex flex-col md:flex-row md:items-end md:justify-between gap-6 relative z-10">
+          <div className="px-4 sm:px-6 -mt-10 sm:-mt-14 flex flex-col md:flex-row md:items-end md:justify-between gap-5 relative z-10">
             <div className="flex flex-col sm:flex-row items-start sm:items-end gap-5">
               {/* Avatar */}
               <div className="relative">
@@ -215,7 +271,7 @@ export default function UserProfilePage() {
                   <Avatar
                     src={profileUser?.profileImage}
                     name={profileUser?.username || "User"}
-                    className="w-24 h-24 sm:w-32 sm:h-32 rounded-[1.5rem] object-cover"
+                  className="w-20 h-20 sm:w-28 sm:h-28 rounded-[1.5rem] object-cover"
                   />
                 </div>
                 <div className="absolute bottom-2 right-2 bg-secondary text-on-secondary px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border-2 border-surface">
@@ -225,7 +281,7 @@ export default function UserProfilePage() {
 
               {/* Names */}
               <div className="pb-1">
-                <h1 className="text-2xl sm:text-3xl font-extrabold font-headline tracking-tight text-on-surface">
+                <h1 className="break-words text-2xl sm:text-3xl font-extrabold font-headline tracking-tight text-on-surface">
                   {profileUser?.username}
                 </h1>
                 <p className="text-on-surface-variant font-medium text-sm">
@@ -235,7 +291,7 @@ export default function UserProfilePage() {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3 pb-2">
+            <div className="flex gap-3 pb-1 md:ml-auto">
               {isOwnProfile ? (
                 <Link
                   to="/profile/edit"
@@ -249,7 +305,9 @@ export default function UserProfilePage() {
               ) : (
                 <button
                   onClick={handleFollowToggle}
-                  className={`px-8 py-2.5 rounded-xl font-bold text-xs transition-all active:scale-95 shadow-sm flex items-center gap-1.5 ${
+                  disabled={isFollowingBusy}
+                  aria-busy={isFollowingBusy}
+                  className={`min-h-11 min-w-32 justify-center px-6 py-2.5 rounded-xl font-bold text-xs transition-all active:scale-95 shadow-sm flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-70 ${
                     isFollowing
                       ? "bg-surface-container-high text-on-surface hover:bg-surface-container-highest"
                       : "bg-gradient-to-br from-primary to-primary-dim text-white hover:brightness-105"
@@ -258,14 +316,14 @@ export default function UserProfilePage() {
                   <span className="material-symbols-outlined text-base">
                     {isFollowing ? "check" : "person_add"}
                   </span>
-                  {isFollowing ? "Following" : "Follow"}
+                  {isFollowingBusy ? "Updating…" : isFollowing ? "Following" : "Follow"}
                 </button>
               )}
             </div>
           </div>
 
           {/* Stats & Bio Bento Grid */}
-          <div className="px-4 sm:px-6 mt-8 grid grid-cols-1 md:grid-cols-12 gap-5">
+          <div className="px-4 sm:px-6 pb-6 mt-6 grid grid-cols-1 md:grid-cols-12 gap-5">
             {/* Bio Card */}
             <div className="md:col-span-8 bg-surface-container-low p-6 rounded-2xl border border-outline-variant/15">
               <h3 className="font-headline font-bold text-base mb-2 text-on-surface">
@@ -292,23 +350,23 @@ export default function UserProfilePage() {
 
             {/* Stats Cards */}
             <div className="md:col-span-4 grid grid-cols-2 gap-3">
-              <div className="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/15 flex flex-col items-center justify-center text-center shadow-stitch-soft">
+              <button type="button" onClick={() => openFollowList("followers")} className="min-h-11 bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/15 flex flex-col items-center justify-center text-center shadow-stitch-soft hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 <span className="text-2xl font-extrabold font-headline text-primary">
                   {followerCount}
                 </span>
                 <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">
                   Followers
                 </span>
-              </div>
+              </button>
 
-              <div className="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/15 flex flex-col items-center justify-center text-center shadow-stitch-soft">
+              <button type="button" onClick={() => openFollowList("following")} className="min-h-11 bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/15 flex flex-col items-center justify-center text-center shadow-stitch-soft hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 <span className="text-2xl font-extrabold font-headline text-primary">
                   {followingCount}
                 </span>
                 <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">
                   Following
                 </span>
-              </div>
+              </button>
 
               <div className="col-span-2 bg-gradient-to-r from-tertiary-container to-tertiary-fixed p-5 rounded-2xl flex items-center justify-between shadow-stitch-soft text-on-tertiary-container">
                 <div>
@@ -424,6 +482,35 @@ export default function UserProfilePage() {
           )}
         </section>
       </div>
+      {followListType && createPortal((
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setFollowListType(null); }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="follow-list-title" className="flex max-h-[min(80vh,640px)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-surface-container-lowest shadow-2xl">
+            <header className="flex items-center justify-between border-b border-outline-variant/15 px-5 py-4">
+              <h2 id="follow-list-title" className="font-headline text-lg font-bold text-on-surface">{followListType === "followers" ? "Followers" : "Following"}</h2>
+              <button type="button" aria-label="Close list" onClick={() => setFollowListType(null)} className="inline-flex h-11 w-11 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"><span className="material-symbols-outlined">close</span></button>
+            </header>
+            <div className="min-h-32 overflow-y-auto px-4 py-2">
+              {followList.map((person) => (
+                person.username ? (
+                  <Link key={person._id} to={`/profile/${encodeURIComponent(person.username)}`} onClick={() => setFollowListType(null)} className="flex min-h-14 items-center gap-3 rounded-xl px-2 py-2 hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                    <Avatar src={person.profileImage} name={person.username} className="h-10 w-10 rounded-full object-cover" />
+                    <span className="font-semibold text-sm text-on-surface">{person.username}</span>
+                    {person.badge && <span className="ml-auto rounded-full bg-secondary-container/40 px-2 py-1 text-[10px] font-bold text-secondary">{person.badge}</span>}
+                  </Link>
+                ) : (
+                  <div key={person._id} className="flex min-h-14 items-center gap-3 px-2 py-2 text-sm text-on-surface-variant">
+                    <Avatar src={person.profileImage} name="User" className="h-10 w-10 rounded-full object-cover" />
+                    Unknown user
+                  </div>
+                )
+              ))}
+              {!followListLoading && followList.length === 0 && <p className="py-8 text-center text-sm text-on-surface-variant">No {followListType} yet.</p>}
+              {followListLoading && <p role="status" className="py-5 text-center text-sm text-on-surface-variant">Loading…</p>}
+            </div>
+            {followListPage < followListTotalPages && <footer className="border-t border-outline-variant/15 p-3"><button type="button" disabled={followListLoading} onClick={() => { setFollowListLoading(true); setFollowListPage((page) => page + 1); }} className="min-h-11 w-full rounded-xl bg-primary/10 text-sm font-bold text-primary disabled:opacity-50">Load more</button></footer>}
+          </section>
+        </div>
+      ), document.body)}
     </Layout>
   );
 }

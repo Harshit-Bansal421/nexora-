@@ -62,7 +62,10 @@ export const authApi = {
   logoutAll: () => api.post("/users/logout-all"),
   updateUsername: (data) => api.patch("/users/update-username", data),
   updateProfile: (data) => api.patch("/users/update-profile", data),
+  followUser: (userId) => api.post(`/users/follow/${userId}`),
   unfollowUser: (userId) => api.delete(`/users/unfollow/${userId}`),
+  getFollowList: (userId, listType, params) =>
+    api.get(`/users/${userId}/${listType}`, { params }),
 };
 
 // Post APIs
@@ -86,7 +89,11 @@ export const postApi = {
       headers: { "Content-Type": "multipart/form-data" },
     }),
   deletePost: (postId) => api.delete(`/posts/${postId}`),
-  votePost: (postId, type) => api.post(`/posts/${postId}/vote`, { type }),
+  votePost: (postId, vote) =>
+    api.post(
+      `/posts/${postId}/vote`,
+      typeof vote === "object" && vote !== null ? vote : { vote },
+    ),
   savePost: (postId) => api.post(`/posts/${postId}/save`),
   unsavePost: (postId) => api.delete(`/posts/${postId}/save`),
   addPostToPage: (postId, pageIds) =>
@@ -133,7 +140,7 @@ export const commentApi = {
   createComment: (postId, data) => api.post(`/comments/post/${postId}`, data),
   updateComment: (commentId, data) => api.patch(`/comments/${commentId}`, data),
   deleteComment: (commentId) => api.delete(`/comments/${commentId}`),
-  upvoteComment: (commentId) => api.post(`/comments/${commentId}/upvote`),
+  voteComment: (commentId, vote) => api.post(`/comments/${commentId}/vote`, { vote }),
   setCommentStatus: (postId, commentId, status) =>
     api.post(`/comments/${postId}/${commentId}/status`, { status }),
 };
