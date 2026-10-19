@@ -58,7 +58,6 @@ router
     ratelimit.writeLimiter(),
     loadingPage,
     isPageModeratorOrOwner,
-    checkMembership,
     removeUser,
   ); //remove user--jo banda remove kr ra vo moderator ya owner hoga and req.body mei accept krenge membership so that any number of users can be removed from the page
 router

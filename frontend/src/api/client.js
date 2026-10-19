@@ -115,11 +115,11 @@ export const pageApi = {
   getPageMembers: (pageId, params) =>
     api.get(`/pages/${pageId}/members`, { params }),
   removeMember: (pageId, memberId) =>
-    api.delete(`/pages/${pageId}/members`, { data: { memberId } }),
+    api.delete(`/pages/${pageId}/members`, { data: { users: [memberId] } }),
   addModerator: (pageId, userId) =>
-    api.post(`/pages/${pageId}/moderators`, { userId }),
+    api.post(`/pages/${pageId}/moderators`, { users: [userId] }),
   removeModerator: (pageId, userId) =>
-    api.delete(`/pages/${pageId}/moderators`, { data: { userId } }),
+    api.delete(`/pages/${pageId}/moderators`, { data: { users: [userId] } }),
   getJoinRequests: (pageId, params) =>
     api.get(`/pages/${pageId}/requests`, { params }),
   handleJoinRequest: (pageId, requestedBy, status) =>

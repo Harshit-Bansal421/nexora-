@@ -10,6 +10,7 @@ import {
 } from "../utils/Cloudinary.js";
 import { Post } from "../models/Post.model.js";
 import { JoinRequest } from "../models/Joinrequest.model.js";
+import { User } from "../models/User.model.js";
 import { getIO } from "../socket.js";
 import { createNotification } from "../utils/createNotification.js";
 import { parsePagination } from "../utils/pagination.js";
@@ -218,25 +219,16 @@ const getPages = asyncHandler(async (req, res) => {
 });
 
 const makeModerator = asyncHandler(async (req, res) => {
-  //get pageid from req.post and we know the the user that is giving task is owner
-  //and we also know upcoming requested users is member of the same page and is an validated array
   const moderators = req.requestedUsers;
-  const page_id = req.page._id;
-
-  //make him a moderator
-  await Page.updateOne(
-    { _id: page_id },
-    {
-      $addToSet: {
-        moderators: { $each: moderators },
-      },
-    },
-    { returnDocument: "after" },
+  const previousModerators = new Set(req.page.moderators.map(String));
+  const updatedPage = await Page.findOneAndUpdate(
+    { _id: req.page._id, owner: req.user._id, members: { $all: moderators } },
+    { $addToSet: { moderators: { $each: moderators } } },
+    { new: true },
   );
+  if (!updatedPage) throw new ApiError(404, "Community or requested member was not found");
 
-  const updatedPage=await Page.findById(page_id);
-  //send notification to the user who became moderator
-  for (const mod of moderators) {
+  for (const mod of moderators.filter((id) => !previousModerators.has(String(id)))) {
     await createNotification(
       mod,
       updatedPage.owner,
@@ -245,96 +237,85 @@ const makeModerator = asyncHandler(async (req, res) => {
     );
   }
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, "Users successfully added as moderators"));
+  const io = getIO.get();
+  io?.to(`page:${String(updatedPage._id)}`).emit("madeModerator-page", updatedPage);
+  return res.status(200).json(new ApiResponse(200, {
+    userIds: moderators,
+    moderatorsCount: updatedPage.moderators.length,
+    membersCount: updatedPage.members.length,
+  }, "Users successfully added as moderators"));
 });
 
 const removeModerator = asyncHandler(async (req, res) => {
   //get pageid from req.post and we know the the user that is giving task is owner
   //and we also know upcoming requested users is member of the same page and is an validated array
   const moderators = req.requestedUsers;
-  const page_id = req.page._id;
-
-  //we have to check if the one of removing users is owner or not
-  const owner_id = req.page.owner;
-  if (moderators.includes(owner_id.toString()))
-    throw new ApiError(403, "Owner cannot be removed from moderators");
-
-  //make him a moderator
-  await Page.updateOne(
-    { _id: page_id },
-    {
-      $pullAll: {
-        moderators: moderators,
-      },
-    },
+  if (moderators.some((id) => String(id) === String(req.page.owner))) {
+    throw new ApiError(403, "The community owner cannot be demoted");
+  }
+  const previousModerators = new Set(req.page.moderators.map(String));
+  const updatedPage = await Page.findOneAndUpdate(
+    { _id: req.page._id, owner: req.user._id },
+    { $pull: { moderators: { $in: moderators } } },
+    { new: true },
   );
-
-  const updatedPage = await Page.findById(page_id);
-
-  //send notification to the user who became moderator
-  const io=getIO.get();
-  const room=`page:${String(updatedPage._id).trim()}`
-  io.to(room).emit("madeModerator-page",updatedPage)
-  for (const mod of moderators) {
+  if (!updatedPage) throw new ApiError(404, "Community not found");
+  const io = getIO.get();
+  io?.to(`page:${String(updatedPage._id)}`).emit("madeModerator-page", updatedPage);
+  for (const mod of moderators.filter((id) => previousModerators.has(String(id)))) {
     await createNotification(
       mod,
       updatedPage.owner,
-      "mod_appointed",
-      `${req.user.username} appointed you moderator of the page:${updatedPage.pageName}`,
+      "mod_removed",
+      `${req.user.username} removed your moderator role from ${updatedPage.pageName}`,
     );
   }
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, "Users removed from moderators successfully"));
+  return res.status(200).json(new ApiResponse(200, {
+    userIds: moderators,
+    moderatorsCount: updatedPage.moderators.length,
+    membersCount: updatedPage.members.length,
+  }, "Users removed from moderators successfully"));
 });
 
 const seeMembersList = asyncHandler(async (req, res) => {
-  //get page id from req.page
-  const page_id = req.page._id;
+  const page = req.page;
   const { page: pageNumber, limit: limitNumber, skip } = parsePagination(
     req.query,
   );
-
-  const [membeList] = await Page.aggregate([
-    { $match: { _id: page_id } },
-    {
-      $project: {
-        pageName: 1,
-        owner: 1,
-        pageProfileImage: 1,
-        membersCount: { $size: "$members" },
-        members: { $slice: ["$members", skip, limitNumber] },
-      },
-    },
-    {
-      $lookup: {
-        from: "users",
-        localField: "members",
-        foreignField: "_id",
-        pipeline: [
-          { $project: { username: 1, profileImage: 1, title: 1, badge: 1 } },
-        ],
-        as: "members",
-      },
-    },
+  const rawSearch = typeof req.query.search === "string" ? req.query.search.trim() : "";
+  const search = rawSearch.slice(0, 80);
+  const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const filter = { _id: { $in: page.members } };
+  if (escapedSearch) filter.username = { $regex: escapedSearch, $options: "i" };
+  const [members, matchingMembers] = await Promise.all([
+    User.find(filter)
+      .select("username profileImage title badge")
+      .sort({ username: 1, _id: 1 })
+      .skip(skip)
+      .limit(limitNumber)
+      .lean(),
+    User.countDocuments(filter),
   ]);
-
-  if (!membeList) throw new ApiError(404, "Page not found");
+  const membeList = {
+    pageName: page.pageName,
+    owner: page.owner,
+    pageProfileImage: page.pageProfileImage,
+    membersCount: page.members.length,
+    members: members.map((member) => ({
+      ...member,
+      profileImage: getOptimizedImage(member.profileImage),
+      isOwner: String(member._id) === String(page.owner),
+      isModerator: page.moderators.some((id) => String(id) === String(member._id)),
+    })),
+  };
   membeList.pageProfileImage = getOptimizedImage(membeList.pageProfileImage);
-  membeList.members = membeList.members.map((member) => {
-    member.profileImage = getOptimizedImage(member.profileImage);
-    return member;
-  });
 
   const pagination = {
-    total: membeList.membersCount,
+    total: matchingMembers,
     page: pageNumber,
     limit: limitNumber,
-    totalPages: Math.ceil(membeList.membersCount / limitNumber),
-    hasNextPage: pageNumber < Math.ceil(membeList.membersCount / limitNumber),
+    totalPages: Math.ceil(matchingMembers / limitNumber),
+    hasNextPage: pageNumber < Math.ceil(matchingMembers / limitNumber),
   };
 
   //request maker only need to see members name,profileImage,username,title,badge
@@ -350,37 +331,39 @@ const seeMembersList = asyncHandler(async (req, res) => {
 });
 
 const removeUser = asyncHandler(async (req, res) => {
-  //get page id from req.page and removing user from req.requestedUsers
   const page = req.page;
-  const removingUsers = req.requestedUsers.map((id) => id.toString());
-  const userPerformingAction = req.user._id;
-  const moderatorIds = new Set(page.moderators.map((m) => m.toString()));
-  // i have to check if the person who is removing is owner then he can remove anyone except himself
-  if (removingUsers.includes(page.owner.toString()))
-    throw new ApiError(403, "Cannot remove the owner of the page");
-
-  //if he is not owner that means he is moderator then he can not remove owner or any other moderator
-  if (page.owner.toString() !== userPerformingAction.toString()) {
-    if (removingUsers.some((id) => moderatorIds.has(id)))
-      throw new ApiError(403, "Moderators cannot remove other moderators");
+  let removingUsers = req.body?.users;
+  if (removingUsers === undefined) {
+    throw new ApiError(400, "Provide users as an array of member IDs");
   }
-  //remove them
-  await Page.updateOne(
+  if (!Array.isArray(removingUsers)) removingUsers = [removingUsers];
+  if (removingUsers.length < 1 || removingUsers.length > 100) {
+    throw new ApiError(400, "Provide between 1 and 100 users to remove");
+  }
+  if (removingUsers.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+    throw new ApiError(400, "One or more user IDs are invalid");
+  }
+  removingUsers = [...new Set(removingUsers.map((id) => String(id).toLowerCase()))];
+  const existingUsers = await User.countDocuments({ _id: { $in: removingUsers } });
+  if (existingUsers !== removingUsers.length) throw new ApiError(404, "One or more users were not found");
+  const moderatorIds = new Set(page.moderators.map((m) => m.toString()));
+  if (removingUsers.includes(String(page.owner))) {
+    throw new ApiError(403, "The community owner cannot be removed");
+  }
+  if (String(page.owner) !== String(req.user._id) && removingUsers.some((id) => moderatorIds.has(id))) {
+    throw new ApiError(403, "Only the owner can remove moderators");
+  }
+  const removedMembers = new Set(page.members.map(String));
+  const updatedPage = await Page.findOneAndUpdate(
     { _id: page._id },
-    {
-      $pull: {
-        moderators: { $in: removingUsers },
-        members: { $in: removingUsers },
-      },
-    },
+    { $pull: { moderators: { $in: removingUsers }, members: { $in: removingUsers } } },
+    { new: true },
   );
+  if (!updatedPage) throw new ApiError(404, "Community not found");
+  const io = getIO.get();
+  io?.to(`page:${String(page._id)}`).emit("removeuser-page", page._id);
 
-  //send live respone and notification too
-  const io=getIO.get();
-  const room=`page:${String(page._id).trim()}`;
-  io.to(room).emit("removeuser-page",page._id);
-  
-  for(const rem_id of removingUsers){
+  for (const rem_id of removingUsers.filter((id) => removedMembers.has(id))) {
     await createNotification(
       rem_id,
       req.user._id,
@@ -390,10 +373,11 @@ const removeUser = asyncHandler(async (req, res) => {
     )
   }
   
-  //send response
-  return res
-    .status(200)
-    .json(new ApiResponse(200, {}, "Users removed from the page successfully"));
+  return res.status(200).json(new ApiResponse(200, {
+    userIds: removingUsers,
+    membersCount: updatedPage.members.length,
+    moderatorsCount: updatedPage.moderators.length,
+  }, "Users removed from the page successfully"));
 });
 
 const joinPage = asyncHandler(async (req, res) => {

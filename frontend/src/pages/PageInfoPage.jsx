@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import { pageApi } from "../api/client";
@@ -11,14 +11,22 @@ export default function PageInfoPage() {
   const { pageId } = useParams();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const { success, error, info } = useToast();
+  const { success, error } = useToast();
 
   const [page, setPage] = useState(null);
   const [members, setMembers] = useState([]);
   const [membersCount, setMembersCount] = useState(null);
+  const [memberMatchingCount, setMemberMatchingCount] = useState(0);
+  const [memberPage, setMemberPage] = useState(1);
+  const [memberTotalPages, setMemberTotalPages] = useState(1);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberSearchInput, setMemberSearchInput] = useState("");
+  const [memberBusyId, setMemberBusyId] = useState(null);
+  const [memberAction, setMemberAction] = useState(null);
   const [requests, setRequests] = useState([]);
   const [activeTab, setActiveTab] = useState("about"); // 'about' | 'members' | 'requests'
   const [loading, setLoading] = useState(true);
+  const loadedPageId = useRef(null);
 
   // Edit Page Modal State
   const [showEditModal, setShowEditModal] = useState(false);
@@ -30,10 +38,15 @@ export default function PageInfoPage() {
   const [updating, setUpdating] = useState(false);
 
   const fetchPageDetails = useCallback(async () => {
-    setLoading(true);
-    setMembersCount(null);
-    setMembers([]);
-    setRequests([]);
+    const isNewPage = loadedPageId.current !== pageId;
+    if (isNewPage) {
+      loadedPageId.current = pageId;
+      setLoading(true);
+      setMembersCount(null);
+      setMemberMatchingCount(0);
+      setMembers([]);
+      setRequests([]);
+    }
     try {
       const res = await pageApi.getPageById(pageId);
       const pageData = res?.data || res;
@@ -49,15 +62,17 @@ export default function PageInfoPage() {
       );
       if (canViewMembers) {
         try {
-          const memRes = await pageApi.getPageMembers(pageId, { limit: 100 });
+          const memRes = await pageApi.getPageMembers(pageId, { limit: 10, page: memberPage, search: memberSearch });
           const memData = memRes?.data || memRes || [];
           const memberRows = Array.isArray(memData)
             ? memData
             : memData?.membeList?.members || memData?.members || [];
           setMembers(memberRows);
           setMembersCount(
-            memData?.membeList?.membersCount ?? memberRows.length,
+            memData?.membeList?.membersCount ?? memData?.pagination?.total ?? memberRows.length,
           );
+          setMemberTotalPages(memData?.pagination?.totalPages ?? 1);
+          setMemberMatchingCount(memData?.pagination?.total ?? memberRows.length);
         } catch (e) {
           console.warn("Could not load community members:", e);
           error(e?.message || "Could not load community members.");
@@ -92,7 +107,7 @@ export default function PageInfoPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentUser, error, pageId]);
+  }, [currentUser, error, pageId, memberPage, memberSearch]);
 
   useEffect(() => {
     // Route data is synchronized with the selected community.
@@ -130,39 +145,69 @@ export default function PageInfoPage() {
     }
   };
 
-  const handleAppointModerator = async (userId) => {
+  const updateRosterFromResponse = (response, userId, changes = {}) => {
+    const data = response?.data || response || {};
+    setMembers((current) => current.map((member) =>
+      String(member?._id || member) === String(userId) ? { ...member, ...changes, ...(data.member || {}) } : member,
+    ));
+    if (Number.isFinite(data.membersCount)) {
+      setMembersCount(data.membersCount);
+      setPage((current) => ({ ...current, membersCount: data.membersCount }));
+    }
+    if (Number.isFinite(data.moderatorsCount)) {
+      setPage((current) => ({ ...current, moderatorsCount: data.moderatorsCount }));
+    }
+  };
+
+  const handleAppointModerator = async (member) => {
+    const userId = member?._id || member;
+    setMemberBusyId(String(userId));
     try {
-      await pageApi.addModerator(pageId, userId);
-      success("Member appointed as moderator.");
-      fetchPageDetails();
+      const response = await pageApi.addModerator(pageId, userId);
+      updateRosterFromResponse(response, userId, { isModerator: true });
+      success(`${member.username} is now a moderator`);
     } catch (err) {
       error(err?.message || "Failed to appoint moderator.");
+    } finally {
+      setMemberBusyId(null);
     }
   };
 
-  const handleRevokeModerator = async (userId) => {
+  const handleRevokeModerator = async (member) => {
+    const userId = member?._id || member;
+    setMemberBusyId(String(userId));
     try {
-      await pageApi.removeModerator(pageId, userId);
-      info("Moderator privileges revoked.");
-      fetchPageDetails();
+      const response = await pageApi.removeModerator(pageId, userId);
+      updateRosterFromResponse(response, userId, { isModerator: false });
+      setMemberAction(null);
+      success(`${member.username} is no longer a moderator`);
     } catch (err) {
       error(err?.message || "Failed to revoke moderator privileges.");
+    } finally {
+      setMemberBusyId(null);
     }
   };
 
-  const handleRemoveMember = async (memberId) => {
-    if (
-      window.confirm(
-        "Are you sure you want to remove this member from the hub?",
-      )
-    ) {
-      try {
-        await pageApi.removeMember(pageId, memberId);
-        info("Member removed from community.");
-        fetchPageDetails();
-      } catch (err) {
-        error(err?.message || "Failed to remove member.");
+  const handleRemoveMember = async (member) => {
+    const memberId = member?._id || member;
+    setMemberBusyId(String(memberId));
+    try {
+      const response = await pageApi.removeMember(pageId, memberId);
+      const data = response?.data || response || {};
+      setMembers((current) => current.filter((row) => String(row?._id || row) !== String(memberId)));
+      setMemberMatchingCount((count) => Math.max(0, count - 1));
+      if (Number.isFinite(data.membersCount)) {
+        setMembersCount(data.membersCount);
+        setPage((current) => ({ ...current, membersCount: data.membersCount }));
+      } else {
+        setMembersCount((count) => Math.max(0, (count ?? members.length) - 1));
       }
+      setMemberAction(null);
+      success(`${member.username} was removed from the community`);
+    } catch (err) {
+      error(err?.message || "Failed to remove member.");
+    } finally {
+      setMemberBusyId(null);
     }
   };
 
@@ -366,7 +411,7 @@ export default function PageInfoPage() {
                     Moderator Team
                   </span>
                   <span className="text-[10px] font-bold text-primary bg-primary-container/40 px-2 py-0.5 rounded-full">
-                    {page?.moderators?.length || 0} Assigned
+                    {page?.moderatorsCount ?? page?.moderators?.length ?? 0} Assigned
                   </span>
                 </div>
                 <p className="text-xs text-on-surface-variant leading-relaxed">
@@ -384,63 +429,76 @@ export default function PageInfoPage() {
             <h3 className="font-headline font-bold text-base text-on-surface">
               Member Roster
             </h3>
+            <input
+              type="search"
+              value={memberSearchInput}
+              onChange={(event) => {
+                setMemberSearchInput(event.target.value);
+                setMemberSearch(event.target.value.trim());
+                setMemberPage(1);
+              }}
+              placeholder="Search members by username"
+              aria-label="Search members by username"
+              className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-3 text-sm text-on-surface outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            />
             {members.length > 0 ? (
               <div className="divide-y divide-outline-variant/10">
                 {members.map((member) => {
                   const mId = member._id || member;
-                  const mUsername =
-                    member.username || `Member ${mId.toString().slice(-4)}`;
-                  const isUserMod = page?.moderators?.includes(mId);
-                  const isUserOwner =
-                    page?.owner === mId || page?.owner?._id === mId;
+                  const mUsername = member.username;
+                  const isUserMod = Boolean(member.isModerator) || page?.moderators?.some((id) => String(id?._id || id) === String(mId));
+                  const isUserOwner = String(page?.owner?._id || page?.owner) === String(mId) || Boolean(member.isOwner);
+                  const isSelf = String(currentUser?._id) === String(mId);
+                  const rowBusy = memberBusyId === String(mId);
 
                   return (
                     <div
                       key={mId}
-                      className="py-3.5 flex items-center justify-between"
+                      className="py-2.5 flex items-center justify-between gap-3"
                     >
-                      <div className="flex items-center gap-3">
-                        <Avatar
-                          src={member.profileImage}
-                          name={mUsername}
-                          className="w-10 h-10 rounded-full object-cover"
-                        />
-                        <div>
-                          <p className="font-bold text-sm text-on-surface">
-                            {mUsername}
-                          </p>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-                            {isUserOwner
-                              ? "Owner"
-                              : isUserMod
-                                ? "Moderator"
-                                : "Member"}
+                      {mUsername ? (
+                        <Link to={`/profile/${encodeURIComponent(mUsername)}`} className="inline-flex min-h-11 min-w-11 items-center gap-3 rounded-xl pr-2 text-on-surface hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+                          <Avatar src={member.profileImage} name={mUsername} className="w-10 h-10 rounded-full object-cover" />
+                          <span className="min-w-0">
+                            <span className="block truncate font-bold text-sm">{mUsername}</span>
+                            <span className="mt-0.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                              {isUserOwner ? "Owner" : isUserMod ? <><span>Member</span><span className="rounded bg-primary/10 px-1.5 py-0.5 text-primary">MOD</span></> : "Member"}
+                            </span>
                           </span>
+                        </Link>
+                      ) : (
+                        <div className="inline-flex min-h-11 min-w-11 items-center gap-3 rounded-xl pr-2">
+                          <Avatar src={member.profileImage} name="Member" className="w-10 h-10 rounded-full object-cover" />
+                          <span className="font-bold text-sm text-on-surface">Member</span>
                         </div>
-                      </div>
+                      )}
 
                       {/* Governance controls for Owner */}
-                      {isOwner && !isUserOwner && (
+                      {isOwner && !isUserOwner && !isSelf && (
                         <div className="flex items-center gap-2">
                           {isUserMod ? (
                             <button
-                              onClick={() => handleRevokeModerator(mId)}
-                              className="px-3 py-1 bg-surface-container text-xs font-semibold rounded-lg hover:bg-surface-container-high transition-colors"
+                              disabled={rowBusy}
+                              onClick={() => setMemberAction({ type: "moderator", member })}
+                              className="min-h-11 rounded-lg bg-surface-container px-3 text-xs font-semibold hover:bg-surface-container-high focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
                             >
-                              Revoke Mod
+                              Remove Mod
                             </button>
                           ) : (
                             <button
-                              onClick={() => handleAppointModerator(mId)}
-                              className="px-3 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-lg hover:bg-primary/20 transition-colors"
+                              disabled={rowBusy}
+                              onClick={() => handleAppointModerator(member)}
+                              className="min-h-11 rounded-lg bg-primary/10 px-3 text-xs font-semibold text-primary hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
                             >
-                              Make Mod
+                              {rowBusy ? "Working…" : "Make Mod"}
                             </button>
                           )}
                           <button
-                            onClick={() => handleRemoveMember(mId)}
-                            className="p-1 rounded-lg hover:bg-error-container/20 text-error transition-colors"
-                            title="Remove from hub"
+                            disabled={rowBusy}
+                            onClick={() => setMemberAction({ type: "member", member })}
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-error transition-colors hover:bg-error-container/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error disabled:opacity-50"
+                            title={`Remove ${mUsername || "member"} from hub`}
+                            aria-label={`Remove ${mUsername || "member"} from hub`}
                           >
                             <span className="material-symbols-outlined text-base">
                               person_remove
@@ -454,10 +512,22 @@ export default function PageInfoPage() {
               </div>
             ) : (
               <p className="text-xs text-on-surface-variant py-4 text-center">
-                {membersCount === null
+                {memberSearch
+                  ? "No members match this username."
+                  : membersCount === null
                   ? "Join this hub to view its member roster."
                   : `${membersCount} members are currently part of this learning hub.`}
               </p>
+            )}
+            {memberMatchingCount > 0 && (
+              <div className="flex items-center justify-between gap-3 pt-2 text-sm">
+                <span className="text-on-surface-variant">{memberSearch ? `${memberMatchingCount} matching members` : `${membersCount} members`}</span>
+                <div className="flex items-center gap-2">
+                  <button type="button" disabled={memberPage <= 1} onClick={() => setMemberPage((pageNumber) => pageNumber - 1)} className="min-h-11 rounded-lg px-3 hover:bg-surface-container disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Previous</button>
+                  <span aria-live="polite">{memberPage} / {memberTotalPages}</span>
+                  <button type="button" disabled={memberPage >= memberTotalPages} onClick={() => setMemberPage((pageNumber) => pageNumber + 1)} className="min-h-11 rounded-lg px-3 hover:bg-surface-container disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Next</button>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -511,6 +581,23 @@ export default function PageInfoPage() {
                 No pending join requests at this time.
               </p>
             )}
+          </div>
+        )}
+
+        {memberAction && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <section role="dialog" aria-modal="true" aria-labelledby="member-action-title" className="w-full max-w-sm space-y-4 rounded-2xl bg-surface-container-lowest p-6 shadow-xl">
+              <h2 id="member-action-title" className="font-headline text-lg font-bold text-on-surface">
+                {memberAction.type === "member" ? "Remove member?" : "Remove moderator?"}
+              </h2>
+              <p className="text-sm text-on-surface-variant">
+                {memberAction.member.username || "This member"} will {memberAction.type === "member" ? "lose access to this community" : "no longer have moderator permissions"}.
+              </p>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setMemberAction(null)} className="min-h-11 rounded-lg px-4 font-semibold hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Cancel</button>
+                <button type="button" disabled={memberBusyId === String(memberAction.member?._id || memberAction.member)} onClick={() => memberAction.type === "member" ? handleRemoveMember(memberAction.member) : handleRevokeModerator(memberAction.member)} className="min-h-11 rounded-lg bg-error px-4 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error disabled:opacity-50">{memberBusyId ? "Working…" : "Confirm"}</button>
+              </div>
+            </section>
           </div>
         )}
 
