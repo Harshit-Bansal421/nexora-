@@ -50,6 +50,22 @@ const uploadUserImage_cloud = async (localfilePath, folder, type = "image") => {
     }
     return response;
   } catch (error) {
+    // Keep provider details in server logs only. Never log credentials, URLs, or
+    // uploaded content; these fields are enough to diagnose Cloudinary failures.
+    console.error("Cloudinary upload failed", {
+      name:
+        typeof error?.name === "string" && /^[a-z\d_-]+$/i.test(error.name)
+          ? error.name
+          : "UnknownError",
+      httpCode: Number.isInteger(error?.http_code) ? error.http_code : undefined,
+      statusCode: Number.isInteger(error?.statusCode)
+        ? error.statusCode
+        : undefined,
+      code:
+        typeof error?.code === "string" && /^[a-z\d_-]+$/i.test(error.code)
+          ? error.code
+          : undefined,
+    });
     try {
       if (fs.existsSync(localfilePath)) {
         fs.unlinkSync(localfilePath);

@@ -24,34 +24,12 @@ import mongoose from "mongoose";
 import { getIO } from "../socket.js";
 import { createNotification } from "../utils/createNotification.js";
 import { parsePagination } from "../utils/pagination.js";
+import { rollbackOtpAfterEmailFailure } from "../utils/rollbackOtpAfterEmailFailure.js";
 
 const normalizeEmail = (email) =>
   typeof email === "string" ? email.trim().toLowerCase() : "";
 const isValidEmail = (email) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-const rollbackOtpAfterEmailFailure = async ({
-  otpId,
-  failedHashedOTP,
-  previous,
-}) => {
-  try {
-    const result = previous
-      ? await OTP.updateOne(
-          { _id: otpId, hashedOTP: failedHashedOTP },
-          { $set: previous },
-        )
-      : await OTP.deleteOne({ _id: otpId, hashedOTP: failedHashedOTP });
-
-    if (previous ? result.matchedCount === 0 : result.deletedCount === 0) {
-      console.warn("OTP email-failure rollback skipped because the OTP changed");
-    }
-  } catch (error) {
-    console.error("OTP email-failure rollback failed", {
-      name: error?.name || "UnknownError",
-    });
-  }
-};
 
 const SignupUser = asyncHandler(async (req, res) => {
   const email = normalizeEmail(req.body?.email);
@@ -134,7 +112,7 @@ const SignupUser = asyncHandler(async (req, res) => {
   try {
     await sendEmail({ to: email, html });
   } catch (error) {
-    await rollbackOtpAfterEmailFailure({
+    await rollbackOtpAfterEmailFailure(OTP, {
       otpId: pendingOtp._id,
       failedHashedOTP: hashedOTP,
     });
@@ -547,7 +525,7 @@ const resendEmail = asyncHandler(async (req, res) => {
   try {
     await sendEmail({ to: email, html });
   } catch (error) {
-    await rollbackOtpAfterEmailFailure({
+    await rollbackOtpAfterEmailFailure(OTP, {
       otpId: existedOTP._id,
       failedHashedOTP: hashedOTP,
       previous: previousOtp,
@@ -626,7 +604,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
   try {
     await sendEmail({ to: email, html });
   } catch (error) {
-    await rollbackOtpAfterEmailFailure({
+    await rollbackOtpAfterEmailFailure(OTP, {
       ...otpRollback,
       failedHashedOTP: hashedOTP,
     });
