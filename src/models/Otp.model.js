@@ -1,76 +1,70 @@
 // models/otp.model.js
-import mongoose from 'mongoose'
+import mongoose from "mongoose";
 
 const OTPSchema = new mongoose.Schema(
   {
-    // No userId yet — user doesn't exist
     email: {
       type: String,
       required: true,
-      unique: true, // one pending registration per email
+      lowercase: true,
+      trim: true,
     },
-    
     type: {
       type: String,
-      enum: ['email_verify', 'password_reset'],
+      enum: ["email_verify", "password_reset"],
       required: true,
     },
-
-    // Stored temporarily until verified
-    // Only for email_verify type
     pendingUsername: {
       type: String,
-      required:true,
-      unique:[true,"user with this username already exist"]
+      lowercase: true,
+      trim: true,
+      required: function () {
+        return this.type === "email_verify";
+      },
     },
-
-    pendingUserImageID:{//public_id
-      type:String,
-      default:""
+    pendingUserImageID: {
+      type: String,
+      default: "",
     },
-
     pendingPasswordHash: {
       type: String,
-      default: null, // store already hashed password
+      default: null,
     },
-
-    // OTP data
     hashedOTP: {
       type: String,
       required: true,
     },
-
-    //when will the otp expired
     expiry: {
       type: Date,
       required: true,
     },
-
-    //it is used so user doesnot spam email
     resendCount: {
       type: Number,
       default: 0,
     },
-
-    //to see user is not spaming in short time also
     lastResend: {
       type: Date,
       default: null,
     },
-
-    //so that user cant try brute force
     failedAttempts: {
       type: Number,
       default: 0,
-    }
+    },
   },
-  { timestamps: true }
-)
+  { timestamps: true },
+);
 
-// Auto delete when expiry reached — ghost data never lingers
-OTPSchema.index({ expiry: 1 }, { expireAfterSeconds: 0 })
+OTPSchema.index({ expiry: 1 }, { expireAfterSeconds: 0 });
+OTPSchema.index({ email: 1, type: 1 }, { unique: true });
+OTPSchema.index(
+  { pendingUsername: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      type: "email_verify",
+      pendingUsername: { $exists: true },
+    },
+  },
+);
 
-// One pending registration per email
-OTPSchema.index({ email: 1, type: 1 }, { unique: true })
-
-export const OTP = mongoose.model('OTP', OTPSchema)
+export const OTP = mongoose.model("OTP", OTPSchema);

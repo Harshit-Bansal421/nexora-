@@ -3,18 +3,33 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import compression from "compression";
 import cors from "cors";
+import ApiError from "./utils/ApiError.js";
+import { isOriginAllowed } from "./utils/originPolicy.js";
 const app = express();
-app.use(json({ limit: "100kb" })); //Converts incoming JSON data → JavaScript object so that we can use req.body
-app.use(cookieParser()); //allow cookie acess
-app.use(urlencoded({ extended: true, limit: "30kb" })); //allow fetch data from form-data
-app.use(express.static("public")); //try to access static data/file from public folder
-app.use(helmet()); //automatically add security headers
-app.use(compression()); //reduces size of response thus increasing the speed
+
+const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS || 0);
+if (!Number.isInteger(trustProxyHops) || trustProxyHops < 0) {
+  throw new Error("TRUST_PROXY_HOPS must be a non-negative integer");
+}
+
+app.set("trust proxy", trustProxyHops);
+app.disable("x-powered-by");
+app.use(helmet());
+app.use(compression());
+app.use(json({ limit: "100kb" }));
+app.use(cookieParser());
+app.use(urlencoded({ extended: false, limit: "30kb", parameterLimit: 100 }));
 
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN, //tell who can access and send request to this server
-    credentials: true, //allow sesitive data
+    origin(origin, callback) {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new ApiError(403, "Origin is not allowed"));
+    },
+    credentials: true,
   }),
 );
 
@@ -25,9 +40,56 @@ import CommentRoute from "./routes/comment.route.js";
 import notificationRoute from "./routes/notification.route.js";
 
 app.use("/api/v1/users", userRoute);
+app.use("/api/users", userRoute);
 app.use("/api/v1/posts", postRoute);
+app.use("/api/posts", postRoute);
+app.use("/api/post", postRoute);
 app.use("/api/v1/pages", PageRoute);
+app.use("/api/pages", PageRoute);
 app.use("/api/v1/comments", CommentRoute);
+app.use("/api/comments", CommentRoute);
+app.use("/api/comment", CommentRoute);
 app.use("/api/v1/notifications", notificationRoute);
+app.use("/api/notifications", notificationRoute);
+
+app.use((req, res, next) => {
+  next(new ApiError(404, "Route not found"));
+});
+
+app.use((error, req, res, next) => {
+  if (res.headersSent) return next(error);
+
+  const statusCode =
+    Number.isInteger(error.statuscode) && error.statuscode >= 400
+      ? error.statuscode
+      : error.name === "MulterError"
+        ? error.code === "LIMIT_FILE_SIZE"
+          ? 413
+          : 400
+        : error.name === "ValidationError" ||
+            error.name === "CastError" ||
+            error.type === "entity.parse.failed"
+          ? 400
+          : error.code === 11000
+            ? 409
+      : Number.isInteger(error.status) && error.status >= 400
+        ? error.status
+        : 500;
+  const message =
+    statusCode >= 500
+      ? "Internal server error"
+      : error.message || "Request failed";
+
+  if (statusCode >= 500) {
+    console.error("Unhandled request error:", error);
+  }
+
+  return res.status(statusCode).json({
+    statuscode: statusCode,
+    data: null,
+    message,
+    status: false,
+  });
+});
 
 export default app;

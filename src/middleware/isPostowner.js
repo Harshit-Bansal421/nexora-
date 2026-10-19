@@ -1,13 +1,16 @@
 import ApiError from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { Post } from "../models/Post.model.js";
+import mongoose from "mongoose";
 
 export const isPostOwner = asyncHandler(async (req, res, next) => {
   //first get data from url as well as from req body
   //check whether the data is even is present or not
 
   const post_id = req.params.post_id;
-  if (!post_id) throw new ApiError(400, "Post ID is required");
+  if (!mongoose.Types.ObjectId.isValid(post_id)) {
+    throw new ApiError(400, "Invalid post ID");
+  }
 
   const user_id = req.user._id;
   if (!user_id) throw new ApiError(401, "Unauthorized access");

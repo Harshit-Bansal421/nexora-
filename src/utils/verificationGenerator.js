@@ -1,5 +1,7 @@
 import { User } from "../models/User.model.js";
+import { randomInt } from "node:crypto";
 import bcrypt from "bcryptjs";
+import ApiError from "./ApiError.js";
 
 const refreshTokenGenerator = async (userID) => {
   const user = await User.findById(userID);
@@ -19,10 +21,10 @@ const accessTokenGenerator = async (userID) => {
 };
 
 const OTPgenerator = async () => {
-  const plainOTP = Math.floor(100000 + Math.random() * 900000).toString();
+  const plainOTP = randomInt(100000, 1000000).toString();
   const hashedOTP = await bcrypt.hash(plainOTP, 10);
   const expiry = new Date(Date.now() + 10 * 60 * 1000);
-  return {plainOTP,hashedOTP,expiry}
+  return { plainOTP, hashedOTP, expiry };
 };
 
-export { refreshTokenGenerator, accessTokenGenerator ,OTPgenerator};
+export { refreshTokenGenerator, accessTokenGenerator, OTPgenerator };

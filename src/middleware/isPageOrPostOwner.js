@@ -16,30 +16,40 @@ const isPageOrPostOwner = asyncHandler(async (req, res, next) => {
   if (!pages) throw new ApiError(400, "no details are provided");
   if (!Array.isArray(pages)) pages = [pages];
 
-  if (pages.length < 1) throw new ApiError(400, "no details are provided");
+  if (pages.length < 1 || pages.length > 10) {
+    throw new ApiError(400, "Provide between 1 and 10 page IDs");
+  }
 
   let validpages = pages.filter((page) =>
     mongoose.Types.ObjectId.isValid(page),
   );
   if (validpages.length !== pages.length)
     throw new ApiError(400, "Some page IDs are invalid");
-  req.pages = pages;
-
   //check if user is a owner of post or not?
   //if yes then yes he can move to next layer
-  const post_owner = await Post.findOne({ _id: post_id }).select("owner");
-  if (post_owner.owner.toString() === user_id.toString()) return next();
+  const post = await Post.findById(post_id).select("_id pages");
+  if (!post) throw new ApiError(404, "Post not found");
 
-  //if no then is he a owner of the page
-  const pages_owner = await Page.find({ _id: { $in: pages } }).select("owner");
-  //if no then he cannot perform this action
-  const isOwnerOfAllPages = pages_owner.every(
-    (page) => page.owner.toString() === user_id.toString(),
+  const pageIds = [...new Set(validpages.map((page) => String(page).toLowerCase()))];
+  const targetPages = await Page.find({ _id: { $in: pageIds } }).select(
+    "_id owner moderators",
   );
-  if (!isOwnerOfAllPages)
-    throw new ApiError(403, "You do not own all of these pages");
+  if (targetPages.length !== pageIds.length) {
+    throw new ApiError(404, "One or more pages do not exist");
+  }
+
+  const canManageAllPages = targetPages.every(
+    (page) =>
+      page.owner.equals(user_id) ||
+      page.moderators.some((moderator) => moderator.equals(user_id)),
+  );
+  if (!canManageAllPages) {
+    throw new ApiError(403, "You must moderate every target page");
+  }
 
   //if yes then he can add
+  req.post = post;
+  req.pages = pageIds;
   return next();
 });
 

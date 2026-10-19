@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken";
+import ApiError from "../utils/ApiError.js";
 
 const UserSchema = mongoose.Schema(
   {
@@ -118,6 +119,36 @@ UserSchema.methods.addXP = async function (points) {
   else if (this.point >= 101) this.title = "Contributor";
   else this.title = "Newcomer";
   await this.save({ validateBeforeSave: false });
+};
+
+UserSchema.statics.applyContribution = async function (
+  userId,
+  delta,
+  session = null,
+) {
+  // Atomic increment of points
+  const update = { $inc: { point: delta } };
+  const options = { new: true, session, returnDocument: "after" };
+  const updatedUser = await this.findOneAndUpdate({ _id: userId }, update, options);
+  if (!updatedUser) throw new ApiError(404, "User not found");
+
+  // Prevent negative points
+  if (updatedUser.point < 0) {
+    await this.updateOne({ _id: userId }, { $set: { point: 0 } }, { session });
+    updatedUser.point = 0;
+  }
+
+  // Recalculate tier based on points
+  let newTitle = "Newcomer";
+  if (updatedUser.point >= 5000) newTitle = "Legend";
+  else if (updatedUser.point >= 1501) newTitle = "Mentor";
+  else if (updatedUser.point >= 501) newTitle = "Helper";
+  else if (updatedUser.point >= 101) newTitle = "Contributor";
+
+  if (updatedUser.title !== newTitle) {
+    await this.updateOne({ _id: userId }, { $set: { title: newTitle } }, { session });
+  }
+  return;
 };
 
 export const User = mongoose.model("User", UserSchema);

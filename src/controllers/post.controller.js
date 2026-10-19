@@ -1,4 +1,5 @@
 import { Post } from "../models/Post.model.js";
+import { Comment } from "../models/Comment.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -13,6 +14,30 @@ import mongoose from "mongoose";
 import { Page } from "../models/Page.model.js";
 import { createNotification } from "../utils/createNotification.js";
 import { getIO, sendToUser } from "../socket.js";
+import {
+  assertPostAccess,
+  postVisibilityStagesForUser,
+  publicPostVisibilityStages,
+} from "../utils/postAccess.js";
+import { parsePagination } from "../utils/pagination.js";
+
+const attachCommentCounts = async (posts) => {
+  if (!posts.length) return posts;
+  const counts = await Comment.aggregate([
+    {
+      $match: {
+        post: { $in: posts.map((post) => new mongoose.Types.ObjectId(post._id)) },
+        parentComment: null,
+      },
+    },
+    { $group: { _id: "$post", count: { $sum: 1 } } },
+  ]);
+  const countByPostId = new Map(counts.map((row) => [String(row._id), row.count]));
+  return posts.map((post) => ({
+    ...post,
+    commentsCount: countByPostId.get(String(post._id)) || 0,
+  }));
+};
 
 const createPost = asyncHandler(async (req, res) => {
   //get all the info from req.body,req.user,req.files
@@ -20,13 +45,41 @@ const createPost = asyncHandler(async (req, res) => {
   const owner = req.user?._id;
   const Images = req.files?.PostImages;
   const Videos = req.files?.PostVideos;
-  console.log("file uploaded is =", req.files);
 
-  //validate each of the feilds properly and set defaults feilds too
   if (!owner) throw new ApiError(401, "Unauthorized access");
-  if (!title || !topic) throw new ApiError(400, "Title and topic are required");
-  description = description || "";
-  pages = pages || [];
+  if (typeof title !== "string" || !title.trim() || typeof topic !== "string") {
+    throw new ApiError(400, "Title and topic are required");
+  }
+  if (typeof description !== "string") description = "";
+  if (description.length > 500 || title.trim().length > 150) {
+    throw new ApiError(400, "Title or description exceeds the allowed length");
+  }
+  pages = pages ? (Array.isArray(pages) ? pages : [pages]) : [];
+  if (
+    pages.length > 10 ||
+    pages.some((page) => !mongoose.Types.ObjectId.isValid(page))
+  ) {
+    throw new ApiError(400, "Page IDs must be valid and no more than 10");
+  }
+  const pageIds = [...new Set(pages.map(String))];
+  if (pageIds.length) {
+    const targetPages = await Page.find({ _id: { $in: pageIds } }).select(
+      "owner members moderators",
+    );
+    if (targetPages.length !== pageIds.length) {
+      throw new ApiError(404, "One or more pages do not exist");
+    }
+    const canPostToAll = targetPages.every(
+      (page) =>
+        page.owner.equals(owner) ||
+        page.members.some((member) => member.equals(owner)) ||
+        page.moderators.some((moderator) => moderator.equals(owner)),
+    );
+    if (!canPostToAll) {
+      throw new ApiError(403, "You must be a member of every target page");
+    }
+  }
+  pages = pageIds;
 
   //then upload the images on cloudinary
   const [postImage, postVideo] = await Promise.all([
@@ -118,7 +171,6 @@ const deletePost = asyncHandler(async (req, res) => {
   //delete the collection in database
   const deletedPost = await Post.findByIdAndDelete(post._id);
   if (!deletedPost) throw new ApiError(400, "error in deleting the post");
-  console.log("deletePost", deletedPost);
 
   //send live response to post as well as to all pages in which this post is available
   const io = getIO.get();
@@ -139,13 +191,12 @@ const AddExistingPostToPage = asyncHandler(async (req, res) => {
   const { post_id } = req.params;
   const pages = (req.pages || []).map((id) => String(id).trim());
 
-  const post = await Post.findById(post_id);
-  if (!post) throw new ApiError(400, "no post exist");
-  const isexist = (post.pages || []).some((page) =>
-    pages.includes(String(page).trim()),
-  );
-
-  if (isexist) throw new ApiError(400, "post exist in some pages already");
+  const post = req.post;
+  if (!post) throw new ApiError(404, "Post not found");
+  const existingIds = (post.pages || []).map(String);
+  if (pages.some((page) => existingIds.includes(page))) {
+    throw new ApiError(409, "Post is already attached to one or more pages");
+  }
 
   //we already have data of post from isowner verification middleware so we just gonnna add new pages to existing page
   const returnedPost = await Post.findByIdAndUpdate(
@@ -174,21 +225,33 @@ const AddExistingPostToPage = asyncHandler(async (req, res) => {
 const updatePost = asyncHandler(async (req, res) => {
   //we will get the new updates from req.body and req.files
   //in remove part frontend will send me the remove item public_id
-  let { description, topic, title, removeImages, removeVideos } = req.body;
+  let { description, topic, title, removeImages, removeVideos } = req.body || {};
   let addImages = req.files?.addImages;
   let addVideos = req.files?.addVideos;
-  console.log("req.files is =", req.files);
-  console.log("addImages=", addImages);
-  console.log("addVideos=", addVideos);
-  //validate them
-  description = description ? description : req.post?.description;
-  topic = topic ? topic : req.post.topic;
-  title = title ? title : req.post.title;
+  if (!req.post) throw new ApiError(404, "Post not found");
+  if (title !== undefined) {
+    if (typeof title !== "string" || !title.trim() || title.trim().length > 150) {
+      throw new ApiError(400, "Title must contain 1 to 150 characters");
+    }
+    title = title.trim();
+  }
+  if (description !== undefined && (typeof description !== "string" || description.length > 500)) {
+    throw new ApiError(400, "Description cannot exceed 500 characters");
+  }
+  if (topic !== undefined && !["Academic", "Career", "Tech", "Life"].includes(topic)) {
+    throw new ApiError(400, "Invalid post topic");
+  }
+  if (removeImages !== undefined && !Array.isArray(removeImages)) removeImages = [removeImages];
+  if (removeVideos !== undefined && !Array.isArray(removeVideos)) removeVideos = [removeVideos];
+  if (addImages !== undefined && !Array.isArray(addImages)) addImages = [addImages];
+  if (addVideos !== undefined && !Array.isArray(addVideos)) addVideos = [addVideos];
+  removeImages ||= [];
+  removeVideos ||= [];
+  addImages ||= [];
+  addVideos ||= [];
 
   //if addimages then we validate and updload images and store their public_id in a variable
-  if (addImages) {
-    if (!Array.isArray(addImages)) addImages = [addImages];
-    if (addImages.length + req.post.postImage.length > 3)
+  if (addImages.length + req.post.postImage.length - new Set(removeImages).size > 3) {
       throw new ApiError(400, "Maximum number of images exceeded");
   }
   let addedImages = [];
@@ -206,8 +269,7 @@ const updatePost = asyncHandler(async (req, res) => {
   }
 
   //if remove images then we validate and destroy images and remove their public_id from req.post.postImage
-  if (removeImages && req.post.postImage) {
-    if (!Array.isArray(removeImages)) removeImages = [removeImages];
+  if (removeImages.length && req.post.postImage) {
     if (removeImages.length > 0) {
       const existingSet = new Set(req.post.postImage);
 
@@ -225,9 +287,7 @@ const updatePost = asyncHandler(async (req, res) => {
   );
 
   //if addVideos exist then we validate and updload videos and store their public_id in a variable
-  if (addVideos) {
-    if (!Array.isArray(addVideos)) addVideos = [addVideos];
-    if (addVideos.length + req.post.postVideo.length > 2)
+  if (addVideos.length + req.post.postVideo.length - new Set(removeVideos).size > 1) {
       throw new ApiError(400, "Maximum number of videos exceeded");
   }
   let addedVideos = [];
@@ -245,8 +305,7 @@ const updatePost = asyncHandler(async (req, res) => {
   }
 
   //if remove videos then we validate and destroy videos and remove their public_id from req.post.postVideo
-  if (removeVideos && req.post.postVideo) {
-    if (!Array.isArray(removeVideos)) removeVideos = [removeVideos];
+  if (removeVideos.length && req.post.postVideo) {
     if (removeVideos.length > 0) {
       const existingSet = new Set(req.post.postVideo);
 
@@ -264,25 +323,27 @@ const updatePost = asyncHandler(async (req, res) => {
   );
 
   //update the info by finding by id
-  await Post.findByIdAndUpdate(req.post._id, {
-    title,
-    description,
-    topic,
-    $pull: {
-      postImage: { $in: removeImages },
-      postVideo: { $in: removeVideos },
-    },
-  });
+  const updateFields = {};
+  if (title !== undefined) updateFields.title = title;
+  if (description !== undefined) updateFields.description = description;
+  if (topic !== undefined) updateFields.topic = topic;
+  const update = {};
+  if (Object.keys(updateFields).length) update.$set = updateFields;
+  if (removeImages.length || removeVideos.length) {
+    update.$pull = {};
+    if (removeImages.length) update.$pull.postImage = { $in: removeImages };
+    if (removeVideos.length) update.$pull.postVideo = { $in: removeVideos };
+  }
+  if (addedImages.length || addedVideos.length) {
+    update.$addToSet = {};
+    if (addedImages.length) update.$addToSet.postImage = { $each: addedImages };
+    if (addedVideos.length) update.$addToSet.postVideo = { $each: addedVideos };
+  }
 
   const updatedData = await Post.findByIdAndUpdate(
     req.post.id,
-    {
-      $addToSet: {
-        postImage: { $each: addedImages },
-        postVideo: { $each: addedVideos },
-      },
-    },
-    { returnDocument: "after" },
+    update,
+    { returnDocument: "after", runValidators: true },
   );
   if (!updatedData) throw new ApiError(500, "Failed to update post");
 
@@ -310,7 +371,10 @@ const updatePost = asyncHandler(async (req, res) => {
 const getPostById = asyncHandler(async (req, res) => {
   // validate the post id
   const postId = req.params.post_id;
-  if (!postId) throw new ApiError(400, "Post ID is required");
+  if (!mongoose.Types.ObjectId.isValid(postId)) {
+    throw new ApiError(400, "Invalid post ID");
+  }
+  await assertPostAccess(postId, req.user?._id);
 
   //i just have to make a aggregate pipeline for the getting upvotes and downvotes and owner and pages of that post
   const postdata = await Post.aggregate([
@@ -346,16 +410,46 @@ const getPostById = asyncHandler(async (req, res) => {
     },
     {
       $addFields: {
-        upvoteCount: { $size: "$upvotes" },
-        downvoteCount: { $size: "$downvotes" },
+        upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+        downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
+        upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
+        downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
+        userVote: req.user?._id
+          ? {
+              $cond: [
+                {
+                  $in: [
+                    new mongoose.Types.ObjectId(req.user._id),
+                    { $ifNull: ["$upvotes", []] },
+                  ],
+                },
+                "up",
+                {
+                  $cond: [
+                    {
+                      $in: [
+                        new mongoose.Types.ObjectId(req.user._id),
+                        { $ifNull: ["$downvotes", []] },
+                      ],
+                    },
+                    "down",
+                    null,
+                  ],
+                },
+              ],
+            }
+          : null,
       },
     },
     {
       $project: {
         _id: 1,
-        ownerInfo: 1,
+        owner: "$ownerInfo",
         upvoteCount: 1,
         downvoteCount: 1,
+        upvotesCount: 1,
+        downvotesCount: 1,
+        userVote: 1,
         topic: 1,
         title: 1,
         postVideo: 1,
@@ -365,17 +459,18 @@ const getPostById = asyncHandler(async (req, res) => {
         description: 1,
       },
     },
-    { returnDocument: "after" },
   ]);
 
   if (!postdata || postdata.length === 0)
     throw new ApiError(404, "Post not found");
 
-  const postResponse = postdata.map((post) => ({
-    ...post,
-    postImage: (post.postImage || []).map(getOptimizedImage),
-    postVideo: (post.postVideo || []).map(getOptimizedVideo),
-  }));
+  const post = postdata[0];
+  const postWithCommentCount = (await attachCommentCounts([post]))[0];
+  const postResponse = {
+    ...postWithCommentCount,
+    postImage: (postWithCommentCount.postImage || []).map(getOptimizedImage),
+    postVideo: (postWithCommentCount.postVideo || []).map(getOptimizedVideo),
+  };
 
   return res
     .status(200)
@@ -389,9 +484,10 @@ const savePost = asyncHandler(async (req, res) => {
   const { post_id } = req.params;
 
   //validate it and check if it even exist or not
-  if (!post_id) throw new ApiError(400, "Post ID is required");
-  const postExisted = await Post.findById(post_id);
-  if (!postExisted) throw new ApiError(404, "Post not found");
+  if (!mongoose.Types.ObjectId.isValid(post_id)) {
+    throw new ApiError(400, "Invalid post ID");
+  }
+  await assertPostAccess(post_id, req.user?._id);
 
   //it exist then add in user's saved post
   const response = await User.findByIdAndUpdate(
@@ -439,152 +535,231 @@ const unsavePost = asyncHandler(async (req, res) => {
 });
 
 const getSavePost = asyncHandler(async (req, res) => {
-  //get user id from req.user
   const userid = req.user?._id;
-
-  //get the pagination query from search query
-  const page = req.query?.page || 1;
-  const limit = req.query?.page || 10;
-  const skip = (page - 1) * limit;
-
-  //validate it
+  const { page, limit } = parsePagination(req.query);
   if (!userid) throw new ApiError(401, "Unauthorized access");
 
-  //get saved post from database of user
-  const savedPost = await User.aggregate([
-    { $match: { _id: new mongoose.Types.ObjectId(userid) } },
-
+  const user = await User.findById(userid).select("savedPost").lean();
+  if (!user) throw new ApiError(404, "User not found");
+  const savedIds = user.savedPost || [];
+  const [posts, countResult] = await Promise.all([
+    Post.aggregate([
+    { $match: { _id: { $in: savedIds } } },
+    ...postVisibilityStagesForUser(userid),
+    { $sort: { createdAt: -1 } },
+    { $skip: (page - 1) * limit },
+    { $limit: limit },
     {
       $lookup: {
-        from: "posts",
-        let: { savedPostIds: { $ifNull: ["$savedPost", []] } },
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
         pipeline: [
-          {
-            $match: {
-              $expr: { $in: ["$_id", "$$savedPostIds"] },
+        {
+            $project: {
+              _id: 1,
+              username: 1,
+              profileImage: 1,
+              title: 1,
+              badge: 1,
             },
-          },
-
-          {
-            $facet: {
-              posts: [
-                { $sort: { createdAt: -1 } },
-                { $skip: skip },
-                { $limit: limit },
-
-                // for owner info
+        },
+        ],
+        as: "ownerInfo",
+      },
+    },
+    { $unwind: { path: "$ownerInfo", preserveNullAndEmptyArrays: true } },
+    {
+      $addFields: {
+        upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+        downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
+        upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
+        downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
+        userVote: userid
+          ? {
+              $cond: [
                 {
-                  $lookup: {
-                    from: "users",
-                    let: { ownerid: "$owner" },
-                    pipeline: [
-                      {
-                        $match: {
-                          $expr: { $eq: ["$_id", "$$ownerid"] },
-                        },
-                      },
-                      {
-                        $project: {
-                          _id: 1,
-                          username: 1,
-                          profileImage: 1,
-                          title: 1,
-                          badge: 1,
-                        },
-                      },
-                    ],
-                    as: "ownerInfo",
-                  },
+                  $in: [
+                    new mongoose.Types.ObjectId(userid),
+                    { $ifNull: ["$upvotes", []] },
+                  ],
                 },
-                { $unwind: "$ownerInfo" },
+                "up",
                 {
-                  $addFields: {
-                    upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
-                    downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
-                  },
-                },
-                {
-                  $project: {
-                    _id: 1,
-                    postImage: 1,
-                    title: 1,
-                    description: 1,
-                    ownerInfo: 1,
-                    upvoteCount: 1,
-                    downvoteCount: 1,
-                  },
+                  $cond: [
+                    {
+                      $in: [
+                        new mongoose.Types.ObjectId(userid),
+                        { $ifNull: ["$downvotes", []] },
+                      ],
+                    },
+                    "down",
+                    null,
+                  ],
                 },
               ],
-
-              totalCount: [{ $count: "count" }],
-            },
-          },
-        ],
-        as: "savedPosts",
+            }
+          : null,
       },
     },
-    {
-      $unwind: {
-        path: "$savedPosts",
-        preserveNullAndEmptyArrays: true,
-      },
-    },
-
     {
       $project: {
-        savedPosts: 1,
+        _id: 1,
+        postImage: 1,
+        postVideo: 1,
+        title: 1,
+        description: 1,
+        topic: 1,
+        owner: "$ownerInfo",
+        ownerInfo: 1,
+        upvoteCount: 1,
+        downvoteCount: 1,
+        upvotesCount: 1,
+        downvotesCount: 1,
+        userVote: 1,
+        createdAt: 1,
       },
     },
+    ]),
+    Post.aggregate([
+      { $match: { _id: { $in: savedIds } } },
+      ...postVisibilityStagesForUser(userid),
+      { $count: "count" },
+    ]),
   ]);
-  if (!savedPost) throw new ApiError(500, "Failed to fetch saved posts");
+  const total = countResult[0]?.count || 0;
 
-  const modifiedSavedPosts = (savedPost[0]?.savedPosts || []).map((post) => ({
+  const savedPostsWithCounts = await attachCommentCounts(posts);
+  const modifiedSavedPosts = savedPostsWithCounts.map((post) => ({
     ...post,
     postImage: (post.postImage || []).map(getOptimizedImage),
     postVideo: (post.postVideo || []).map(getOptimizedVideo),
   }));
-
-  //return response
   return res
     .status(200)
     .json(
-      new ApiResponse(
-        200,
-        { savedPost: modifiedSavedPosts, page, limit },
-        "Saved posts retrieved successfully",
-      ),
+    new ApiResponse(
+      200,
+      {
+        savedPost: modifiedSavedPosts,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasNextPage: page * limit < total,
+        },
+      },
+      "Saved posts retrieved successfully",
+    ),
     );
 });
 
 const getUserPosts = asyncHandler(async (req, res) => {
-  //get username from params and also see for pagination query
-  const { username } = req.params;
-  const { page = 1, limit = 10 } = req.query;
-
-  const skip = (page - 1) * limit;
+  const username = req.params.username?.trim().toLowerCase();
+  const { page: pageNumber, limit: limitNumber } = parsePagination(req.query);
   if (!username) throw new ApiError(400, "Username is required");
 
-  //then get user collection from database if it exist
-  const user = await User.findOne({ username: username }).select(
+  const user = await User.findOne({ username }).select(
     "-password -refreshToken",
   );
   if (!user) throw new ApiError(404, "User not found");
 
-  //call for posts
-  const posts = await Post.find({ owner: user._id })
-    .skip(skip)
-    .limit(limit)
-    .sort({ createdAt: -1 })
-    .select(
-      " _id postImage description topic title createdAt updatedAt upvotes downvotes owner",
-    );
-  if (!posts) throw new ApiError(500, "Failed to fetch user posts");
-  //send response
-  const total = await Post.countDocuments({ owner: user._id });
-  const totalPages = Math.ceil(total / limit);
+  const [result] = await Post.aggregate([
+    { $match: { owner: user._id } },
+    ...publicPostVisibilityStages(),
+    {
+      $facet: {
+        posts: [
+          { $sort: { createdAt: -1 } },
+          { $skip: (pageNumber - 1) * limitNumber },
+          { $limit: limitNumber },
+          {
+            $lookup: {
+              from: "comments",
+              let: { postId: "$_id" },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        { $eq: ["$post", "$$postId"] },
+                        { $eq: ["$parentComment", null] },
+                      ],
+                    },
+                  },
+                },
+                { $count: "count" },
+              ],
+              as: "commentCountLookup",
+            },
+          },
+          {
+            $addFields: {
+              commentsCount: {
+                $ifNull: [{ $arrayElemAt: ["$commentCountLookup.count", 0] }, 0],
+              },
+              upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
+              upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
+              userVote: req.user?._id
+                ? {
+                    $cond: [
+                      {
+                        $in: [
+                          new mongoose.Types.ObjectId(req.user._id),
+                          { $ifNull: ["$upvotes", []] },
+                        ],
+                      },
+                      "up",
+                      {
+                        $cond: [
+                          {
+                            $in: [
+                              new mongoose.Types.ObjectId(req.user._id),
+                              { $ifNull: ["$downvotes", []] },
+                            ],
+                          },
+                          "down",
+                          null,
+                        ],
+                      },
+                    ],
+                  }
+                : null,
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              postImage: 1,
+              postVideo: 1,
+              description: 1,
+              topic: 1,
+              title: 1,
+              createdAt: 1,
+              updatedAt: 1,
+              upvoteCount: 1,
+              downvoteCount: 1,
+              upvotesCount: 1,
+              downvotesCount: 1,
+              userVote: 1,
+              commentsCount: 1,
+              owner: 1,
+            },
+          },
+        ],
+        totalCount: [{ $count: "count" }],
+      },
+    },
+  ]);
+  const posts = result?.posts || [];
+  const total = result?.totalCount?.[0]?.count || 0;
+  const totalPages = Math.ceil(total / limitNumber);
 
-  const modifiedPosts = (posts || []).map((post) => {
-    const postObj = post.toObject ? post.toObject() : post;
+  const postsWithCommentCounts = await attachCommentCounts(posts);
+  const modifiedPosts = postsWithCommentCounts.map((postObj) => {
     return {
       ...postObj,
       postImage: (postObj.postImage || []).map(getOptimizedImage),
@@ -603,13 +778,21 @@ const getUserPosts = asyncHandler(async (req, res) => {
           _id: user.id,
           title: user.title,
           badge: user.badge,
+          bio: user.bio || "",
+          createdAt: user.createdAt,
+          point: user.point || 0,
+          followersCount: user.followers?.length || 0,
+          followingCount: user.following?.length || 0,
+          isFollowing: Boolean(
+            req.user && user.followers?.some((followerId) => String(followerId) === String(req.user._id)),
+          ),
         },
         pagination: {
           total,
-          page,
-          limit,
+          page: pageNumber,
+          limit: limitNumber,
           totalPages,
-          hasNextPage: page < totalPages,
+          hasNextPage: pageNumber < totalPages,
         },
       },
       "Posts retrieved successfully",
@@ -618,22 +801,19 @@ const getUserPosts = asyncHandler(async (req, res) => {
 });
 
 const getTopicPosts = asyncHandler(async (req, res) => {
-  //get username from params and also see for pagination query
   const { topic } = req.params;
-  const { page = 1, limit = 10 } = req.query;
-
-  const skip = (page - 1) * limit;
+  const { page: pageNumber, limit: limitNumber } = parsePagination(req.query);
   if (!topic) throw new ApiError(400, "Topic is required");
 
-  //call for posts
   const posts = await Post.aggregate([
     { $match: { topic: topic } },
+    ...publicPostVisibilityStages(),
     {
       $facet: {
         posts: [
           { $sort: { createdAt: -1 } },
-          { $skip: skip },
-          { $limit: limit },
+          { $skip: (pageNumber - 1) * limitNumber },
+          { $limit: limitNumber },
           {
             $lookup: {
               from: "users",
@@ -659,24 +839,53 @@ const getTopicPosts = asyncHandler(async (req, res) => {
           },
           {
             $addFields: {
-              upvotesCount: {
-                $size: { $ifNull: ["$upvotes", []] },
-              },
-              downvotesCount: {
-                $size: { $ifNull: ["$downvotes", []] },
-              },
+              upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
+              upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
+              userVote: req.user?._id
+                ? {
+                    $cond: [
+                      {
+                        $in: [
+                          new mongoose.Types.ObjectId(req.user._id),
+                          { $ifNull: ["$upvotes", []] },
+                        ],
+                      },
+                      "up",
+                      {
+                        $cond: [
+                          {
+                            $in: [
+                              new mongoose.Types.ObjectId(req.user._id),
+                              { $ifNull: ["$downvotes", []] },
+                            ],
+                          },
+                          "down",
+                          null,
+                        ],
+                      },
+                    ],
+                  }
+                : null,
             },
           },
           {
             $project: {
               _id: 1,
+              owner: "$ownerInfo",
               postImage: 1,
+              postVideo: 1,
               topic: 1,
               title: 1,
+              description: 1,
               createdAt: 1,
               updatedAt: 1,
+              upvoteCount: 1,
+              downvoteCount: 1,
               upvotesCount: 1,
               downvotesCount: 1,
+              userVote: 1,
             },
           },
         ],
@@ -694,25 +903,26 @@ const getTopicPosts = asyncHandler(async (req, res) => {
   //send response
   const result = posts[0];
 
-  const modifiedTopicPosts = (result.posts || []).map((post) => ({
+  const topicPostsWithCounts = await attachCommentCounts(result.posts || []);
+  const modifiedTopicPosts = topicPostsWithCounts.map((post) => ({
     ...post,
     postImage: (post.postImage || []).map(getOptimizedImage),
     postVideo: (post.postVideo || []).map(getOptimizedVideo),
   }));
 
   const total = result.totalcounts[0]?.count || 0;
-  const totalPages = Math.ceil(total / limit);
+  const totalPages = Math.ceil(total / limitNumber);
   return res.status(200).json(
     new ApiResponse(
       200,
       {
         posts: modifiedTopicPosts,
-        paginations: {
+        pagination: {
           total,
-          page,
-          limit,
+          page: pageNumber,
+          limit: limitNumber,
           totalPages,
-          hasNextPage: page < totalPages,
+          hasNextPage: pageNumber < totalPages,
         },
       },
       "Posts retrieved successfully",
@@ -721,18 +931,16 @@ const getTopicPosts = asyncHandler(async (req, res) => {
 });
 
 const getPost = asyncHandler(async (req, res) => {
-  //get query of pagination if it is given
-  const { page = 1, limit = 10 } = req.query;
-  const skip = (page - 1) * limit;
-  //i just have to make a aggregate pipeline for giving every post in sorted manner
+  const { page: pageNumber, limit: limitNumber } = parsePagination(req.query);
   const postData = await Post.aggregate([
     { $match: {} },
+    ...publicPostVisibilityStages(),
     {
       $facet: {
-        totalPost: [
+        posts: [
           { $sort: { createdAt: -1 } },
-          { $skip: skip },
-          { $limit: limit },
+          { $skip: (pageNumber - 1) * limitNumber },
+          { $limit: limitNumber },
           {
             $lookup: {
               from: "users",
@@ -766,16 +974,46 @@ const getPost = asyncHandler(async (req, res) => {
           },
           {
             $addFields: {
-              upvoteCount: { $size: "$upvotes" },
-              downvoteCount: { $size: "$downvotes" },
+              upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
+              upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
+              userVote: req.user?._id
+                ? {
+                    $cond: [
+                      {
+                        $in: [
+                          new mongoose.Types.ObjectId(req.user._id),
+                          { $ifNull: ["$upvotes", []] },
+                        ],
+                      },
+                      "up",
+                      {
+                        $cond: [
+                          {
+                            $in: [
+                              new mongoose.Types.ObjectId(req.user._id),
+                              { $ifNull: ["$downvotes", []] },
+                            ],
+                          },
+                          "down",
+                          null,
+                        ],
+                      },
+                    ],
+                  }
+                : null,
             },
           },
           {
             $project: {
               _id: 1,
-              ownerInfo: 1,
+              owner: "$ownerInfo",
               upvoteCount: 1,
               downvoteCount: 1,
+              upvotesCount: 1,
+              downvotesCount: 1,
+              userVote: 1,
               topic: 1,
               title: 1,
               postVideo: 1,
@@ -791,28 +1029,26 @@ const getPost = asyncHandler(async (req, res) => {
     },
   ]);
 
-  const result = postData[0];
+  const result = postData[0] || { posts: [], totalCount: [] };
 
-  const modifiedTotalPost = (result.totalPost || []).map((post) => ({
+  const postsWithCounts = await attachCommentCounts(result.posts || []);
+  const posts = postsWithCounts.map((post) => ({
     ...post,
     postImage: (post.postImage || []).map(getOptimizedImage),
     postVideo: (post.postVideo || []).map(getOptimizedVideo),
   }));
-
-  result.totalPost = modifiedTotalPost;
-
   const total = result.totalCount[0]?.count || 0;
-  const totalPages = limit > 0 ? Math.ceil(total / limit) : 0;
+  const totalPages = Math.ceil(total / limitNumber);
   const pagination = {
     total,
-    page,
-    limit,
+    page: pageNumber,
+    limit: limitNumber,
     totalPages,
-    hasNextPage: page < totalPages,
+    hasNextPage: pageNumber < totalPages,
   };
 
   const finalresponse = {
-    post: result,
+    posts,
     pagination,
   };
   //then send response
@@ -822,55 +1058,137 @@ const getPost = asyncHandler(async (req, res) => {
 });
 
 const reactToPost = asyncHandler(async (req, res) => {
-  //get type from req.body
-  const { type } = req.body;
   const { post_id } = req.params;
   const user_id = req.user._id;
+  const userId = new mongoose.Types.ObjectId(user_id);
 
-  //then perform action
-  let response = {};
-  if (type === "upvote") {
-    response = await Post.findByIdAndUpdate(
-      post_id,
-      {
-        $addToSet: { upvotes: user_id },
-        $pull: { downvotes: user_id },
-      },
-      { returnDocument: "after" },
-    );
-  } else if (type === "downvote") {
-    response = await Post.findByIdAndUpdate(
-      post_id,
-      {
-        $addToSet: { downvotes: user_id },
-        $pull: { upvotes: user_id },
-      },
-      { returnDocument: "after" },
-    );
+  let targetVote = req.body?.vote;
+  if (targetVote === undefined && req.body?.type) {
+    if (req.body.type === "upvote") targetVote = "up";
+    else if (req.body.type === "downvote") targetVote = "down";
   }
-  if (!response) throw new ApiError(404, "Post not found");
+  if (!["up", "down", null].includes(targetVote)) {
+    throw new ApiError(400, "Vote must be 'up', 'down', or null");
+  }
 
-  //send live response to the users
-  const io = getIO.get();
-  const room = `post:${String(response._id).trim()}`;
-  io.to(room).emit("reacted-post", response);
-  response.pages.forEach((page) => {
-    const room = `page:${String(page).trim()}`;
-    io.to(room).emit("reacted-post", response);
-  });
+  if (!mongoose.Types.ObjectId.isValid(post_id)) {
+    throw new ApiError(400, "Invalid post ID");
+  }
+  await assertPostAccess(post_id, user_id);
 
-  await createNotification(
-    response._id,
-    user_id,
-    type === "downvote" ? "post_downvote" : "post_upvote",
-    `${req.user.username} has ${type === "downvote" ? "downvoted" : "upvoted"} your post`,
-    response._id,
-  );
+  // Start atomic transaction
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const oldPost = await Post.findById(post_id)
+      .select("owner upvotes downvotes pages")
+      .session(session);
+    if (!oldPost) throw new ApiError(404, "Post not found");
 
-  // then send response
-  res
-    .status(200)
-    .json(new ApiResponse(200, null, "Successfully reacted to post"));
+    const wasUpvoted = (oldPost.upvotes || []).some(
+      (id) => id.toString() === userId.toString(),
+    );
+    const wasDownvoted = (oldPost.downvotes || []).some(
+      (id) => id.toString() === userId.toString(),
+    );
+
+    const updatedPost = await Post.findOneAndUpdate(
+      { _id: post_id },
+      [
+        {
+          $set: {
+            upvotes: {
+              $cond: [
+                { $eq: [targetVote, "up"] },
+                { $setUnion: [{ $ifNull: ["$upvotes", []] }, [userId]] },
+                { $setDifference: [{ $ifNull: ["$upvotes", []] }, [userId]] },
+              ],
+            },
+            downvotes: {
+              $cond: [
+                { $eq: [targetVote, "down"] },
+                { $setUnion: [{ $ifNull: ["$downvotes", []] }, [userId]] },
+                { $setDifference: [{ $ifNull: ["$downvotes", []] }, [userId]] },
+              ],
+            },
+          },
+        },
+        {
+          $set: {
+            upvoteCount: { $size: "$upvotes" },
+            downvoteCount: { $size: "$downvotes" },
+          },
+        },
+      ],
+      { returnDocument: "after", session, updatePipeline: true },
+    );
+
+    if (!updatedPost) throw new ApiError(404, "Post not found");
+
+    const isUpvoted = (updatedPost.upvotes || []).some(
+      (id) => id.toString() === userId.toString(),
+    );
+    const isDownvoted = (updatedPost.downvotes || []).some(
+      (id) => id.toString() === userId.toString(),
+    );
+
+    const oldVal = wasUpvoted ? 1 : wasDownvoted ? -1 : 0;
+    const newVal = isUpvoted ? 1 : isDownvoted ? -1 : 0;
+    const contributionDelta = (newVal - oldVal) * 10;
+
+    if (contributionDelta !== 0 && oldPost.owner) {
+      await User.applyContribution(oldPost.owner, contributionDelta, session);
+    }
+
+    await session.commitTransaction();
+
+    // Emit live updates
+    const io = getIO.get();
+    if (io) {
+      const room = `post:${String(updatedPost._id).trim()}`;
+      io.to(room).emit("reacted-post", {
+        postId: updatedPost._id,
+        upvoteCount: updatedPost.upvoteCount,
+        downvoteCount: updatedPost.downvoteCount,
+      });
+      (oldPost.pages || []).forEach((page) => {
+        const r = `page:${String(page).trim()}`;
+        io.to(r).emit("reacted-post", {
+          postId: updatedPost._id,
+          upvoteCount: updatedPost.upvoteCount,
+          downvoteCount: updatedPost.downvoteCount,
+        });
+      });
+    }
+
+    if (targetVote && oldPost.owner?.toString() !== userId.toString()) {
+      await createNotification(
+        oldPost.owner,
+        userId,
+        targetVote === "down" ? "post_downvote" : "post_upvote",
+        `${req.user.username} has ${targetVote === "down" ? "downvoted" : "upvoted"} your post`,
+        updatedPost._id,
+      );
+    }
+
+    const userVote = isUpvoted ? "up" : isDownvoted ? "down" : null;
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          upvoteCount: updatedPost.upvoteCount,
+          downvoteCount: updatedPost.downvoteCount,
+          userVote,
+        },
+        "Successfully reacted to post",
+      ),
+    );
+  } catch (err) {
+    await session.abortTransaction();
+    throw err;
+  } finally {
+    session.endSession();
+  }
 });
 
 const removeExistingPostFromPage = asyncHandler(async (req, res) => {
@@ -878,14 +1196,12 @@ const removeExistingPostFromPage = asyncHandler(async (req, res) => {
   const { post_id } = req.params;
   const pages = (req.pages || []).map((id) => String(id).trim());
 
-  const post = await Post.findById(post_id);
-  if (!post) throw new ApiError(400, "no post exist");
-
-  const isexist = (post.pages || []).some((page) =>
-    !pages.includes(String(page).trim()),
-  );
-
-  if (isexist) throw new ApiError(400, "post doesnot exist in some pages already");
+  const post = req.post;
+  if (!post) throw new ApiError(404, "Post not found");
+  const existingIds = (post.pages || []).map(String);
+  if (pages.some((page) => !existingIds.includes(page))) {
+    throw new ApiError(400, "Post is not attached to every requested page");
+  }
 
   //we already have data of post from isowner verification middleware so we just gonnna add new pages to existing page
   const returnedPost = await Post.findByIdAndUpdate(post_id, {
@@ -908,28 +1224,80 @@ const removeExistingPostFromPage = asyncHandler(async (req, res) => {
 });
 
 const searchOnText = asyncHandler(async (req, res) => {
-  const { search, page = 1, limit = 10 } = req.query;
+  const { search } = req.query;
 
-  if (!search) throw new ApiError(400, "Search query is required");
+  if (typeof search !== "string" || !search.trim()) {
+    throw new ApiError(400, "Search query is required");
+  }
+  if (search.length > 100) {
+    throw new ApiError(400, "Search query cannot exceed 100 characters");
+  }
 
-  const pageNumber = Number(page);
-  const limitNumber = Number(limit);
-  const skip = (pageNumber - 1) * limitNumber;
+  const { page: pageNumber, limit: limitNumber } = parsePagination(req.query);
 
-  const posts = await Post.find(
-    { $text: { $search: search } },
-    { score: { $meta: "textScore" } },
-  )
-    .sort({ score: { $meta: "textScore" } })
-    .populate({
-      path: "owner",
-      select: " _id username profileImage title",
-    })
-    .skip(skip)
-    .limit(limitNumber);
+  const [result] = await Post.aggregate([
+    { $match: { $text: { $search: search.trim() } } },
+    ...publicPostVisibilityStages(),
+    { $addFields: { score: { $meta: "textScore" } } },
+    {
+      $facet: {
+        posts: [
+          { $sort: { score: -1 } },
+          { $skip: (pageNumber - 1) * limitNumber },
+          { $limit: limitNumber },
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              pipeline: [{ $project: { _id: 1, username: 1, profileImage: 1, title: 1 } }],
+              as: "owner",
+            },
+          },
+          { $unwind: { path: "$owner", preserveNullAndEmptyArrays: true } },
+          {
+            $addFields: {
+              upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
+              upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
+              userVote: req.user?._id
+                ? {
+                    $cond: [
+                      {
+                        $in: [
+                          new mongoose.Types.ObjectId(req.user._id),
+                          { $ifNull: ["$upvotes", []] },
+                        ],
+                      },
+                      "up",
+                      {
+                        $cond: [
+                          {
+                            $in: [
+                              new mongoose.Types.ObjectId(req.user._id),
+                              { $ifNull: ["$downvotes", []] },
+                            ],
+                          },
+                          "down",
+                          null,
+                        ],
+                      },
+                    ],
+                  }
+                : null,
+            },
+          },
+        ],
+        totalCount: [{ $count: "count" }],
+      },
+    },
+  ]);
+  const posts = result?.posts || [];
+  const total = result?.totalCount?.[0]?.count || 0;
 
-  const modifiedPosts = (posts || []).map((post) => {
-    const postObj = post.toObject ? post.toObject() : post;
+  const postsWithCommentCounts = await attachCommentCounts(posts);
+  const modifiedPosts = postsWithCommentCounts.map((postObj) => {
     return {
       ...postObj,
       postImage: (postObj.postImage || []).map(getOptimizedImage),
@@ -943,10 +1311,6 @@ const searchOnText = asyncHandler(async (req, res) => {
           }
         : null,
     };
-  });
-
-  const total = await Post.countDocuments({
-    $text: { $search: search },
   });
 
   const totalPages = Math.ceil(total / limitNumber);
@@ -972,19 +1336,23 @@ const searchOnText = asyncHandler(async (req, res) => {
 const getPagePost = asyncHandler(async (req, res) => {
   //get pageid from req.params
   const { pageid } = req.params;
-  const { page = 1, limit = 10 } = req.query;
+  const { page: pageNumber, limit: limitNumber, skip } = parsePagination(req.query);
 
   //validate it
-  if (!pageid) throw new ApiError(400, "Page ID is required");
+  if (!mongoose.Types.ObjectId.isValid(pageid)) {
+    throw new ApiError(400, "Invalid page ID");
+  }
 
-  const pageData = await Page.findById(pageid);
+  const pageData = await Page.findById(pageid).select(
+    "type owner members moderators",
+  );
   if (!pageData) throw new ApiError(404, "Page not found");
 
   //verify if the page is open then allow all the user to fetch posts
   //if the page is closed then check if the user is member of page or not
   if (pageData.type === "private") {
     const user = req.user;
-    if (!user) throw new ApiError(401, "Unauthorized access");
+    if (!user) throw new ApiError(404, "Page not found");
 
     const isMember = pageData.members.some(
       (memberId) => memberId.toString() === user._id.toString(),
@@ -995,28 +1363,82 @@ const getPagePost = asyncHandler(async (req, res) => {
     );
 
     if (!isMember && !isOwner && !isModerator) {
-      throw new ApiError(403, "You are not a member of this private page");
+      throw new ApiError(404, "Page not found");
     }
   }
 
   //get all posts from post collections where pages array contains pageid
-  const pageNumber = Number(page);
-  const limitNumber = Number(limit);
-  const skip = (pageNumber - 1) * limitNumber;
+  const posts = await Post.aggregate([
+    { $match: { pages: new mongoose.Types.ObjectId(pageid) } },
+    ...postVisibilityStagesForUser(req.user?._id),
+    {
+      $facet: {
+        posts: [
+          { $sort: { createdAt: -1 } },
+          { $skip: skip },
+          { $limit: limitNumber },
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              pipeline: [
+                {
+                  $project: {
+                    _id: 1,
+                    username: 1,
+                    profileImage: 1,
+                    title: 1,
+                    badge: 1,
+                  },
+                },
+              ],
+              as: "owner",
+            },
+          },
+          { $unwind: { path: "$owner", preserveNullAndEmptyArrays: true } },
+          {
+            $addFields: {
+              upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
+              upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
+              userVote: req.user?._id
+                ? {
+                    $cond: [
+                      {
+                        $in: [
+                          new mongoose.Types.ObjectId(req.user._id),
+                          { $ifNull: ["$upvotes", []] },
+                        ],
+                      },
+                      "up",
+                      {
+                        $cond: [
+                          {
+                            $in: [
+                              new mongoose.Types.ObjectId(req.user._id),
+                              { $ifNull: ["$downvotes", []] },
+                            ],
+                          },
+                          "down",
+                          null,
+                        ],
+                      },
+                    ],
+                  }
+                : null,
+            },
+          },
+        ],
+        totalCount: [{ $count: "count" }],
+      },
+    },
+  ]);
 
-  const posts = await Post.find({ pages: pageid })
-    //populate owner
-    .populate({
-      path: "owner",
-      select: "_id username profileImage title badge",
-    })
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limitNumber);
-
-  //Transform each image and videos with getoptimised
-  const modifiedPosts = (posts || []).map((post) => {
-    const postObj = post.toObject ? post.toObject() : post;
+  const result = posts[0] || { posts: [], totalCount: [] };
+  const pagePostsWithCounts = await attachCommentCounts(result.posts);
+  const modifiedPosts = pagePostsWithCounts.map((postObj) => {
     return {
       ...postObj,
       postImage: (postObj.postImage || []).map(getOptimizedImage),
@@ -1032,7 +1454,7 @@ const getPagePost = asyncHandler(async (req, res) => {
     };
   });
 
-  const total = await Post.countDocuments({ pages: pageid });
+  const total = result.totalCount[0]?.count || 0;
   const totalPages = Math.ceil(total / limitNumber);
 
   //send response

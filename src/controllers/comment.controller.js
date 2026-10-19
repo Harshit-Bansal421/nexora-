@@ -3,10 +3,11 @@ import ApiError from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { Comment } from "../models/Comment.model.js";
 import ApiResponse from "../utils/ApiResponse.js";
-import { Post } from "../models/Post.model.js";
 import { getIO } from "../socket.js";
 import { createNotification } from "../utils/createNotification.js";
 import { User } from '../models/User.model.js'
+import { assertPostAccess } from "../utils/postAccess.js";
+import { parsePagination } from "../utils/pagination.js";
 
 
 const createComment = asyncHandler(async (req, res) => {
@@ -16,15 +17,27 @@ const createComment = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(post_id))
     throw new ApiError(400, "post id is invalid");
 
-  const post = await Post.findById(post_id).select("owner");
-  if (!post) throw new ApiError(400, "no post exist with this post_id");
+  const post = await assertPostAccess(post_id, req.user?._id);
 
   //get the author who is writing the comment
   const author = req.user._id;
 
   //get the req.body for each thing and also validate it
-  let { parentComment = null, body } = req.body;
-  if (!body) throw new ApiError(400, "comment body is missing");
+  let { parentComment = null, body } = req.body || {};
+  if (typeof body !== "string" || !body.trim() || body.length > 1000) {
+    throw new ApiError(400, "Comment must contain 1 to 1000 characters");
+  }
+  body = body.trim();
+  if (parentComment) {
+    if (!mongoose.Types.ObjectId.isValid(parentComment)) {
+      throw new ApiError(400, "Invalid parent comment ID");
+    }
+    const parent = await Comment.findOne({
+      _id: parentComment,
+      post: post_id,
+    }).select("_id");
+    if (!parent) throw new ApiError(404, "Parent comment not found");
+  }
 
   const postowner = post.owner;
 
@@ -81,6 +94,7 @@ const getComnment = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(post_id)) {
     throw new ApiError(400, "Invalid Post ID");
   }
+  await assertPostAccess(post_id, req.user?._id);
 
   // Step 2 — get query params
   // parentComment → which level to fetch
@@ -93,14 +107,20 @@ const getComnment = asyncHandler(async (req, res) => {
     limit = 10,
   } = req.query;
 
-  const pageNumber = Number(page);
-  const limitNumber = Number(limit);
-  const skip = (pageNumber - 1) * limitNumber;
-
+  const isTopLevel = !parentComment || parentComment === "null";
+  const { page: pageNumber, limit: limitNumber, skip } = parsePagination({
+    page,
+    limit,
+  });
+  if (!["top", "latest"].includes(sort)) {
+    throw new ApiError(400, "Sort must be top or latest");
+  }
+  if (!isTopLevel && !mongoose.Types.ObjectId.isValid(parentComment)) {
+    throw new ApiError(400, "Invalid parent comment ID");
+  }
   // Step 3 — build sort option
   // top level → by upvotes
   // replies   → by date ascending (conversation order)
-  const isTopLevel = !parentComment || parentComment === "null";
   const sortOption =
     sort === "top" && isTopLevel
       ? { upvotesCount: -1, createdAt: -1 }
@@ -127,7 +147,35 @@ const getComnment = asyncHandler(async (req, res) => {
     },
     {
       $addFields: {
-        upvotesCount: { $size: "$upvotes" },
+        upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+        downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
+        upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
+        downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
+        userVote: req.user?._id
+          ? {
+              $cond: [
+                {
+                  $in: [
+                    new mongoose.Types.ObjectId(req.user._id),
+                    { $ifNull: ["$upvotes", []] },
+                  ],
+                },
+                "up",
+                {
+                  $cond: [
+                    {
+                      $in: [
+                        new mongoose.Types.ObjectId(req.user._id),
+                        { $ifNull: ["$downvotes", []] },
+                      ],
+                    },
+                    "down",
+                    null,
+                  ],
+                },
+              ],
+            }
+          : null,
         replyCount: { $size: "$replies" },
         hasChildren: { $gt: [{ $size: "$replies" }, 0] },
         statusPriority: {
@@ -148,7 +196,7 @@ const getComnment = asyncHandler(async (req, res) => {
         localField: "author",
         foreignField: "_id",
         as: "author",
-        pipeline: [{ $project: { username: 1, avatar: 1, title: 1 } }],
+        pipeline: [{ $project: { username: 1, profileImage: 1, title: 1 } }],
       },
     },
     { $unwind: "$author" },
@@ -185,14 +233,16 @@ const editComment = asyncHandler(async (req, res) => {
   //get comment id from params and body from req.body
   const comment_id = req.comment.id;
 
-  const { body } = req.body;
-  if (!body) throw new ApiError(400, "there is no new body to change");
+  const { body } = req.body || {};
+  if (typeof body !== "string" || !body.trim() || body.length > 1000) {
+    throw new ApiError(400, "Comment must contain 1 to 1000 characters");
+  }
 
   //edit the info
   const updatedComment = await Comment.findByIdAndUpdate(
     comment_id,
     {
-      body: body,
+      body: body.trim(),
     },
     { new:true },
   ).select("post body");
@@ -243,83 +293,140 @@ const deleteCommentAndreply = async (comment_id, deletedCommentInfo) => {
   deletedCommentInfo.push({ id: info._id, body: info.body });
 };
 
-const upvoteComment = asyncHandler(async (req, res) => {
+const voteComment = asyncHandler(async (req, res) => {
   const { comment_id } = req.params;
   const user_id = req.user._id;
+  const userId = new mongoose.Types.ObjectId(user_id);
+
+  let targetVote = req.body?.vote;
+  if (targetVote === undefined && req.body?.type) {
+    if (req.body.type === "upvote") targetVote = "up";
+    else if (req.body.type === "downvote") targetVote = "down";
+  }
+  if (!["up", "down", null].includes(targetVote)) {
+    throw new ApiError(400, "Vote must be 'up', 'down', or null");
+  }
 
   if (!mongoose.Types.ObjectId.isValid(comment_id)) {
     throw new ApiError(400, "Invalid comment ID");
   }
 
-  const comment = await Comment.findById(comment_id);
-  if (!comment) throw new ApiError(404, "Comment not found");
+  // Start atomic transaction
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const oldComment = await Comment.findById(comment_id).session(session);
+    if (!oldComment) throw new ApiError(404, "Comment not found");
+    await assertPostAccess(oldComment.post, user_id);
 
-  const alreadyUpvoted = comment.upvotes.some(
-    (id) => id.toString() === user_id.toString(),
-  );
+    const wasUpvoted = (oldComment.upvotes || []).some(
+      (id) => id.toString() === userId.toString(),
+    );
+    const wasDownvoted = (oldComment.downvotes || []).some(
+      (id) => id.toString() === userId.toString(),
+    );
 
-  // Toggle upvote
-  if (alreadyUpvoted) {
-    await Comment.findByIdAndUpdate(comment_id, {
-      $pull: { upvotes: user_id },
-    });
-  } else {
-    await Comment.findByIdAndUpdate(comment_id, {
-      $addToSet: { upvotes: user_id },
-    });
+    const updatedComment = await Comment.findOneAndUpdate(
+      { _id: comment_id },
+      [
+        {
+          $set: {
+            upvotes: {
+              $cond: [
+                { $eq: [targetVote, "up"] },
+                { $setUnion: [{ $ifNull: ["$upvotes", []] }, [userId]] },
+                { $setDifference: [{ $ifNull: ["$upvotes", []] }, [userId]] },
+              ],
+            },
+            downvotes: {
+              $cond: [
+                { $eq: [targetVote, "down"] },
+                { $setUnion: [{ $ifNull: ["$downvotes", []] }, [userId]] },
+                { $setDifference: [{ $ifNull: ["$downvotes", []] }, [userId]] },
+              ],
+            },
+          },
+        },
+        {
+          $set: {
+            upvoteCount: { $size: "$upvotes" },
+            downvoteCount: { $size: "$downvotes" },
+          },
+        },
+      ],
+      { returnDocument: "after", session, updatePipeline: true },
+    );
 
-    // Notify comment author — only when adding upvote
-    if (comment.author.toString() !== user_id.toString()) {
-      await createNotification(
-        comment.author,
-        user_id,
-        "comment_upvote",
-        `${req.user.username} upvoted your comment`,
-        comment.post,
-        comment._id,
-        null,
-      );
+    if (!updatedComment) throw new ApiError(404, "Comment not found");
 
-      // XP for comment author
-      const author = await User.findById(comment.author);
-      await author.addXP(10);
+    const isUpvoted = (updatedComment.upvotes || []).some(
+      (id) => id.toString() === userId.toString(),
+    );
+    const isDownvoted = (updatedComment.downvotes || []).some(
+      (id) => id.toString() === userId.toString(),
+    );
+
+    const oldVal = wasUpvoted ? 1 : wasDownvoted ? -1 : 0;
+    const newVal = isUpvoted ? 1 : isDownvoted ? -1 : 0;
+    const contributionDelta = (newVal - oldVal) * 10;
+
+    if (
+      contributionDelta !== 0 &&
+      oldComment.author &&
+      oldComment.author.toString() !== userId.toString()
+    ) {
+      await User.applyContribution(oldComment.author, contributionDelta, session);
     }
+
+    await session.commitTransaction();
+
+    // Emit live update to post room
+    const io = getIO.get();
+    if (io) {
+      io.to(`post:${updatedComment.post}`).emit("comment-vote-update", {
+        commentId: updatedComment._id,
+        upvoteCount: updatedComment.upvoteCount,
+        downvoteCount: updatedComment.downvoteCount,
+      });
+    }
+
+    const userVote = isUpvoted ? "up" : isDownvoted ? "down" : null;
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          upvoteCount: updatedComment.upvoteCount,
+          downvoteCount: updatedComment.downvoteCount,
+          userVote,
+        },
+        "Comment vote recorded successfully",
+      ),
+    );
+  } catch (err) {
+    await session.abortTransaction();
+    throw err;
+  } finally {
+    session.endSession();
   }
-
-  // Get updated count
-  const updatedComment =
-    await Comment.findById(comment_id).select("upvotes post");
-
-  // Emit live update to post room
-  const io = getIO.get();
-  io.to(`post:${comment.post}`).emit("comment-vote-update", {
-    commentId: comment_id,
-    upvotesCount: updatedComment.upvotes.length,
-    userUpvoted: !alreadyUpvoted,
-  });
-
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      {
-        upvotesCount: updatedComment.upvotes.length,
-        userUpvoted: !alreadyUpvoted,
-      },
-      "Comment vote recorded",
-    ),
-  );
 });
 
 const statusComment = asyncHandler(async (req, res) => {
   //get comment id from req.comment and status that need to set
   const { comment_id } = req.params;
-  const { status } = req.body;
+  const { status } = req.body || {};
 
-  if (!status) throw new ApiResponse(400, "no status is provided");
+  if (!["pinned", "helpful", "none"].includes(status)) {
+    throw new ApiError(400, "Status must be pinned, helpful, or none");
+  }
 
-  //then check if it same in db then dont make db call
-  const comment = await Comment.findById(comment_id);
-  if (!comment) throw new ApiError(400, "no commenr exist with this id");
+  if (!mongoose.Types.ObjectId.isValid(comment_id)) {
+    throw new ApiError(400, "Invalid comment ID");
+  }
+  const comment = await Comment.findOne({
+    _id: comment_id,
+    post: req.params.post_id,
+  });
+  if (!comment) throw new ApiError(404, "Comment not found on this post");
   if (comment.status === status)
     throw new ApiError(400, "status is same as the previous one");
 
@@ -334,18 +441,20 @@ const statusComment = asyncHandler(async (req, res) => {
       : `${req.user.username} marked helpfull on ur comment`;
 
   //send noitification to comment owner
-  await createNotification(
-    comment.author,
-    req.user?._id,
-    status,
-    message,
-    comment.post,
-    comment_id,
-  );
+  if (status !== "none") {
+    await createNotification(
+      comment.author,
+      req.user?._id,
+      status,
+      message,
+      comment.post,
+      comment_id,
+    );
+  }
 
   //socket also
   const io = getIO.get();
-  io.to(`post:${comment_id.post}`).emit("comment-status", {
+  io.to(`post:${comment.post}`).emit("comment-status", {
     id: comment_id,
     status: status,
   });
@@ -358,6 +467,6 @@ export {
   getComnment,
   editComment,
   deleteComment,
-  upvoteComment,
+  voteComment,
   statusComment,
 };

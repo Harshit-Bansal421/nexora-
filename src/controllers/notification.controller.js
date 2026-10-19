@@ -3,6 +3,7 @@ import { Notification } from "../models/Notification.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import mongoose from "mongoose";
+import { parsePagination } from "../utils/pagination.js";
 
 const getNotification = asyncHandler(async (req, res) => {
   //we have to get all notifications of user having user_id which has isreadAll
@@ -12,14 +13,10 @@ const getNotification = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Unauthorized access");
   }
 
-  let { pages = 1, limit = 10 } = req.query;
-  pages = Number(pages);
-  limit = Number(limit);
-
-  if (isNaN(pages) || pages < 1) pages = 1;
-  if (isNaN(limit) || limit < 1 || limit > 100) limit = 10;
-
-  const skip = (pages - 1) * limit;
+  const { page: pages, limit, skip } = parsePagination({
+    page: req.query.page ?? req.query.pages,
+    limit: req.query.limit,
+  });
 
   const notifications = await Notification.aggregate([
     {
@@ -83,10 +80,10 @@ const markRead = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid notification ID format");
   }
 
-  const notification = await Notification.findByIdAndUpdate(
-    notification_id,
+  const notification = await Notification.findOneAndUpdate(
+    { _id: notification_id, recipient: req.user._id },
     {
-      isRead: true,
+      $set: { isRead: true },
     },
     { returnDocument: "after" },
   );
