@@ -745,10 +745,6 @@ const getParticularPage = asyncHandler(async (req, res) => {
         Page.exists({ _id: pageId, members: userId }),
       ])
     : [false, false];
-  if (page.type === "private" && !isOwner && !isModerator && !isMember) {
-    throw new ApiError(404, "Page not found");
-  }
-
   // Build response based on user role
   let responseData = {
     _id: page._id,
@@ -781,6 +777,8 @@ const getParticularPage = asyncHandler(async (req, res) => {
   } else {
     responseData.userRole = "guest";
   }
+  responseData.canViewContent =
+    page.type !== "private" || Boolean(isOwner || isModerator || isMember);
 
   return res
     .status(200)

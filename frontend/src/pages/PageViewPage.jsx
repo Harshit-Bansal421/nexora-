@@ -249,6 +249,24 @@ export default function PageViewPage() {
         </section>
 
         {/* Content Section: Quick Post Box & Feed */}
+        {page?.type === "private" && !isMember && !isOwner ? (
+          <section className="rounded-3xl border border-outline-variant/15 bg-surface-container-lowest p-8 text-center shadow-stitch-soft">
+            <span className="material-symbols-outlined text-4xl text-primary" aria-hidden="true">
+              lock
+            </span>
+            <h2 className="mt-3 font-headline text-xl font-bold text-on-surface">
+              Private community
+            </h2>
+            <p className="mx-auto mt-2 max-w-lg text-sm text-on-surface-variant">
+              You can view this community and its details. Request to join to access its posts and participate; a moderator or owner must approve your request.
+            </p>
+            {!isAuthenticated && (
+              <p className="mt-3 text-sm font-semibold text-on-surface-variant">
+                Sign in to request access.
+              </p>
+            )}
+          </section>
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Feed Column */}
           <div className="lg:col-span-2 space-y-6">
@@ -338,6 +356,7 @@ export default function PageViewPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
     </Layout>
   );
