@@ -64,6 +64,13 @@ export default function PageExplorePage() {
         }),
       );
       setPages(enrichedPages);
+      setPendingRequestIds(
+        new Set(
+          enrichedPages
+            .filter((page) => page.pendingJoinRequest)
+            .map((page) => page._id),
+        ),
+      );
     } catch (err) {
       console.warn("Error fetching pages:", err);
     } finally {

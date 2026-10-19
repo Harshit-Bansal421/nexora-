@@ -18,17 +18,16 @@ const getNotification = asyncHandler(async (req, res) => {
     limit: req.query.limit,
   });
 
-  const notifications = await Notification.aggregate([
+  const [notificationResult = { notifications: [], totalCount: [] }] = await Notification.aggregate([
     {
       $match: {
         recipient: new mongoose.Types.ObjectId(user_id),
-        isRead: false,
       },
     },
     {
       $facet: {
         notifications: [
-          { $sort: { createdAt: 1 } },
+          { $sort: { createdAt: -1 } },
           { $skip: skip },
           { $limit: limit },
           {
@@ -47,7 +46,8 @@ const getNotification = asyncHandler(async (req, res) => {
     },
   ]);
 
-  const total = notifications[0].totalCount[0]?.count || 0;
+  const notifications = notificationResult.notifications || [];
+  const total = notificationResult.totalCount?.[0]?.count || 0;
   const totalPages = Math.ceil(total / limit);
 
   const pagination = {

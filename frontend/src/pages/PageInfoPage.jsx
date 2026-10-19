@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { pageApi } from "../api/client";
 import { useAuth } from "../context/authContextValue";
@@ -10,6 +10,7 @@ import ImageWithFallback from "../components/ImageWithFallback";
 export default function PageInfoPage() {
   const { pageId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { currentUser } = useAuth();
   const { success, error } = useToast();
 
@@ -24,7 +25,9 @@ export default function PageInfoPage() {
   const [memberBusyId, setMemberBusyId] = useState(null);
   const [memberAction, setMemberAction] = useState(null);
   const [requests, setRequests] = useState([]);
-  const [activeTab, setActiveTab] = useState("about"); // 'about' | 'members' | 'requests'
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get("tab") === "requests" ? "requests" : "about",
+  ); // 'about' | 'members' | 'requests'
   const [loading, setLoading] = useState(true);
   const loadedPageId = useRef(null);
 

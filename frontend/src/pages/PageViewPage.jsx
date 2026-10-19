@@ -64,6 +64,7 @@ export default function PageViewPage() {
             if (isMounted) {
               setPage(pageData);
               setIsMember(memberRole);
+              setRequestPending(Boolean(pageData?.pendingJoinRequest));
             }
           }
 
@@ -217,7 +218,7 @@ export default function PageViewPage() {
             <div className="flex items-center gap-3 md:shrink-0">
               <button
                 onClick={handleJoinToggle}
-                disabled={joining || isOwner}
+                disabled={joining || isOwner || requestPending}
                 className={`min-h-11 rounded-xl px-6 py-2.5 font-bold text-xs transition-all shadow-sm active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60 ${
                   isMember || isOwner
                     ? "bg-surface-container-high text-on-surface hover:bg-surface-container-highest"

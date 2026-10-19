@@ -23,6 +23,7 @@ export const createNotification = async (
 });
   if (!res) throw new ApiError(400, "error in creating notification");
 
+  await res.populate({ path: "sender", select: "username profileImage" });
   sendToUser(recipient, "notification", res);
   return res;
 };

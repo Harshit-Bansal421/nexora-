@@ -7,6 +7,17 @@ import { useToast } from "../context/toastContextValue";
 import { getSocket } from "../api/socket";
 import Avatar from "../components/Avatar";
 
+const COMMUNITY_NOTIFICATION_TYPES = new Set([
+  "page_join",
+  "page_removed",
+  "page_deleted",
+  "mod_appointed",
+  "mod_removed",
+  "join_request",
+  "request_approved",
+  "request_rejected",
+]);
+
 export default function NotificationsPage() {
   const { setUnreadNotificationsCount } = useAuth();
   const { success, error } = useToast();
@@ -74,10 +85,18 @@ export default function NotificationsPage() {
       }
     }
 
-    if (notif.post) {
+    if (notif.page || COMMUNITY_NOTIFICATION_TYPES.has(notif.type)) {
+      // Older community notifications stored the page ID in `post`; continue
+      // opening those correctly while new notifications use the page field.
+      const pageId = notif.page || notif.post;
+      if (pageId) {
+        const pagePath = `/pages/${pageId._id || pageId}`;
+        navigate(
+          notif.type === "join_request" ? `${pagePath}/info?tab=requests` : pagePath,
+        );
+      }
+    } else if (notif.post) {
       navigate(`/posts/${notif.post._id || notif.post}/comments`);
-    } else if (notif.page) {
-      navigate(`/pages/${notif.page._id || notif.page}`);
     }
   };
 
@@ -86,7 +105,11 @@ export default function NotificationsPage() {
     if (filter === "reply")
       return n.type?.includes("comment") || n.type?.includes("reply");
     if (filter === "page")
-      return n.type?.includes("page") || n.type?.includes("community");
+      return (
+        n.type?.includes("page") ||
+        n.type?.includes("community") ||
+        COMMUNITY_NOTIFICATION_TYPES.has(n.type)
+      );
     if (filter === "vote")
       return n.type?.includes("vote") || n.type?.includes("helpful");
     return true;
@@ -200,7 +223,15 @@ export default function NotificationsPage() {
                       />
                       <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px]">
                         <span className="material-symbols-outlined text-xs">
-                          {notif.type?.includes("helpful")
+                          {notif.type === "join_request"
+                            ? "person_add"
+                            : notif.type === "request_approved"
+                              ? "check_circle"
+                              : notif.type === "request_rejected"
+                                ? "person_remove"
+                                : COMMUNITY_NOTIFICATION_TYPES.has(notif.type)
+                                  ? "groups"
+                                  : notif.type?.includes("helpful")
                             ? "verified"
                             : notif.type?.includes("vote")
                               ? "thumb_up"

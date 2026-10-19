@@ -120,6 +120,8 @@ const deletePage = asyncHandler(async (req, res) => {
       deletedPage.owner,
       "page_deleted",
       `${req.user.username} deleted the page u were member of`,
+      null,
+      null,
       deletedPage._id,
     );
   }
@@ -134,9 +136,8 @@ const getPages = asyncHandler(async (req, res) => {
   );
   const { search, topic, title } = req.query;
 
-  // Communities are discoverable regardless of access type. Private access is
-  // enforced by getParticularPage and joinPage; hiding them here prevents users
-  // from finding a hub and requesting membership.
+  // Communities are discoverable regardless of access type. Private post access
+  // is enforced by getPagePost, and joinPage creates an approval request.
   const filter = {};
   if (search) {
     if (typeof search !== "string" || !search.trim() || search.length > 100) {
@@ -229,6 +230,9 @@ const makeModerator = asyncHandler(async (req, res) => {
       updatedPage.owner,
       "mod_appointed",
       `${req.user.username} appointed you moderator of the page:${updatedPage.pageName}`,
+      null,
+      null,
+      updatedPage._id,
     );
   }
 
@@ -263,6 +267,9 @@ const removeModerator = asyncHandler(async (req, res) => {
       updatedPage.owner,
       "mod_removed",
       `${req.user.username} removed your moderator role from ${updatedPage.pageName}`,
+      null,
+      null,
+      updatedPage._id,
     );
   }
   return res.status(200).json(new ApiResponse(200, {
@@ -363,8 +370,10 @@ const removeUser = asyncHandler(async (req, res) => {
       rem_id,
       req.user._id,
       "page_removed",
-      `${req.user.username} removed you from page`,
-      page._id
+      `${req.user.username} removed you from ${page.pageName}`,
+      null,
+      null,
+      page._id,
     )
   }
   
@@ -413,8 +422,10 @@ const joinPage = asyncHandler(async (req, res) => {
       updatedPage.owner,
       user_id,
       "page_join",
-      `${req.user.username} joined ur page`,
-      updatedPage._id
+      `${req.user.username} joined ${updatedPage.pageName}`,
+      null,
+      null,
+      updatedPage._id,
     )
     return res
       .status(200)
@@ -457,8 +468,10 @@ const joinPage = asyncHandler(async (req, res) => {
     page.owner,
     req.user._id,
     "join_request",
-    `${req.user.username} want to join ur page`,
-    page._id
+    `${req.user.username} requested to join ${page.pageName}`,
+    null,
+    null,
+    page._id,
   )
 
   // After creating joinRequest, you need to return something
@@ -570,8 +583,10 @@ const approvePendingRequest = asyncHandler(async (req, res) => {
     requestedBy,
     req.user._id,
     normalizedStatus === "approved" ? "request_approved" : "request_rejected",
-    `${req.user.username} ${normalizedStatus} your request`,
-    page_id
+    `${req.user.username} ${normalizedStatus} your request to join ${req.page.pageName}`,
+    null,
+    null,
+    page_id,
   )
   //send response
   return res
@@ -779,6 +794,15 @@ const getParticularPage = asyncHandler(async (req, res) => {
   }
   responseData.canViewContent =
     page.type !== "private" || Boolean(isOwner || isModerator || isMember);
+  if (page.type === "private" && userId && !responseData.canViewContent) {
+    responseData.pendingJoinRequest = Boolean(
+      await JoinRequest.exists({
+        page: pageId,
+        requestedBy: userId,
+        status: "pending",
+      }),
+    );
+  }
 
   return res
     .status(200)
