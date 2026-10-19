@@ -11,8 +11,13 @@ Set these values in the deployment environment; do not commit secrets:
 - `CORS_ORIGIN` as a comma-separated list of exact frontend origins
 - `TRUST_PROXY_HOPS` to the number of trusted reverse proxies in front of Express
 - `CLOUDINARY_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET`
-- `NODEMAILER_GMAIL` and `NODEMAILER_PASSKEY`
+- `RESEND_API_KEY` and `EMAIL_FROM`
 - `ACCESS_TOKEN_EXPIRY`, `REFRESH_TOKEN_EXPIRY`, and `RESET_SECRETKEY_EXPIRY`
+
+Configure `EMAIL_FROM` with an address on a domain verified in Resend. Resend
+must accept the sender address before signup or password-reset OTP requests can
+complete. The API key and sender address belong in the backend environment
+(for Render, the Nexora web service), never in the frontend build environment.
 
 Outside production, local HTTP origins on `localhost`, `127.0.0.1`, and `::1` are allowed for Vite development, regardless of the development port. A wildcard `CORS_ORIGIN=*` is ignored locally and rejected in production. Production requires an explicit comma-separated list of exact frontend origins; wildcard origins are never accepted.
 

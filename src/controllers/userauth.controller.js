@@ -30,6 +30,29 @@ const normalizeEmail = (email) =>
 const isValidEmail = (email) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
+const rollbackOtpAfterEmailFailure = async ({
+  otpId,
+  failedHashedOTP,
+  previous,
+}) => {
+  try {
+    const result = previous
+      ? await OTP.updateOne(
+          { _id: otpId, hashedOTP: failedHashedOTP },
+          { $set: previous },
+        )
+      : await OTP.deleteOne({ _id: otpId, hashedOTP: failedHashedOTP });
+
+    if (previous ? result.matchedCount === 0 : result.deletedCount === 0) {
+      console.warn("OTP email-failure rollback skipped because the OTP changed");
+    }
+  } catch (error) {
+    console.error("OTP email-failure rollback failed", {
+      name: error?.name || "UnknownError",
+    });
+  }
+};
+
 const SignupUser = asyncHandler(async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   const username =
@@ -89,8 +112,9 @@ const SignupUser = asyncHandler(async (req, res) => {
 
   const { plainOTP, hashedOTP, expiry } = await OTPgenerator();
   const pendingPasswordHash = await bcrypt.hash(password, 12);
+  let pendingOtp;
   try {
-    await OTP.create({
+    pendingOtp = await OTP.create({
       email,
       type: "email_verify",
       pendingUsername: username,
@@ -107,8 +131,15 @@ const SignupUser = asyncHandler(async (req, res) => {
   }
 
   const html = getVerificationEmailHTML(username, plainOTP);
-  const emailResponse = await sendEmail({ to: email, html });
-  if (!emailResponse) throw new ApiError(500, "Failed to send verification email");
+  try {
+    await sendEmail({ to: email, html });
+  } catch (error) {
+    await rollbackOtpAfterEmailFailure({
+      otpId: pendingOtp._id,
+      failedHashedOTP: hashedOTP,
+    });
+    throw error;
+  }
 
   return res
     .status(201)
@@ -476,6 +507,13 @@ const resendEmail = asyncHandler(async (req, res) => {
   }
 
   const { plainOTP, hashedOTP, expiry } = await OTPgenerator();
+  const previousOtp = {
+    hashedOTP: existedOTP.hashedOTP,
+    expiry: existedOTP.expiry,
+    lastResend: existedOTP.lastResend,
+    failedAttempts: existedOTP.failedAttempts,
+    resendCount: existedOTP.resendCount,
+  };
   await OTP.findByIdAndUpdate(existedOTP._id, {
     $set: {
       hashedOTP,
@@ -493,8 +531,16 @@ const resendEmail = asyncHandler(async (req, res) => {
       ? getVerificationEmailHTML(username, plainOTP)
       : getPasswordResetEmailHTML(username, plainOTP);
 
-  const emailResponse = await sendEmail({ to: email, html: html });
-  if (!emailResponse) throw new ApiError(400, "error in sending the email");
+  try {
+    await sendEmail({ to: email, html });
+  } catch (error) {
+    await rollbackOtpAfterEmailFailure({
+      otpId: existedOTP._id,
+      failedHashedOTP: hashedOTP,
+      previous: previousOtp,
+    });
+    throw error;
+  }
 
   return res
     .status(200)
@@ -533,7 +579,15 @@ const forgotPassword = asyncHandler(async (req, res) => {
   }
 
   const { plainOTP, hashedOTP, expiry } = await OTPgenerator();
+  let otpRollback;
   if (existedOTP) {
+    const previousOtp = {
+      hashedOTP: existedOTP.hashedOTP,
+      expiry: existedOTP.expiry,
+      failedAttempts: existedOTP.failedAttempts,
+      lastResend: existedOTP.lastResend,
+      resendCount: existedOTP.resendCount,
+    };
     await OTP.findByIdAndUpdate(existedOTP._id, {
       $set: {
         hashedOTP,
@@ -543,19 +597,28 @@ const forgotPassword = asyncHandler(async (req, res) => {
       },
       $inc: { resendCount: 1 },
     });
+    otpRollback = { otpId: existedOTP._id, previous: previousOtp };
   } else {
-    await OTP.create({
+    const pendingOtp = await OTP.create({
       email,
       type: "password_reset",
       hashedOTP,
       expiry,
       lastResend: new Date(),
     });
+    otpRollback = { otpId: pendingOtp._id };
   }
 
   const html = getPasswordResetEmailHTML(user.username, plainOTP);
-  const emailResponse = await sendEmail({ to: email, html });
-  if (!emailResponse) throw new ApiError(500, "Failed to send password reset email");
+  try {
+    await sendEmail({ to: email, html });
+  } catch (error) {
+    await rollbackOtpAfterEmailFailure({
+      ...otpRollback,
+      failedHashedOTP: hashedOTP,
+    });
+    throw error;
+  }
   return genericResponse();
 });
 
