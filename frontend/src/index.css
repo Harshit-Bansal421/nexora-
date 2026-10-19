@@ -1,0 +1,116 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply bg-surface text-on-surface font-sans antialiased selection:bg-primary-fixed selection:text-on-primary-fixed;
+    min-height: 100dvh;
+    overflow-x: clip;
+  }
+
+  button {
+    @apply min-h-11;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-surface;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline text-on-surface tracking-tight;
+  }
+}
+
+/* Custom Stitch Utility Classes */
+@layer components {
+  .page-transition {
+    animation: page-enter 160ms ease-out both;
+  }
+
+  .stitch-card {
+    @apply bg-surface-container-lowest rounded-xl p-4 shadow-stitch-soft border border-outline-variant/15 transition-all duration-200;
+  }
+
+  @keyframes page-enter {
+    from {
+      opacity: 0.7;
+      transform: translateY(0.25rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .stitch-btn-primary {
+    @apply bg-primary hover:bg-primary-dim text-on-primary font-medium px-5 py-2.5 rounded-full shadow-sm transition-all duration-200 active:scale-[0.98] inline-flex items-center justify-center gap-2;
+  }
+
+  .stitch-btn-secondary {
+    @apply bg-surface-container hover:bg-surface-container-high text-primary font-medium px-4 py-2 rounded-full transition-all duration-200 inline-flex items-center justify-center gap-2;
+  }
+
+  .stitch-btn-outline {
+    @apply border border-outline-variant hover:bg-surface-container-low text-on-surface font-medium px-4 py-2 rounded-full transition-all duration-200 inline-flex items-center justify-center gap-2;
+  }
+
+  .stitch-input {
+    @apply w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl px-4 py-3 text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all;
+  }
+
+  .stitch-badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-surface-container text-primary;
+  }
+}
+
+/* Material Symbols icon support */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.material-symbols-outlined.filled {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Hide scrollbar for clean horizontal carousels */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

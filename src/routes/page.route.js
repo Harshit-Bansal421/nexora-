@@ -22,6 +22,7 @@ import { isPageMember } from "../middleware/isPageMember.js";
 import { loadingPage } from "../middleware/loadingPage.js";
 import { checkMembership } from "../middleware/checkMembership.js";
 import { isPageModeratorOrOwner } from "../middleware/isPageModeratorOrOwner.js";
+import ratelimit from "../middleware/RateLimiting.js";
 
 const router = Router();
 
@@ -30,24 +31,23 @@ const router = Router();
 //specific routes
 
 //any user
-router.route("/").get(verifyOptional, getPages); //to get general content
+router.route("/").get(ratelimit.readLimiter(), verifyOptional, getPages);
 // //owner only
 router
   .route("/")
-  .post(jwtVerify, upload.avatarUpload("pageProfileImage"), createPage); // create page
+  .post(jwtVerify, ratelimit.writeLimiter(), upload.avatarUpload("pageProfileImage"), createPage);
 router
   .route("/:page_id/moderators")
-  .post(jwtVerify, loadingPage, isPageOwner, checkMembership, makeModerator); //make moderator-- we send user_id through body
+  .post(jwtVerify, ratelimit.writeLimiter(), loadingPage, isPageOwner, checkMembership, makeModerator);
 router
   .route("/:page_id/moderators")
   .delete(
     jwtVerify,
+    ratelimit.writeLimiter(),
     loadingPage,
     isPageOwner,
     checkMembership,
     removeModerator,
-    joinPage,
-    leavePage,
   ); //remove moderator
 
 // //moderator + owner can operate
@@ -55,6 +55,7 @@ router
   .route("/:page_id/members")
   .delete(
     jwtVerify,
+    ratelimit.writeLimiter(),
     loadingPage,
     isPageModeratorOrOwner,
     checkMembership,
@@ -62,21 +63,21 @@ router
   ); //remove user--jo banda remove kr ra vo moderator ya owner hoga and req.body mei accept krenge membership so that any number of users can be removed from the page
 router
   .route("/:page_id/requests")
-  .get(jwtVerify, loadingPage, isPageModeratorOrOwner, seePendingRequest); //get pending request
+  .get(jwtVerify, ratelimit.readLimiter(), loadingPage, isPageModeratorOrOwner, seePendingRequest);
 router
   .route("/:page_id/request")
-  .post(jwtVerify, loadingPage, isPageModeratorOrOwner, approvePendingRequest); //accept/reject request--> user will send status of the request
+  .post(jwtVerify, ratelimit.writeLimiter(), loadingPage, isPageModeratorOrOwner, approvePendingRequest);
 
 //only member can access
 router
   .route("/:page_id/members")
-  .get(jwtVerify, loadingPage, isPageMember, seeMembersList); //see member list
+  .get(jwtVerify, ratelimit.readLimiter(), loadingPage, isPageMember, seeMembersList);
 
 // //logged in
 router
   .route("/:page_id/leave")
-  .delete(jwtVerify, loadingPage, isPageMember, leavePage); //leave the page
-router.route("/:page_id/join").post(jwtVerify, joinPage); //join page or request to join
+  .delete(jwtVerify, ratelimit.writeLimiter(), loadingPage, isPageMember, leavePage);
+router.route("/:page_id/join").post(jwtVerify, ratelimit.writeLimiter(), joinPage);
 
 // //param routes
 
@@ -85,6 +86,7 @@ router
   .route("/:page_id")
   .patch(
     jwtVerify,
+    ratelimit.writeLimiter(),
     loadingPage,
     isPageOwner,
     upload.avatarUpload("newPageImage"),
@@ -92,9 +94,9 @@ router
   ); //edit page info
 router
   .route("/:page_id")
-  .delete(jwtVerify, loadingPage, isPageOwner, deletePage); //delete page
+  .delete(jwtVerify, ratelimit.sensitiveLimiter(), loadingPage, isPageOwner, deletePage);
 
 // //any user- will handle how much information in controller
-router.route("/:page_id").get(verifyOptional, loadingPage, getParticularPage);
+router.route("/:page_id").get(ratelimit.readLimiter(), verifyOptional, loadingPage, getParticularPage);
 
 export default router;

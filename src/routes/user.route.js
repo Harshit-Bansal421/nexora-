@@ -27,21 +27,21 @@ const router = Router();
 //public routes
 router.route("/signup").post(ratelimit.authLimiter(), upload.avatarUpload(), SignupUser);
 router.route("/login").post(ratelimit.authLimiter(), loginUser);
-router.route("/refreshToken").post(ratelimit.authLimiter(), getNewAccessToken);
-router.route("/verify-email").post(ratelimit.authLimiter(),verifyEmailandLogin);
-router.route("/resend-email").post(ratelimit.authLimiter(),resendEmail);//will work for both verify email as well as change password
-router.route("/forgot-password").post(ratelimit.authLimiter(),forgotPassword);
-router.route("/verify-reset-otp").post(ratelimit.authLimiter(), verifyResetOTP)
-router.route("/reset-password").post(ratelimit.authLimiter(), resetPassword)
+router.route("/refreshToken").post(ratelimit.sensitiveLimiter(), getNewAccessToken);
+router.route("/verify-email").post(ratelimit.sensitiveLimiter(), verifyEmailandLogin);
+router.route("/resend-email").post(ratelimit.sensitiveLimiter(), resendEmail);
+router.route("/forgot-password").post(ratelimit.sensitiveLimiter(), forgotPassword);
+router.route("/verify-reset-otp").post(ratelimit.sensitiveLimiter(), verifyResetOTP);
+router.route("/reset-password").post(ratelimit.sensitiveLimiter(), resetPassword);
 
 //protected routes
-router.route("/follow/:user_id").post(ratelimit.authLimiter(),jwtVerify,followUser);
-router.route("/unfollow/:user_id").delete(ratelimit.authLimiter(),jwtVerify,unfollowUser);
-router.route("/currentuser").get(ratelimit.authLimiter(), jwtVerify, getCurrentUser);
-router.route("/logout").post(ratelimit.authLimiter(), jwtVerify, logoutUser);
-router.route("/logout-all").post(ratelimit.authLimiter(), jwtVerify, logoutUserAllDevice);
-router.route("/update-username").patch(ratelimit.authLimiter(),jwtVerify,updateUsername);
-router.route("/change-password").patch(ratelimit.authLimiter(),jwtVerify,UpdatePassword);
+router.route("/follow/:user_id").post(jwtVerify, ratelimit.writeLimiter(), followUser);
+router.route("/unfollow/:user_id").delete(jwtVerify, ratelimit.writeLimiter(), unfollowUser);
+router.route("/currentuser").get(jwtVerify, ratelimit.readLimiter(), getCurrentUser);
+router.route("/logout").post(jwtVerify, ratelimit.writeLimiter(), logoutUser);
+router.route("/logout-all").post(jwtVerify, ratelimit.sensitiveLimiter(), logoutUserAllDevice);
+router.route("/update-username").patch(jwtVerify, ratelimit.writeLimiter(), updateUsername);
+router.route("/change-password").patch(jwtVerify, ratelimit.sensitiveLimiter(), UpdatePassword);
 // router.route("/update-profile").patch();
 
 

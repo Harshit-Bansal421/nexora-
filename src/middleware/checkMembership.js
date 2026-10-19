@@ -12,8 +12,8 @@ const checkMembership = asyncHandler(async (req, res, next) => {
   //validate them and make an array if needed
   if (!requestedUsers) throw new ApiError(400, "Requested users are missing");
   if (!Array.isArray(requestedUsers)) requestedUsers = [requestedUsers];
-  if (requestedUsers.length < 1)
-    throw new ApiError(400, "requested user array is empty");
+  if (requestedUsers.length < 1 || requestedUsers.length > 100)
+    throw new ApiError(400, "Provide between 1 and 100 requested users");
   requestedUsers.forEach((user) => {
     if (!mongoose.Types.ObjectId.isValid(user))
       throw new ApiError(400, "Some user IDs are invalid");
@@ -22,6 +22,7 @@ const checkMembership = asyncHandler(async (req, res, next) => {
   //then check
   const memberIds = members.map((m) => m.toString());
 
+  requestedUsers = [...new Set(requestedUsers.map((user) => user.toLowerCase()))];
   const nonMembers = requestedUsers.filter((user) => !memberIds.includes(user));
   if (nonMembers.length > 0)
     throw new ApiError(

@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { isCommentOwner } from "../middleware/isCommentOwner.js";
 import { jwtVerify } from "../middleware/jwtVerify.js";
+import ratelimit from "../middleware/RateLimiting.js";
 import { isPostOwner } from "../middleware/isPostowner.js";
+import { verifyOptional } from "../middleware/verifyOptional.js";
 import {
   createComment,
   getComnment,
@@ -14,21 +16,21 @@ import {
 const router = Router();
 
 //any user
-router.route("/post/:post_id").get(getComnment); //get the comments of a postid
+router.route("/post/:post_id").get(ratelimit.readLimiter(), verifyOptional, getComnment);
 
 //loggedin user
-router.route("/post/:post_id").post(jwtVerify, createComment); //create a comment
+router.route("/post/:post_id").post(jwtVerify, ratelimit.writeLimiter(), createComment);
 
 //comment owner only
-router.route("/:comment_id").delete(jwtVerify, isCommentOwner, deleteComment); //delete a comment
-router.route("/:comment_id").patch(jwtVerify, isCommentOwner, editComment); //edit the comment
+router.route("/:comment_id").delete(jwtVerify, ratelimit.writeLimiter(), isCommentOwner, deleteComment);
+router.route("/:comment_id").patch(jwtVerify, ratelimit.writeLimiter(), isCommentOwner, editComment);
 
 //any logged in user
-router.route("/:comment_id/upvote").post(jwtVerify, upvoteComment); //user can react to the comment
+router.route("/:comment_id/upvote").post(jwtVerify, ratelimit.writeLimiter(), upvoteComment);
 
 //only post owner can do this
 router
   .route("/:post_id/:comment_id/status")
-  .post(jwtVerify, isPostOwner, statusComment); //user can pinned or helpful-->user has to tell what they wanna do
+  .post(jwtVerify, ratelimit.writeLimiter(), isPostOwner, statusComment);
 
 export default router;

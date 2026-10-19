@@ -26,14 +26,10 @@ const transporter = nodemailer.createTransport({
 });
 
 export const sendEmail = async ({to, subject="verify", html}) => {
-  try {
-    return await transporter.sendMail({
-      from: `"Nexora" <${process.env.NODEMAILER_GMAIL}>`,
-      to,
-      subject,
-      html,
-    });
-  } catch (error) {
-    console.error("Email error:", error);
-  }
+  return transporter.sendMail({
+    from: `"Nexora" <${process.env.NODEMAILER_GMAIL}>`,
+    to,
+    subject,
+    html,
+  });
 };

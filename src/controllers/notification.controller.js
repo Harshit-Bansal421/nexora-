@@ -83,10 +83,10 @@ const markRead = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid notification ID format");
   }
 
-  const notification = await Notification.findByIdAndUpdate(
-    notification_id,
+  const notification = await Notification.findOneAndUpdate(
+    { _id: notification_id, recipient: req.user._id },
     {
-      isRead: true,
+      $set: { isRead: true },
     },
     { returnDocument: "after" },
   );

@@ -68,7 +68,7 @@ PageSchema.index({owner:1})
 PageSchema.index({type:1,title:1})
 PageSchema.index({createdAt:-1})
 PageSchema.index({membersCount:1,createdAt:1})
-PageSchema.index({ name: 'text', description: 'text' })  // search pages
+PageSchema.index({ pageName: "text", pageDescription: "text" });
 
 
 export const Page = mongoose.model("Page", PageSchema);

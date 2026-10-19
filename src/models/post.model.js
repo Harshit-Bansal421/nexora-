@@ -33,7 +33,7 @@ const PostSchema = mongoose.Schema(
       type:[String],
       validate: {
         validator: (arr) => arr.length <= 1,
-        message: "Maximum 1 images allowed per post",
+        message: "Maximum 1 video allowed per post",
       },
       default: [],
     },

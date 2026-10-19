@@ -13,6 +13,11 @@ import mongoose from "mongoose";
 import { Page } from "../models/Page.model.js";
 import { createNotification } from "../utils/createNotification.js";
 import { getIO, sendToUser } from "../socket.js";
+import {
+  assertPostAccess,
+  postVisibilityStagesForUser,
+  publicPostVisibilityStages,
+} from "../utils/postAccess.js";
 
 const createPost = asyncHandler(async (req, res) => {
   //get all the info from req.body,req.user,req.files
@@ -20,13 +25,41 @@ const createPost = asyncHandler(async (req, res) => {
   const owner = req.user?._id;
   const Images = req.files?.PostImages;
   const Videos = req.files?.PostVideos;
-  console.log("file uploaded is =", req.files);
 
-  //validate each of the feilds properly and set defaults feilds too
   if (!owner) throw new ApiError(401, "Unauthorized access");
-  if (!title || !topic) throw new ApiError(400, "Title and topic are required");
-  description = description || "";
-  pages = pages || [];
+  if (typeof title !== "string" || !title.trim() || typeof topic !== "string") {
+    throw new ApiError(400, "Title and topic are required");
+  }
+  if (typeof description !== "string") description = "";
+  if (description.length > 500 || title.trim().length > 150) {
+    throw new ApiError(400, "Title or description exceeds the allowed length");
+  }
+  pages = pages ? (Array.isArray(pages) ? pages : [pages]) : [];
+  if (
+    pages.length > 10 ||
+    pages.some((page) => !mongoose.Types.ObjectId.isValid(page))
+  ) {
+    throw new ApiError(400, "Page IDs must be valid and no more than 10");
+  }
+  const pageIds = [...new Set(pages.map(String))];
+  if (pageIds.length) {
+    const targetPages = await Page.find({ _id: { $in: pageIds } }).select(
+      "owner members moderators",
+    );
+    if (targetPages.length !== pageIds.length) {
+      throw new ApiError(404, "One or more pages do not exist");
+    }
+    const canPostToAll = targetPages.every(
+      (page) =>
+        page.owner.equals(owner) ||
+        page.members.some((member) => member.equals(owner)) ||
+        page.moderators.some((moderator) => moderator.equals(owner)),
+    );
+    if (!canPostToAll) {
+      throw new ApiError(403, "You must be a member of every target page");
+    }
+  }
+  pages = pageIds;
 
   //then upload the images on cloudinary
   const [postImage, postVideo] = await Promise.all([
@@ -118,7 +151,6 @@ const deletePost = asyncHandler(async (req, res) => {
   //delete the collection in database
   const deletedPost = await Post.findByIdAndDelete(post._id);
   if (!deletedPost) throw new ApiError(400, "error in deleting the post");
-  console.log("deletePost", deletedPost);
 
   //send live response to post as well as to all pages in which this post is available
   const io = getIO.get();
@@ -139,13 +171,12 @@ const AddExistingPostToPage = asyncHandler(async (req, res) => {
   const { post_id } = req.params;
   const pages = (req.pages || []).map((id) => String(id).trim());
 
-  const post = await Post.findById(post_id);
-  if (!post) throw new ApiError(400, "no post exist");
-  const isexist = (post.pages || []).some((page) =>
-    pages.includes(String(page).trim()),
-  );
-
-  if (isexist) throw new ApiError(400, "post exist in some pages already");
+  const post = req.post;
+  if (!post) throw new ApiError(404, "Post not found");
+  const existingIds = (post.pages || []).map(String);
+  if (pages.some((page) => existingIds.includes(page))) {
+    throw new ApiError(409, "Post is already attached to one or more pages");
+  }
 
   //we already have data of post from isowner verification middleware so we just gonnna add new pages to existing page
   const returnedPost = await Post.findByIdAndUpdate(
@@ -174,21 +205,33 @@ const AddExistingPostToPage = asyncHandler(async (req, res) => {
 const updatePost = asyncHandler(async (req, res) => {
   //we will get the new updates from req.body and req.files
   //in remove part frontend will send me the remove item public_id
-  let { description, topic, title, removeImages, removeVideos } = req.body;
+  let { description, topic, title, removeImages, removeVideos } = req.body || {};
   let addImages = req.files?.addImages;
   let addVideos = req.files?.addVideos;
-  console.log("req.files is =", req.files);
-  console.log("addImages=", addImages);
-  console.log("addVideos=", addVideos);
-  //validate them
-  description = description ? description : req.post?.description;
-  topic = topic ? topic : req.post.topic;
-  title = title ? title : req.post.title;
+  if (!req.post) throw new ApiError(404, "Post not found");
+  if (title !== undefined) {
+    if (typeof title !== "string" || !title.trim() || title.trim().length > 150) {
+      throw new ApiError(400, "Title must contain 1 to 150 characters");
+    }
+    title = title.trim();
+  }
+  if (description !== undefined && (typeof description !== "string" || description.length > 500)) {
+    throw new ApiError(400, "Description cannot exceed 500 characters");
+  }
+  if (topic !== undefined && !["Academic", "Career", "Tech", "Life"].includes(topic)) {
+    throw new ApiError(400, "Invalid post topic");
+  }
+  if (removeImages !== undefined && !Array.isArray(removeImages)) removeImages = [removeImages];
+  if (removeVideos !== undefined && !Array.isArray(removeVideos)) removeVideos = [removeVideos];
+  if (addImages !== undefined && !Array.isArray(addImages)) addImages = [addImages];
+  if (addVideos !== undefined && !Array.isArray(addVideos)) addVideos = [addVideos];
+  removeImages ||= [];
+  removeVideos ||= [];
+  addImages ||= [];
+  addVideos ||= [];
 
   //if addimages then we validate and updload images and store their public_id in a variable
-  if (addImages) {
-    if (!Array.isArray(addImages)) addImages = [addImages];
-    if (addImages.length + req.post.postImage.length > 3)
+  if (addImages.length + req.post.postImage.length - new Set(removeImages).size > 3) {
       throw new ApiError(400, "Maximum number of images exceeded");
   }
   let addedImages = [];
@@ -206,8 +249,7 @@ const updatePost = asyncHandler(async (req, res) => {
   }
 
   //if remove images then we validate and destroy images and remove their public_id from req.post.postImage
-  if (removeImages && req.post.postImage) {
-    if (!Array.isArray(removeImages)) removeImages = [removeImages];
+  if (removeImages.length && req.post.postImage) {
     if (removeImages.length > 0) {
       const existingSet = new Set(req.post.postImage);
 
@@ -225,9 +267,7 @@ const updatePost = asyncHandler(async (req, res) => {
   );
 
   //if addVideos exist then we validate and updload videos and store their public_id in a variable
-  if (addVideos) {
-    if (!Array.isArray(addVideos)) addVideos = [addVideos];
-    if (addVideos.length + req.post.postVideo.length > 2)
+  if (addVideos.length + req.post.postVideo.length - new Set(removeVideos).size > 1) {
       throw new ApiError(400, "Maximum number of videos exceeded");
   }
   let addedVideos = [];
@@ -245,8 +285,7 @@ const updatePost = asyncHandler(async (req, res) => {
   }
 
   //if remove videos then we validate and destroy videos and remove their public_id from req.post.postVideo
-  if (removeVideos && req.post.postVideo) {
-    if (!Array.isArray(removeVideos)) removeVideos = [removeVideos];
+  if (removeVideos.length && req.post.postVideo) {
     if (removeVideos.length > 0) {
       const existingSet = new Set(req.post.postVideo);
 
@@ -264,25 +303,27 @@ const updatePost = asyncHandler(async (req, res) => {
   );
 
   //update the info by finding by id
-  await Post.findByIdAndUpdate(req.post._id, {
-    title,
-    description,
-    topic,
-    $pull: {
-      postImage: { $in: removeImages },
-      postVideo: { $in: removeVideos },
-    },
-  });
+  const updateFields = {};
+  if (title !== undefined) updateFields.title = title;
+  if (description !== undefined) updateFields.description = description;
+  if (topic !== undefined) updateFields.topic = topic;
+  const update = {};
+  if (Object.keys(updateFields).length) update.$set = updateFields;
+  if (removeImages.length || removeVideos.length) {
+    update.$pull = {};
+    if (removeImages.length) update.$pull.postImage = { $in: removeImages };
+    if (removeVideos.length) update.$pull.postVideo = { $in: removeVideos };
+  }
+  if (addedImages.length || addedVideos.length) {
+    update.$addToSet = {};
+    if (addedImages.length) update.$addToSet.postImage = { $each: addedImages };
+    if (addedVideos.length) update.$addToSet.postVideo = { $each: addedVideos };
+  }
 
   const updatedData = await Post.findByIdAndUpdate(
     req.post.id,
-    {
-      $addToSet: {
-        postImage: { $each: addedImages },
-        postVideo: { $each: addedVideos },
-      },
-    },
-    { returnDocument: "after" },
+    update,
+    { returnDocument: "after", runValidators: true },
   );
   if (!updatedData) throw new ApiError(500, "Failed to update post");
 
@@ -310,7 +351,10 @@ const updatePost = asyncHandler(async (req, res) => {
 const getPostById = asyncHandler(async (req, res) => {
   // validate the post id
   const postId = req.params.post_id;
-  if (!postId) throw new ApiError(400, "Post ID is required");
+  if (!mongoose.Types.ObjectId.isValid(postId)) {
+    throw new ApiError(400, "Invalid post ID");
+  }
+  await assertPostAccess(postId, req.user?._id);
 
   //i just have to make a aggregate pipeline for the getting upvotes and downvotes and owner and pages of that post
   const postdata = await Post.aggregate([
@@ -346,16 +390,16 @@ const getPostById = asyncHandler(async (req, res) => {
     },
     {
       $addFields: {
-        upvoteCount: { $size: "$upvotes" },
-        downvoteCount: { $size: "$downvotes" },
+        upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
+        downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
       },
     },
     {
       $project: {
         _id: 1,
-        ownerInfo: 1,
-        upvoteCount: 1,
-        downvoteCount: 1,
+        owner: "$ownerInfo",
+        upvotesCount: 1,
+        downvotesCount: 1,
         topic: 1,
         title: 1,
         postVideo: 1,
@@ -365,17 +409,17 @@ const getPostById = asyncHandler(async (req, res) => {
         description: 1,
       },
     },
-    { returnDocument: "after" },
   ]);
 
   if (!postdata || postdata.length === 0)
     throw new ApiError(404, "Post not found");
 
-  const postResponse = postdata.map((post) => ({
+  const post = postdata[0];
+  const postResponse = {
     ...post,
     postImage: (post.postImage || []).map(getOptimizedImage),
     postVideo: (post.postVideo || []).map(getOptimizedVideo),
-  }));
+  };
 
   return res
     .status(200)
@@ -389,9 +433,10 @@ const savePost = asyncHandler(async (req, res) => {
   const { post_id } = req.params;
 
   //validate it and check if it even exist or not
-  if (!post_id) throw new ApiError(400, "Post ID is required");
-  const postExisted = await Post.findById(post_id);
-  if (!postExisted) throw new ApiError(404, "Post not found");
+  if (!mongoose.Types.ObjectId.isValid(post_id)) {
+    throw new ApiError(400, "Invalid post ID");
+  }
+  await assertPostAccess(post_id, req.user?._id);
 
   //it exist then add in user's saved post
   const response = await User.findByIdAndUpdate(
@@ -439,152 +484,152 @@ const unsavePost = asyncHandler(async (req, res) => {
 });
 
 const getSavePost = asyncHandler(async (req, res) => {
-  //get user id from req.user
   const userid = req.user?._id;
-
-  //get the pagination query from search query
-  const page = req.query?.page || 1;
-  const limit = req.query?.page || 10;
-  const skip = (page - 1) * limit;
-
-  //validate it
+  const page = Number(req.query?.page ?? 1);
+  const limit = Number(req.query?.limit ?? 10);
+  if (!Number.isInteger(page) || page < 1) {
+    throw new ApiError(400, "Page must be a positive integer");
+  }
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw new ApiError(400, "Limit must be between 1 and 100");
+  }
   if (!userid) throw new ApiError(401, "Unauthorized access");
 
-  //get saved post from database of user
-  const savedPost = await User.aggregate([
-    { $match: { _id: new mongoose.Types.ObjectId(userid) } },
-
+  const user = await User.findById(userid).select("savedPost").lean();
+  if (!user) throw new ApiError(404, "User not found");
+  const savedIds = user.savedPost || [];
+  const [posts, countResult] = await Promise.all([
+    Post.aggregate([
+    { $match: { _id: { $in: savedIds } } },
+    ...postVisibilityStagesForUser(userid),
+    { $sort: { createdAt: -1 } },
+    { $skip: (page - 1) * limit },
+    { $limit: limit },
     {
       $lookup: {
-        from: "posts",
-        let: { savedPostIds: { $ifNull: ["$savedPost", []] } },
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
         pipeline: [
-          {
-            $match: {
-              $expr: { $in: ["$_id", "$$savedPostIds"] },
+        {
+            $project: {
+              _id: 1,
+              username: 1,
+              profileImage: 1,
+              title: 1,
+              badge: 1,
             },
-          },
-
-          {
-            $facet: {
-              posts: [
-                { $sort: { createdAt: -1 } },
-                { $skip: skip },
-                { $limit: limit },
-
-                // for owner info
-                {
-                  $lookup: {
-                    from: "users",
-                    let: { ownerid: "$owner" },
-                    pipeline: [
-                      {
-                        $match: {
-                          $expr: { $eq: ["$_id", "$$ownerid"] },
-                        },
-                      },
-                      {
-                        $project: {
-                          _id: 1,
-                          username: 1,
-                          profileImage: 1,
-                          title: 1,
-                          badge: 1,
-                        },
-                      },
-                    ],
-                    as: "ownerInfo",
-                  },
-                },
-                { $unwind: "$ownerInfo" },
-                {
-                  $addFields: {
-                    upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
-                    downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
-                  },
-                },
-                {
-                  $project: {
-                    _id: 1,
-                    postImage: 1,
-                    title: 1,
-                    description: 1,
-                    ownerInfo: 1,
-                    upvoteCount: 1,
-                    downvoteCount: 1,
-                  },
-                },
-              ],
-
-              totalCount: [{ $count: "count" }],
-            },
-          },
+        },
         ],
-        as: "savedPosts",
+        as: "ownerInfo",
       },
     },
+    { $unwind: { path: "$ownerInfo", preserveNullAndEmptyArrays: true } },
     {
-      $unwind: {
-        path: "$savedPosts",
-        preserveNullAndEmptyArrays: true,
+      $addFields: {
+        upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+        downvoteCount: { $size: { $ifNull: ["$downvotes", []] } },
       },
     },
-
     {
       $project: {
-        savedPosts: 1,
+        _id: 1,
+        postImage: 1,
+        postVideo: 1,
+        title: 1,
+        description: 1,
+        topic: 1,
+        ownerInfo: 1,
+        upvoteCount: 1,
+        downvoteCount: 1,
+        createdAt: 1,
       },
     },
+    ]),
+    Post.aggregate([
+      { $match: { _id: { $in: savedIds } } },
+      ...postVisibilityStagesForUser(userid),
+      { $count: "count" },
+    ]),
   ]);
-  if (!savedPost) throw new ApiError(500, "Failed to fetch saved posts");
+  const total = countResult[0]?.count || 0;
 
-  const modifiedSavedPosts = (savedPost[0]?.savedPosts || []).map((post) => ({
+  const modifiedSavedPosts = posts.map((post) => ({
     ...post,
     postImage: (post.postImage || []).map(getOptimizedImage),
     postVideo: (post.postVideo || []).map(getOptimizedVideo),
   }));
-
-  //return response
   return res
     .status(200)
     .json(
-      new ApiResponse(
-        200,
-        { savedPost: modifiedSavedPosts, page, limit },
-        "Saved posts retrieved successfully",
-      ),
+    new ApiResponse(
+      200,
+      {
+        savedPost: modifiedSavedPosts,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasNextPage: page * limit < total,
+        },
+      },
+      "Saved posts retrieved successfully",
+    ),
     );
 });
 
 const getUserPosts = asyncHandler(async (req, res) => {
-  //get username from params and also see for pagination query
-  const { username } = req.params;
-  const { page = 1, limit = 10 } = req.query;
-
-  const skip = (page - 1) * limit;
+  const username = req.params.username?.trim().toLowerCase();
+  const pageNumber = Number(req.query.page ?? 1);
+  const limitNumber = Number(req.query.limit ?? 10);
   if (!username) throw new ApiError(400, "Username is required");
+  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
+    throw new ApiError(400, "Page must be a positive integer");
+  }
+  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
+    throw new ApiError(400, "Limit must be between 1 and 100");
+  }
 
-  //then get user collection from database if it exist
-  const user = await User.findOne({ username: username }).select(
+  const user = await User.findOne({ username }).select(
     "-password -refreshToken",
   );
   if (!user) throw new ApiError(404, "User not found");
 
-  //call for posts
-  const posts = await Post.find({ owner: user._id })
-    .skip(skip)
-    .limit(limit)
-    .sort({ createdAt: -1 })
-    .select(
-      " _id postImage description topic title createdAt updatedAt upvotes downvotes owner",
-    );
-  if (!posts) throw new ApiError(500, "Failed to fetch user posts");
-  //send response
-  const total = await Post.countDocuments({ owner: user._id });
-  const totalPages = Math.ceil(total / limit);
+  const [result] = await Post.aggregate([
+    { $match: { owner: user._id } },
+    ...publicPostVisibilityStages(),
+    {
+      $facet: {
+        posts: [
+          { $sort: { createdAt: -1 } },
+          { $skip: (pageNumber - 1) * limitNumber },
+          { $limit: limitNumber },
+          {
+            $project: {
+              _id: 1,
+              postImage: 1,
+              postVideo: 1,
+              description: 1,
+              topic: 1,
+              title: 1,
+              createdAt: 1,
+              updatedAt: 1,
+              upvotes: 1,
+              downvotes: 1,
+              owner: 1,
+            },
+          },
+        ],
+        totalCount: [{ $count: "count" }],
+      },
+    },
+  ]);
+  const posts = result?.posts || [];
+  const total = result?.totalCount?.[0]?.count || 0;
+  const totalPages = Math.ceil(total / limitNumber);
 
-  const modifiedPosts = (posts || []).map((post) => {
-    const postObj = post.toObject ? post.toObject() : post;
+  const modifiedPosts = posts.map((postObj) => {
     return {
       ...postObj,
       postImage: (postObj.postImage || []).map(getOptimizedImage),
@@ -606,10 +651,10 @@ const getUserPosts = asyncHandler(async (req, res) => {
         },
         pagination: {
           total,
-          page,
-          limit,
+          page: pageNumber,
+          limit: limitNumber,
           totalPages,
-          hasNextPage: page < totalPages,
+          hasNextPage: pageNumber < totalPages,
         },
       },
       "Posts retrieved successfully",
@@ -618,22 +663,26 @@ const getUserPosts = asyncHandler(async (req, res) => {
 });
 
 const getTopicPosts = asyncHandler(async (req, res) => {
-  //get username from params and also see for pagination query
   const { topic } = req.params;
-  const { page = 1, limit = 10 } = req.query;
-
-  const skip = (page - 1) * limit;
+  const pageNumber = Number(req.query.page ?? 1);
+  const limitNumber = Number(req.query.limit ?? 10);
   if (!topic) throw new ApiError(400, "Topic is required");
+  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
+    throw new ApiError(400, "Page must be a positive integer");
+  }
+  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
+    throw new ApiError(400, "Limit must be between 1 and 100");
+  }
 
-  //call for posts
   const posts = await Post.aggregate([
     { $match: { topic: topic } },
+    ...publicPostVisibilityStages(),
     {
       $facet: {
         posts: [
           { $sort: { createdAt: -1 } },
-          { $skip: skip },
-          { $limit: limit },
+          { $skip: (pageNumber - 1) * limitNumber },
+          { $limit: limitNumber },
           {
             $lookup: {
               from: "users",
@@ -670,9 +719,12 @@ const getTopicPosts = asyncHandler(async (req, res) => {
           {
             $project: {
               _id: 1,
+              owner: "$ownerInfo",
               postImage: 1,
+              postVideo: 1,
               topic: 1,
               title: 1,
+              description: 1,
               createdAt: 1,
               updatedAt: 1,
               upvotesCount: 1,
@@ -701,18 +753,18 @@ const getTopicPosts = asyncHandler(async (req, res) => {
   }));
 
   const total = result.totalcounts[0]?.count || 0;
-  const totalPages = Math.ceil(total / limit);
+  const totalPages = Math.ceil(total / limitNumber);
   return res.status(200).json(
     new ApiResponse(
       200,
       {
         posts: modifiedTopicPosts,
-        paginations: {
+        pagination: {
           total,
-          page,
-          limit,
+          page: pageNumber,
+          limit: limitNumber,
           totalPages,
-          hasNextPage: page < totalPages,
+          hasNextPage: pageNumber < totalPages,
         },
       },
       "Posts retrieved successfully",
@@ -721,18 +773,23 @@ const getTopicPosts = asyncHandler(async (req, res) => {
 });
 
 const getPost = asyncHandler(async (req, res) => {
-  //get query of pagination if it is given
-  const { page = 1, limit = 10 } = req.query;
-  const skip = (page - 1) * limit;
-  //i just have to make a aggregate pipeline for giving every post in sorted manner
+  const pageNumber = Number(req.query.page ?? 1);
+  const limitNumber = Number(req.query.limit ?? 10);
+  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
+    throw new ApiError(400, "Page must be a positive integer");
+  }
+  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
+    throw new ApiError(400, "Limit must be between 1 and 100");
+  }
   const postData = await Post.aggregate([
     { $match: {} },
+    ...publicPostVisibilityStages(),
     {
       $facet: {
-        totalPost: [
+        posts: [
           { $sort: { createdAt: -1 } },
-          { $skip: skip },
-          { $limit: limit },
+          { $skip: (pageNumber - 1) * limitNumber },
+          { $limit: limitNumber },
           {
             $lookup: {
               from: "users",
@@ -766,16 +823,16 @@ const getPost = asyncHandler(async (req, res) => {
           },
           {
             $addFields: {
-              upvoteCount: { $size: "$upvotes" },
-              downvoteCount: { $size: "$downvotes" },
+              upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
+              downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
             },
           },
           {
             $project: {
               _id: 1,
-              ownerInfo: 1,
-              upvoteCount: 1,
-              downvoteCount: 1,
+              owner: "$ownerInfo",
+              upvotesCount: 1,
+              downvotesCount: 1,
               topic: 1,
               title: 1,
               postVideo: 1,
@@ -791,28 +848,25 @@ const getPost = asyncHandler(async (req, res) => {
     },
   ]);
 
-  const result = postData[0];
+  const result = postData[0] || { posts: [], totalCount: [] };
 
-  const modifiedTotalPost = (result.totalPost || []).map((post) => ({
+  const posts = (result.posts || []).map((post) => ({
     ...post,
     postImage: (post.postImage || []).map(getOptimizedImage),
     postVideo: (post.postVideo || []).map(getOptimizedVideo),
   }));
-
-  result.totalPost = modifiedTotalPost;
-
   const total = result.totalCount[0]?.count || 0;
-  const totalPages = limit > 0 ? Math.ceil(total / limit) : 0;
+  const totalPages = Math.ceil(total / limitNumber);
   const pagination = {
     total,
-    page,
-    limit,
+    page: pageNumber,
+    limit: limitNumber,
     totalPages,
-    hasNextPage: page < totalPages,
+    hasNextPage: pageNumber < totalPages,
   };
 
   const finalresponse = {
-    post: result,
+    posts,
     pagination,
   };
   //then send response
@@ -822,55 +876,88 @@ const getPost = asyncHandler(async (req, res) => {
 });
 
 const reactToPost = asyncHandler(async (req, res) => {
-  //get type from req.body
-  const { type } = req.body;
+  const { type } = req.body || {};
   const { post_id } = req.params;
   const user_id = req.user._id;
-
-  //then perform action
-  let response = {};
-  if (type === "upvote") {
-    response = await Post.findByIdAndUpdate(
-      post_id,
-      {
-        $addToSet: { upvotes: user_id },
-        $pull: { downvotes: user_id },
-      },
-      { returnDocument: "after" },
-    );
-  } else if (type === "downvote") {
-    response = await Post.findByIdAndUpdate(
-      post_id,
-      {
-        $addToSet: { downvotes: user_id },
-        $pull: { upvotes: user_id },
-      },
-      { returnDocument: "after" },
-    );
+  if (!["upvote", "downvote"].includes(type)) {
+    throw new ApiError(400, "Reaction type must be upvote or downvote");
   }
-  if (!response) throw new ApiError(404, "Post not found");
+  if (!mongoose.Types.ObjectId.isValid(post_id)) {
+    throw new ApiError(400, "Invalid post ID");
+  }
+  await assertPostAccess(post_id, user_id);
 
-  //send live response to the users
-  const io = getIO.get();
-  const room = `post:${String(response._id).trim()}`;
-  io.to(room).emit("reacted-post", response);
-  response.pages.forEach((page) => {
-    const room = `page:${String(page).trim()}`;
-    io.to(room).emit("reacted-post", response);
-  });
+  // Start atomic transaction
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const post = await Post.findById(post_id).session(session);
+    if (!post) throw new ApiError(404, "Post not found");
 
-  await createNotification(
-    response._id,
-    user_id,
-    type === "downvote" ? "post_downvote" : "post_upvote",
-    `${req.user.username} has ${type === "downvote" ? "downvoted" : "upvoted"} your post`,
-    response._id,
-  );
+    const alreadyUpvoted = post.upvotes.some((id) => id.toString() === user_id.toString());
+    const alreadyDownvoted = post.downvotes.some((id) => id.toString() === user_id.toString());
 
-  // then send response
-  res
-    .status(200)
-    .json(new ApiResponse(200, null, "Successfully reacted to post"));
+    let contributionDelta = 0;
+    if (type === "upvote") {
+      if (alreadyUpvoted) {
+        post.upvotes.pull(user_id);
+        contributionDelta = -10;
+      } else {
+        post.upvotes.addToSet(user_id);
+        if (alreadyDownvoted) post.downvotes.pull(user_id);
+        contributionDelta = 10;
+      }
+    } else {
+      // downvote
+      if (alreadyDownvoted) {
+        post.downvotes.pull(user_id);
+        contributionDelta = 10; // removing a downvote restores points
+      } else {
+        post.downvotes.addToSet(user_id);
+        if (alreadyUpvoted) post.upvotes.pull(user_id);
+        contributionDelta = -10;
+      }
+    }
+
+    await post.save({ session });
+    // Update author contribution atomically
+    await User.applyContribution(post.owner, contributionDelta, session);
+    await session.commitTransaction();
+
+    // Emit live updates
+    const io = getIO.get();
+    const room = `post:${String(post._id).trim()}`;
+    io.to(room).emit("reacted-post", post);
+    post.pages.forEach((page) => {
+      const r = `page:${String(page).trim()}`;
+      io.to(r).emit("reacted-post", post);
+    });
+
+    await createNotification(
+      post.owner,
+      user_id,
+      type === "downvote" ? "post_downvote" : "post_upvote",
+      `${req.user.username} has ${type === "downvote" ? "downvoted" : "upvoted"} your post`,
+      post._id,
+    );
+
+    const upvoteCount = post.upvotes.length;
+    const downvoteCount = post.downvotes.length;
+    const userVote = post.upvotes.includes(user_id)
+      ? "upvote"
+      : post.downvotes.includes(user_id)
+      ? "downvote"
+      : null;
+
+    res.status(200).json(
+      new ApiResponse(200, { upvoteCount, downvoteCount, userVote }, "Successfully reacted to post"),
+    );
+  } catch (err) {
+    await session.abortTransaction();
+    throw err;
+  } finally {
+    session.endSession();
+  }
 });
 
 const removeExistingPostFromPage = asyncHandler(async (req, res) => {
@@ -878,14 +965,12 @@ const removeExistingPostFromPage = asyncHandler(async (req, res) => {
   const { post_id } = req.params;
   const pages = (req.pages || []).map((id) => String(id).trim());
 
-  const post = await Post.findById(post_id);
-  if (!post) throw new ApiError(400, "no post exist");
-
-  const isexist = (post.pages || []).some((page) =>
-    !pages.includes(String(page).trim()),
-  );
-
-  if (isexist) throw new ApiError(400, "post doesnot exist in some pages already");
+  const post = req.post;
+  if (!post) throw new ApiError(404, "Post not found");
+  const existingIds = (post.pages || []).map(String);
+  if (pages.some((page) => !existingIds.includes(page))) {
+    throw new ApiError(400, "Post is not attached to every requested page");
+  }
 
   //we already have data of post from isowner verification middleware so we just gonnna add new pages to existing page
   const returnedPost = await Post.findByIdAndUpdate(post_id, {
@@ -908,28 +993,53 @@ const removeExistingPostFromPage = asyncHandler(async (req, res) => {
 });
 
 const searchOnText = asyncHandler(async (req, res) => {
-  const { search, page = 1, limit = 10 } = req.query;
+  const { search } = req.query;
 
-  if (!search) throw new ApiError(400, "Search query is required");
+  if (typeof search !== "string" || !search.trim()) {
+    throw new ApiError(400, "Search query is required");
+  }
+  if (search.length > 100) {
+    throw new ApiError(400, "Search query cannot exceed 100 characters");
+  }
 
-  const pageNumber = Number(page);
-  const limitNumber = Number(limit);
-  const skip = (pageNumber - 1) * limitNumber;
+  const pageNumber = Number(req.query.page ?? 1);
+  const limitNumber = Number(req.query.limit ?? 10);
+  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
+    throw new ApiError(400, "Page must be a positive integer");
+  }
+  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
+    throw new ApiError(400, "Limit must be between 1 and 100");
+  }
 
-  const posts = await Post.find(
-    { $text: { $search: search } },
-    { score: { $meta: "textScore" } },
-  )
-    .sort({ score: { $meta: "textScore" } })
-    .populate({
-      path: "owner",
-      select: " _id username profileImage title",
-    })
-    .skip(skip)
-    .limit(limitNumber);
+  const [result] = await Post.aggregate([
+    { $match: { $text: { $search: search.trim() } } },
+    ...publicPostVisibilityStages(),
+    { $addFields: { score: { $meta: "textScore" } } },
+    {
+      $facet: {
+        posts: [
+          { $sort: { score: -1 } },
+          { $skip: (pageNumber - 1) * limitNumber },
+          { $limit: limitNumber },
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              pipeline: [{ $project: { _id: 1, username: 1, profileImage: 1, title: 1 } }],
+              as: "owner",
+            },
+          },
+          { $unwind: { path: "$owner", preserveNullAndEmptyArrays: true } },
+        ],
+        totalCount: [{ $count: "count" }],
+      },
+    },
+  ]);
+  const posts = result?.posts || [];
+  const total = result?.totalCount?.[0]?.count || 0;
 
-  const modifiedPosts = (posts || []).map((post) => {
-    const postObj = post.toObject ? post.toObject() : post;
+  const modifiedPosts = posts.map((postObj) => {
     return {
       ...postObj,
       postImage: (postObj.postImage || []).map(getOptimizedImage),
@@ -943,10 +1053,6 @@ const searchOnText = asyncHandler(async (req, res) => {
           }
         : null,
     };
-  });
-
-  const total = await Post.countDocuments({
-    $text: { $search: search },
   });
 
   const totalPages = Math.ceil(total / limitNumber);
@@ -975,16 +1081,20 @@ const getPagePost = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
 
   //validate it
-  if (!pageid) throw new ApiError(400, "Page ID is required");
+  if (!mongoose.Types.ObjectId.isValid(pageid)) {
+    throw new ApiError(400, "Invalid page ID");
+  }
 
-  const pageData = await Page.findById(pageid);
+  const pageData = await Page.findById(pageid).select(
+    "type owner members moderators",
+  );
   if (!pageData) throw new ApiError(404, "Page not found");
 
   //verify if the page is open then allow all the user to fetch posts
   //if the page is closed then check if the user is member of page or not
   if (pageData.type === "private") {
     const user = req.user;
-    if (!user) throw new ApiError(401, "Unauthorized access");
+    if (!user) throw new ApiError(404, "Page not found");
 
     const isMember = pageData.members.some(
       (memberId) => memberId.toString() === user._id.toString(),
@@ -995,28 +1105,58 @@ const getPagePost = asyncHandler(async (req, res) => {
     );
 
     if (!isMember && !isOwner && !isModerator) {
-      throw new ApiError(403, "You are not a member of this private page");
+      throw new ApiError(404, "Page not found");
     }
   }
 
   //get all posts from post collections where pages array contains pageid
   const pageNumber = Number(page);
   const limitNumber = Number(limit);
+  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
+    throw new ApiError(400, "Page must be a positive integer");
+  }
+  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
+    throw new ApiError(400, "Limit must be between 1 and 100");
+  }
   const skip = (pageNumber - 1) * limitNumber;
 
-  const posts = await Post.find({ pages: pageid })
-    //populate owner
-    .populate({
-      path: "owner",
-      select: "_id username profileImage title badge",
-    })
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limitNumber);
+  const posts = await Post.aggregate([
+    { $match: { pages: new mongoose.Types.ObjectId(pageid) } },
+    ...postVisibilityStagesForUser(req.user?._id),
+    {
+      $facet: {
+        posts: [
+          { $sort: { createdAt: -1 } },
+          { $skip: skip },
+          { $limit: limitNumber },
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              pipeline: [
+                {
+                  $project: {
+                    _id: 1,
+                    username: 1,
+                    profileImage: 1,
+                    title: 1,
+                    badge: 1,
+                  },
+                },
+              ],
+              as: "owner",
+            },
+          },
+          { $unwind: { path: "$owner", preserveNullAndEmptyArrays: true } },
+        ],
+        totalCount: [{ $count: "count" }],
+      },
+    },
+  ]);
 
-  //Transform each image and videos with getoptimised
-  const modifiedPosts = (posts || []).map((post) => {
-    const postObj = post.toObject ? post.toObject() : post;
+  const result = posts[0] || { posts: [], totalCount: [] };
+  const modifiedPosts = result.posts.map((postObj) => {
     return {
       ...postObj,
       postImage: (postObj.postImage || []).map(getOptimizedImage),
@@ -1032,7 +1172,7 @@ const getPagePost = asyncHandler(async (req, res) => {
     };
   });
 
-  const total = await Post.countDocuments({ pages: pageid });
+  const total = result.totalCount[0]?.count || 0;
   const totalPages = Math.ceil(total / limitNumber);
 
   //send response

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import ApiError from "../utils/ApiError.js";
 import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -19,6 +20,7 @@ const UserSchema = mongoose.Schema(
       required: [true, "email is required"],
       trim: true,
       lowercase: true,
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "email must be valid"],
     },
     password: {
       type: String,
@@ -44,6 +46,10 @@ const UserSchema = mongoose.Schema(
     following: [{ type: mongoose.Types.ObjectId, ref: "User" }],
     savedPost: [{ type: mongoose.Types.ObjectId, ref: "Post" }],
     refreshToken: [String],
+    passwordResetVersion: {
+      type: Number,
+      default: 0,
+    },
     bio: {
       type: String,
       maxlength: [150, "bio can no exceed 150 characters"],
@@ -118,6 +124,20 @@ UserSchema.methods.addXP = async function (points) {
   else if (this.point >= 101) this.title = "Contributor";
   else this.title = "Newcomer";
   await this.save({ validateBeforeSave: false });
+};
+
+UserSchema.statics.applyContribution = async function (userId, delta, session = null) {
+  const opts = {};
+  if (session) opts.session = session;
+  const user = await this.findById(userId, null, opts);
+  if (!user) throw new ApiError(404, "User not found");
+  user.point += delta;
+  if (user.point >= 5000) user.title = "Legend";
+  else if (user.point >= 1501) user.title = "Mentor";
+  else if (user.point >= 501) user.title = "Helper";
+  else if (user.point >= 101) user.title = "Contributor";
+  else user.title = "Newcomer";
+  await user.save({ validateBeforeSave: false, ...opts });
 };
 
 export const User = mongoose.model("User", UserSchema);

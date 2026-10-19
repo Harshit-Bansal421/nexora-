@@ -1,45 +1,61 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 class Limiter {
-  constructor() {}
+  constructor() {
+    this.limiters = new Map();
+  }
+
+  getLimiter(name, { windowMs, max, byUser = false }) {
+    if (!this.limiters.has(name)) {
+      this.limiters.set(
+        name,
+        rateLimit({
+          windowMs,
+          limit: max,
+          standardHeaders: "draft-8",
+          legacyHeaders: false,
+          identifier: name,
+          keyGenerator: (req) =>
+            byUser && req.user?._id
+              ? `user:${req.user._id}`
+              : ipKeyGenerator(req.ip),
+          handler: (req, res) =>
+            res.status(429).json({
+              statuscode: 429,
+              data: null,
+              message: "Too many requests. Please try again later.",
+              status: false,
+            }),
+        }),
+      );
+    }
+    return this.limiters.get(name);
+  }
 
   authLimiter() {
-    return rateLimit({
-      windowMs: 60 * 1000,
-      max: 5,
-      message: {
-        message: "too many request",
-      },
-      keyGenerator: (req) =>
-        req._id || req.headers["x-forwarded-for"] || req.socket.remoteAddress,
-    });
+    return this.getLimiter("auth", { windowMs: 60 * 1000, max: 10 });
   }
 
   writeLimiter() {
-    return rateLimit({
+    return this.getLimiter("write", {
       windowMs: 60 * 1000,
       max: 20,
-      message: { message: "Too many actions, slow down" },
-      keyGenerator: (req) => req.user?._id || req.ip,
+      byUser: true,
     });
   }
 
   readLimiter() {
-    return rateLimit({
+    return this.getLimiter("read", {
       windowMs: 60 * 1000,
       max: 100,
-      message: { message: "Too many requests" },
-      keyGenerator: (req) => req.user?._id || req.ip,
+      byUser: true,
     });
   }
 
   sensitiveLimiter() {
-    return rateLimit({
+    return this.getLimiter("sensitive", {
       windowMs: 15 * 60 * 1000,
-      max: 3,
-      message: { message: "Too many attempts, try later" },
-      keyGenerator: (req) =>
-        req.user?._id ? `user-${req.user._id}` : `ip-${req.ip}`,
+      max: 5,
     });
   }
 }

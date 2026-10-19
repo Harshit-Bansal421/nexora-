@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import ApiError from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -13,17 +14,37 @@ import { getIO } from "../socket.js";
 import { createNotification } from "../utils/createNotification.js";
 
 const createPage = asyncHandler(async (req, res) => {
-  //get the info from req.body
-  const { pageName, pageDescription, title, type = "open" } = req.body;
+  const { pageName, pageDescription, title, type = "open" } = req.body || {};
   const pageProfileImage = req.file;
   const owner = req.user._id;
 
-  //validate each of them
-  if (!pageName || !pageDescription || !title)
+  if (
+    typeof pageName !== "string" ||
+    typeof pageDescription !== "string" ||
+    !pageName.trim() ||
+    !pageDescription.trim() ||
+    !title
+  )
     throw new ApiError(400, "Incomplete information for creating a page");
+  if (
+    pageName.trim().length > 100 ||
+    pageDescription.trim().length < 40 ||
+    pageDescription.trim().length > 300
+  ) {
+    throw new ApiError(400, "Page name or description is outside the allowed length");
+  }
   if (!pageProfileImage)
     throw new ApiError(400, "Page profile image is required");
-  const normalizedTitle = Array.isArray(title) ? title : [title];
+  if (!["open", "private"].includes(type)) {
+    throw new ApiError(400, "Page type must be open or private");
+  }
+  const normalizedTitle = (Array.isArray(title) ? title : [title])
+    .filter((value) => typeof value === "string")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (!normalizedTitle.length || normalizedTitle.length > 10) {
+    throw new ApiError(400, "Provide between 1 and 10 valid page topics");
+  }
 
   //if not then upload the images to cloudinary and get the public_id
   const cloudinaryresponse = await uploadUserImage_cloud(
@@ -38,8 +59,8 @@ const createPage = asyncHandler(async (req, res) => {
   try {
     const page = await Page.create({
       owner,
-      pageName,
-      pageDescription,
+      pageName: pageName.trim(),
+      pageDescription: pageDescription.trim(),
       title: normalizedTitle,
       type,
       pageProfileImage: cloudinaryresponse.public_id,
@@ -110,11 +131,32 @@ const getPages = asyncHandler(async (req, res) => {
 
   const PageNumber = Number(page);
   const limitNumber = Number(limit);
+  if (!Number.isInteger(PageNumber) || PageNumber < 1) {
+    throw new ApiError(400, "Page must be a positive integer");
+  }
+  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
+    throw new ApiError(400, "Limit must be between 1 and 100");
+  }
   const skip = (PageNumber - 1) * limitNumber;
 
   const filter = {};
-  if (search) filter.$text = { $search: search };
-  if (topic) filter.topic = topic;
+  filter.type = "open";
+  if (req.user?._id) {
+    filter.$or = [
+      { type: "open" },
+      { owner: req.user._id },
+      { moderators: req.user._id },
+      { members: req.user._id },
+    ];
+    delete filter.type;
+  }
+  if (search) {
+    if (typeof search !== "string" || !search.trim() || search.length > 100) {
+      throw new ApiError(400, "Search query cannot exceed 100 characters");
+    }
+    filter.$text = { $search: search.trim() };
+  }
+  if (topic) filter.title = topic;
   if (title) filter.title = title;
   const query = Page.find(filter);
 
@@ -123,7 +165,7 @@ const getPages = asyncHandler(async (req, res) => {
       .select({ score: { $meta: "textScore" } })
       .sort({ score: { $meta: "textScore" } });
   } else {
-    query.sort({ createAt: -1 });
+    query.sort({ createdAt: -1 });
   }
 
   const pages = await query
@@ -138,10 +180,11 @@ const getPages = asyncHandler(async (req, res) => {
     (page) =>
       (page.pageProfileImage = getOptimizedImage(page.pageProfileImage)),
   );
-  pages.map(
-    (page) =>
-      (page.owner.profileImage = getOptimizedImage(page.owner.profileImage)),
-  );
+  pages.forEach((page) => {
+    if (page.owner) {
+      page.owner.profileImage = getOptimizedImage(page.owner.profileImage);
+    }
+  });
   const total = await Page.countDocuments(filter);
   const totalPages = limitNumber ? Math.ceil(total / limitNumber) : 1;
 
@@ -156,13 +199,12 @@ const getPages = asyncHandler(async (req, res) => {
         username: page.owner.username,
         profileImage: page.owner.profileImage,
       },
-      pagePrifileImage: page?.pageProfileImage,
+      pageProfileImage: page?.pageProfileImage,
       pageName: page?.pageName,
       title: page.title,
       membersCount: page.membersCount,
     }));
   }
-  console.log(pages);
   res.status(200).json(
     new ApiResponse(
       200,
@@ -262,31 +304,51 @@ const seeMembersList = asyncHandler(async (req, res) => {
 
   const pageNumber = Number(page);
   const limitNumber = Number(limit);
+  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
+    throw new ApiError(400, "Page must be a positive integer");
+  }
+  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
+    throw new ApiError(400, "Limit must be between 1 and 100");
+  }
   const skip = (pageNumber - 1) * limitNumber;
 
-  const membeList = await Page.findById(page_id)
-    .select({
-      pageName: 1,
-      owner: 1,
-      pageProfileImage: 1,
-      members: { $slice: [skip, limit] },
-    })
-    .populate({
-      path: "members",
-      select: "username profileImage title badge",
-    });
+  const [membeList] = await Page.aggregate([
+    { $match: { _id: page_id } },
+    {
+      $project: {
+        pageName: 1,
+        owner: 1,
+        pageProfileImage: 1,
+        membersCount: { $size: "$members" },
+        members: { $slice: ["$members", skip, limitNumber] },
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "members",
+        foreignField: "_id",
+        pipeline: [
+          { $project: { username: 1, profileImage: 1, title: 1, badge: 1 } },
+        ],
+        as: "members",
+      },
+    },
+  ]);
 
+  if (!membeList) throw new ApiError(404, "Page not found");
   membeList.pageProfileImage = getOptimizedImage(membeList.pageProfileImage);
-  membeList.members.profileImage = membeList.members.map(
-    (member) => (member.profileImage = getOptimizedImage(member.profileImage)),
-  );
+  membeList.members = membeList.members.map((member) => {
+    member.profileImage = getOptimizedImage(member.profileImage);
+    return member;
+  });
 
   const pagination = {
     total: membeList.membersCount,
     page: pageNumber,
     limit: limitNumber,
     totalPages: Math.ceil(membeList.membersCount / limitNumber),
-    hasNextPage: page < Math.ceil(membeList.membersCount / limitNumber),
+    hasNextPage: pageNumber < Math.ceil(membeList.membersCount / limitNumber),
   };
 
   //request maker only need to see members name,profileImage,username,title,badge
@@ -352,7 +414,14 @@ const joinPage = asyncHandler(async (req, res) => {
   //we get the user_id from req.user and page id from params and get the req.body info
   const user_id = req.user._id;
   const { page_id } = req.params;
-  const { message = "" } = req.body || "";
+  if (!mongoose.Types.ObjectId.isValid(page_id)) {
+    throw new ApiError(400, "Invalid page ID");
+  }
+  const message =
+    typeof req.body?.message === "string" ? req.body.message.trim() : "";
+  if (message.length > 500) {
+    throw new ApiError(400, "Join message cannot exceed 500 characters");
+  }
 
   //validate if page event exist or not and is use is already a member or not
   const page = await Page.findById(page_id);
@@ -364,9 +433,11 @@ const joinPage = asyncHandler(async (req, res) => {
   //then we see if the page is private or open
   if (page.type === "open") {
     //if it is open then just add the user in member list of that page
-    const updatedPage=await Page.findByIdAndUpdate(page_id, {
-      $push: { members: user_id },
-    },{returnDocument:'after'});
+    const updatedPage = await Page.findByIdAndUpdate(
+      page_id,
+      { $addToSet: { members: user_id } },
+      { returnDocument: "after" },
+    );
 
     //here we have to send notification to the owner of the page and live update to the page members 
     const io=getIO.get();
@@ -389,16 +460,33 @@ const joinPage = asyncHandler(async (req, res) => {
   const existingRequest = await JoinRequest.findOne({
     page: page_id,
     requestedBy: user_id,
-    status: "pending",
+    status: { $in: ["pending", "approved"] },
   });
+  if (existingRequest?.status === "approved") {
+    throw new ApiError(409, "You are already a member of this page");
+  }
   if (existingRequest) throw new ApiError(409, "Join request already exists");
 
-  await JoinRequest.create({
-    page: page_id,
-    status: "pending",
-    message: message,
-    requestedBy: user_id,
-  });
+  const rejectedRequest = await JoinRequest.findOneAndUpdate(
+    { page: page_id, requestedBy: user_id, status: "rejected" },
+    { $set: { status: "pending", message } },
+    { returnDocument: "after" },
+  );
+  if (!rejectedRequest) {
+    try {
+      await JoinRequest.create({
+        page: page_id,
+        status: "pending",
+        message,
+        requestedBy: user_id,
+      });
+    } catch (error) {
+      if (error.code === 11000) {
+        throw new ApiError(409, "Join request already exists");
+      }
+      throw error;
+    }
+  }
 
   await createNotification(
     page.owner,
@@ -422,6 +510,12 @@ const seePendingRequest = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
   const pageNumber = Number(page);
   const limitNumber = Number(limit);
+  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
+    throw new ApiError(400, "Page must be a positive integer");
+  }
+  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
+    throw new ApiError(400, "Limit must be between 1 and 100");
+  }
   const skip = (pageNumber - 1) * limitNumber;
 
   //get pending request from join request and use aggregate pipeline for requestedBy info
@@ -470,54 +564,55 @@ const seePendingRequest = asyncHandler(async (req, res) => {
 const approvePendingRequest = asyncHandler(async (req, res) => {
   //get the page_id from req.page and status and requestedBy from req.body
   const page_id = req.page._id;
-  const { status, requestedBy } = req.body;
-  if (!status || !requestedBy)
+  const { status, requestedBy } = req.body || {};
+  if (
+    !["approved", "reject"].includes(
+      typeof status === "string" ? status.trim().toLowerCase() : "",
+    ) ||
+    !mongoose.Types.ObjectId.isValid(requestedBy)
+  )
     throw new ApiError(
       400,
-      "Incomplete information for reacting to page request",
+      "A valid request status and user ID are required",
     );
+  const normalizedStatus = status.trim().toLowerCase();
 
   //search for request if it still alive or not
   const isStillAlive = await JoinRequest.findOne({
     page: page_id,
     requestedBy: requestedBy,
+    status: "pending",
   });
   if (!isStillAlive) throw new ApiError(404, "Join request not found");
 
   //if yes then check the status
-  if (status.toLowerCase().trim() === "approved") {
+  if (normalizedStatus === "approved") {
     //then if status is accept then add member to the page
     const page = await Page.findById(page_id);
     if (page.members.some((m) => m.toString() === requestedBy.toString())) {
       throw new ApiError(409, "User is already a member");
     }
     await Page.findByIdAndUpdate(page_id, {
-      $push: { members: requestedBy },
-    });
-
-    await JoinRequest.findByIdAndUpdate(isStillAlive._id, {
-      status: "approved",
-    });
-  } else if (status.toLowerCase().trim() === "reject") {
-    //if reject just delete the request
-    await JoinRequest.findByIdAndUpdate(isStillAlive._id, {
-      status: "rejected",
+      $addToSet: { members: requestedBy },
     });
   }
+  await JoinRequest.findByIdAndUpdate(isStillAlive._id, {
+    status: normalizedStatus === "approved" ? "approved" : "rejected",
+  });
   //send notification to the user of the status
   const io=getIO.get();
   const room=`page:${String(page_id).trim()}`
   io.to(room).emit('responseJoin-page',{
     pageid:page_id,
     requestedBy:requestedBy,
-    status:status
+    status: normalizedStatus
   });
 
   await createNotification(
     requestedBy,
     req.user._id,
-    ((status.toLowerCase().trim() === "approved")?"request_approved": "request_rejected"),
-    `${req.user.username} ${status.toLowerCase().trim()} your request`,
+    normalizedStatus === "approved" ? "request_approved" : "request_rejected",
+    `${req.user.username} ${normalizedStatus} your request`,
     page_id
   )
   //send response
@@ -537,7 +632,7 @@ const leavePage = asyncHandler(async (req, res) => {
   //check if he is not a owner
   if (req.page.owner.toString() === user_id.toString()) {
     //if he is then ask for new owner id or ownername
-    if (!!!req.body)
+    if (!req.body)
       throw new ApiError(400, "Ownership must be transferred before leaving");
     const { newOwner } = req.body; //have to pass id
     if (!newOwner)
@@ -550,12 +645,15 @@ const leavePage = asyncHandler(async (req, res) => {
         400,
         "New owner must be an existing member of the page",
       );
+    if (newOwner.toString() === user_id.toString()) {
+      throw new ApiError(400, "Choose another page member as the new owner");
+    }
     await Page.findByIdAndUpdate(page_id, {
-      owner: newOwner,
-      $pull: {
-        members: user_id,
-        moderators: user_id,
-      },
+      $set: { owner: newOwner },
+      $pull: { members: user_id, moderators: user_id },
+    });
+    await Page.findByIdAndUpdate(page_id, {
+      $addToSet: { members: newOwner, moderators: newOwner },
     });
   } else {
     //if he is not then just remove him from the page
@@ -571,26 +669,49 @@ const leavePage = asyncHandler(async (req, res) => {
 });
 
 const updatePageinfo = asyncHandler(async (req, res) => {
-  //get info that is to be updated in page from req.body and page id from req.page
-  const { pageName, pageDescription, title, type } = req.body;
+  const { pageName, pageDescription, title, type } = req.body || {};
 
   const newPageImage = req.file;
   const updated = {};
 
-  //validate each info
-  if (pageName) {
-    const response = await Page.findOne({ pageName: pageName });
+  if (pageName !== undefined) {
+    if (typeof pageName !== "string" || !pageName.trim() || pageName.trim().length > 100) {
+      throw new ApiError(400, "Page name must contain 1 to 100 characters");
+    }
+    const response = await Page.findOne({
+      pageName: pageName.trim(),
+      _id: { $ne: req.page._id },
+    });
     if (response) throw new ApiError(409, "Page with this name already exists");
-    updated.pageName = pageName;
+    updated.pageName = pageName.trim();
   }
-  if (pageDescription && pageDescription.length > 0) {
-    updated.pageDescription = pageDescription;
+  if (pageDescription !== undefined) {
+    if (
+      typeof pageDescription !== "string" ||
+      pageDescription.trim().length < 40 ||
+      pageDescription.trim().length > 300
+    ) {
+      throw new ApiError(400, "Page description must contain 40 to 300 characters");
+    }
+    updated.pageDescription = pageDescription.trim();
   }
-  if (type && (type === "open" || type === "private")) {
+  if (type !== undefined && !["open", "private"].includes(type)) {
+    throw new ApiError(400, "Page type must be open or private");
+  }
+  if (type !== undefined) {
     updated.type = type;
   }
+  let titles = [];
+  if (title !== undefined) {
+    titles = (Array.isArray(title) ? title : [title])
+      .filter((value) => typeof value === "string")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (!titles.length || titles.length > 10) {
+      throw new ApiError(400, "Provide between 1 and 10 valid page topics");
+    }
+  }
 
-  //also upload image on clodinary and delete previous image also
   if (newPageImage?.path) {
     const response = await uploadUserImage_cloud(
       newPageImage.path,
@@ -599,7 +720,6 @@ const updatePageinfo = asyncHandler(async (req, res) => {
     );
     if (!response)
       throw new ApiError(500, "Failed to upload image to Cloudinary");
-    await deleteFromCloudinary(req.page.pageProfileImage);
     updated.pageProfileImage = response.public_id;
   }
 
@@ -610,8 +730,7 @@ const updatePageinfo = asyncHandler(async (req, res) => {
     updateQuery.$set = updated;
   }
 
-  if (title) {
-    const titles = Array.isArray(title) ? title : [title];
+  if (titles.length) {
     updateQuery.$addToSet = { title: { $each: titles } };
   }
 
@@ -623,12 +742,16 @@ const updatePageinfo = asyncHandler(async (req, res) => {
     updateQuery,
     {
       returnDocument: "after",
+      runValidators: true,
     },
   ).select("-moderators -members");
 
   if (!updatedpagedata)
     throw new ApiError(500, "Failed to update page information");
 
+  if (updated.pageProfileImage && req.page.pageProfileImage) {
+    await deleteFromCloudinary(req.page.pageProfileImage, "image");
+  }
   if (updatedpagedata && updatedpagedata.pageProfileImage) {
     updatedpagedata.pageProfileImage = getOptimizedImage(
       updatedpagedata.pageProfileImage,
@@ -652,20 +775,21 @@ const getParticularPage = asyncHandler(async (req, res) => {
 
   // Get page with populated references
   const page = await Page.findById(pageId)
-    .populate("owner", "username email profileImage")
-    .populate("moderators", "username email profileImage")
-    .populate("members", "username email profileImage");
+    .select("-members -moderators")
+    .populate("owner", "username profileImage title");
 
   if (!page) throw new ApiError(404, "Page not found");
 
-  // Determine user's role in the page
   const isOwner = userId && page.owner._id.toString() === userId.toString();
-  const isModerator =
-    userId &&
-    page.moderators.some((mod) => mod._id.toString() === userId.toString());
-  const isMember =
-    userId &&
-    page.members.some((mem) => mem._id.toString() === userId.toString());
+  const [isModerator, isMember] = userId
+    ? await Promise.all([
+        Page.exists({ _id: pageId, moderators: userId }),
+        Page.exists({ _id: pageId, members: userId }),
+      ])
+    : [false, false];
+  if (page.type === "private" && !isOwner && !isModerator && !isMember) {
+    throw new ApiError(404, "Page not found");
+  }
 
   // Build response based on user role
   let responseData = {
@@ -684,19 +808,6 @@ const getParticularPage = asyncHandler(async (req, res) => {
   // Add owner info for all
   responseData.owner = page.owner;
 
-  // If logged in, add moderators and members list
-  if (userId) {
-    responseData.moderators = page.moderators.map((mod) => ({
-      ...mod.toObject(),
-      profileImage: getOptimizedImage(mod.profileImage),
-    }));
-    responseData.members = page.members.map((mem) => ({
-      ...mem.toObject(),
-      profileImage: getOptimizedImage(mem.profileImage),
-    }));
-  }
-
-  // If owner or moderator, add full permissions info
   if (isOwner || isModerator) {
     responseData.userRole = isOwner ? "owner" : "moderator";
     responseData.canEditPage = true;
@@ -715,7 +826,7 @@ const getParticularPage = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, "Page retrieved successfully", responseData));
+    .json(new ApiResponse(200, responseData, "Page retrieved successfully"));
 });
 
 export {

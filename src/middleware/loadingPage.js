@@ -10,7 +10,7 @@ const loadingPage = asyncHandler(async (req, res, next) => {
   if (!mongoose.Types.ObjectId.isValid(page_id))
     throw new ApiError(400, "Invalid Page ID");
   const page = await Page.findById(page_id).select(
-    "_id owner members pageProfileImage moderators",
+    "_id owner members pageProfileImage moderators type",
   );
   if(!page) throw new ApiError(404, "Page not found");
   req.page = page;
