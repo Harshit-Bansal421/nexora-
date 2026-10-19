@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/authContextValue';
-import { useToast } from '../context/toastContextValue';
-import { postApi } from '../api/client';
-import Avatar from './Avatar';
-import ImageWithFallback from './ImageWithFallback';
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/authContextValue";
+import { useToast } from "../context/toastContextValue";
+import { postApi } from "../api/client";
+import Avatar from "./Avatar";
+import ImageWithFallback from "./ImageWithFallback";
 
 export default function PostCard({ post, onUnsave }) {
   const { currentUser, isAuthenticated } = useAuth();
@@ -12,21 +12,42 @@ export default function PostCard({ post, onUnsave }) {
   const navigate = useNavigate();
 
   // Normalize author data
-  const author = post?.author || post?.ownerInfo || post?.owner || {
-    username: 'anonymous',
-    title: 'Contributor',
-  };
+  const author = post?.author ||
+    post?.ownerInfo ||
+    post?.owner || {
+      username: "anonymous",
+      title: "Contributor",
+    };
 
   // Vote calculation
-  const initialUpvotes = Array.isArray(post?.upvotes) ? post.upvotes.length : (post?.upvotesCount ?? post?.upvoteCount ?? 0);
-  const initialDownvotes = Array.isArray(post?.downvotes) ? post.downvotes.length : (post?.downvotesCount ?? post?.downvoteCount ?? 0);
-  const userUpvoted = currentUser && Array.isArray(post?.upvotes) && post.upvotes.includes(currentUser._id);
-  const userDownvoted = currentUser && Array.isArray(post?.downvotes) && post.downvotes.includes(currentUser._id);
+  const initialUpvotes = Array.isArray(post?.upvotes)
+    ? post.upvotes.length
+    : (post?.upvotesCount ?? post?.upvoteCount ?? 0);
+  const initialDownvotes = Array.isArray(post?.downvotes)
+    ? post.downvotes.length
+    : (post?.downvotesCount ?? post?.downvoteCount ?? 0);
+  const userUpvoted =
+    currentUser &&
+    Array.isArray(post?.upvotes) &&
+    post.upvotes.includes(currentUser._id);
+  const userDownvoted =
+    currentUser &&
+    Array.isArray(post?.downvotes) &&
+    post.downvotes.includes(currentUser._id);
+  const initialUserVote =
+    post?.userVote ??
+    (userUpvoted ? "upvote" : userDownvoted ? "downvote" : null);
 
   const [voteCount, setVoteCount] = useState(initialUpvotes - initialDownvotes);
-  const [voteState, setVoteState] = useState(userUpvoted ? 'up' : userDownvoted ? 'down' : null);
+  const [voteState, setVoteState] = useState(
+    initialUserVote === "upvote"
+      ? "up"
+      : initialUserVote === "downvote"
+        ? "down"
+        : null,
+  );
   const [isSaved, setIsSaved] = useState(
-    Boolean(post?.isSaved || post?.savedPost || typeof onUnsave === 'function'),
+    Boolean(post?.isSaved || post?.savedPost || typeof onUnsave === "function"),
   );
   const [isVoting, setIsVoting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -39,8 +60,8 @@ export default function PostCard({ post, onUnsave }) {
 
   const handleVote = async (type) => {
     if (!isAuthenticated) {
-      info('Please log in to vote on posts');
-      navigate('/login');
+      info("Please log in to vote on posts");
+      navigate("/login");
       return;
     }
     if (isVoting) return;
@@ -50,37 +71,53 @@ export default function PostCard({ post, onUnsave }) {
     const prevVoteCount = voteCount;
 
     // Optimistic calculation
-    if (type === 'upvote') {
-      if (voteState === 'up') {
+    if (type === "upvote") {
+      if (voteState === "up") {
         setVoteState(null);
         setVoteCount(prevVoteCount - 1);
-      } else if (voteState === 'down') {
-        setVoteState('up');
+      } else if (voteState === "down") {
+        setVoteState("up");
         setVoteCount(prevVoteCount + 2);
       } else {
-        setVoteState('up');
+        setVoteState("up");
         setVoteCount(prevVoteCount + 1);
       }
     } else {
-      if (voteState === 'down') {
+      if (voteState === "down") {
         setVoteState(null);
         setVoteCount(prevVoteCount + 1);
-      } else if (voteState === 'up') {
-        setVoteState('down');
+      } else if (voteState === "up") {
+        setVoteState("down");
         setVoteCount(prevVoteCount - 2);
       } else {
-        setVoteState('down');
+        setVoteState("down");
         setVoteCount(prevVoteCount - 1);
       }
     }
 
     try {
-      await postApi.votePost(post._id, type);
+      const response = await postApi.votePost(post._id, type);
+      const vote = response?.data || response;
+      if (
+        Number.isInteger(vote?.upvoteCount) &&
+        Number.isInteger(vote?.downvoteCount)
+      ) {
+        setVoteCount(vote.upvoteCount - vote.downvoteCount);
+      }
+      if (Object.hasOwn(vote || {}, "userVote")) {
+        setVoteState(
+          vote.userVote === "upvote"
+            ? "up"
+            : vote.userVote === "downvote"
+              ? "down"
+              : null,
+        );
+      }
     } catch (err) {
       setVoteState(prevVoteState);
       setVoteCount(prevVoteCount);
-      console.warn('Post vote failed:', err);
-      error(err?.message || 'Failed to register vote');
+      console.warn("Post vote failed:", err);
+      error(err?.message || "Failed to register vote");
     } finally {
       setIsVoting(false);
     }
@@ -88,8 +125,8 @@ export default function PostCard({ post, onUnsave }) {
 
   const handleSaveToggle = async () => {
     if (!isAuthenticated) {
-      info('Please log in to save posts');
-      navigate('/login');
+      info("Please log in to save posts");
+      navigate("/login");
       return;
     }
     if (isSaving) return;
@@ -101,16 +138,16 @@ export default function PostCard({ post, onUnsave }) {
     try {
       if (nextSaved) {
         await postApi.savePost(post._id);
-        success('Post saved to your bookmarks');
+        success("Post saved to your bookmarks");
       } else {
         await postApi.unsavePost(post._id);
         onUnsave?.(post._id);
-        info('Post removed from saved bookmarks');
+        info("Post removed from saved bookmarks");
       }
     } catch (err) {
       setIsSaved(!nextSaved);
-      console.warn('Post bookmark update failed:', err);
-      error('Failed to update bookmark');
+      console.warn("Post bookmark update failed:", err);
+      error("Failed to update bookmark");
     } finally {
       setIsSaving(false);
     }
@@ -120,19 +157,26 @@ export default function PostCard({ post, onUnsave }) {
     const postUrl = `${window.location.origin}/posts/${post._id}/comments`;
     try {
       await navigator.clipboard.writeText(postUrl);
-      success('Post link copied to clipboard!');
+      success("Post link copied to clipboard!");
     } catch (err) {
-      console.warn('Unable to copy post link:', err);
-      error('Could not copy the post link. Check clipboard permissions and try again.');
+      console.warn("Unable to copy post link:", err);
+      error(
+        "Could not copy the post link. Check clipboard permissions and try again.",
+      );
     }
   };
 
   // Format timestamp
   const formatTime = (dateStr) => {
-    if (!dateStr) return 'Just now';
-    const diffHours = Math.round((now - Date.parse(dateStr)) / (1000 * 60 * 60));
+    if (!dateStr) return "Just now";
+    const diffHours = Math.round(
+      (now - Date.parse(dateStr)) / (1000 * 60 * 60),
+    );
     if (diffHours < 1) {
-      const diffMins = Math.max(1, Math.round((now - Date.parse(dateStr)) / (1000 * 60)));
+      const diffMins = Math.max(
+        1,
+        Math.round((now - Date.parse(dateStr)) / (1000 * 60)),
+      );
       return `${diffMins}m ago`;
     }
     if (diffHours < 24) return `${diffHours}h ago`;
@@ -153,7 +197,7 @@ export default function PostCard({ post, onUnsave }) {
           >
             <Avatar
               src={author?.profileImage}
-              name={author?.username || 'anonymous'}
+              name={author?.username || "anonymous"}
               className="w-11 h-11 rounded-full object-cover ring-2 ring-primary-container/30 group-hover:ring-primary transition-all"
             />
             <div>
@@ -170,7 +214,9 @@ export default function PostCard({ post, onUnsave }) {
               <div className="flex items-center gap-1.5 text-xs text-on-surface-variant">
                 <span>{formatTime(post?.createdAt)}</span>
                 <span>•</span>
-                <span className="text-primary font-medium">in {post?.topic || 'General'}</span>
+                <span className="text-primary font-medium">
+                  in {post?.topic || "General"}
+                </span>
               </div>
             </div>
           </Link>
@@ -197,15 +243,20 @@ export default function PostCard({ post, onUnsave }) {
 
         {/* Multi-Image Gallery */}
         {images.length > 0 && (
-          <div className={`mb-4 rounded-xl overflow-hidden gap-2 ${
-            images.length === 1
-              ? 'block'
-              : images.length === 2
-              ? 'grid grid-cols-2'
-              : 'grid grid-cols-3'
-          }`}>
+          <div
+            className={`mb-4 rounded-xl overflow-hidden gap-2 ${
+              images.length === 1
+                ? "block"
+                : images.length === 2
+                  ? "grid grid-cols-2"
+                  : "grid grid-cols-3"
+            }`}
+          >
             {images.slice(0, 3).map((imgUrl, idx) => (
-              <div key={idx} className="relative aspect-video max-h-72 bg-surface-container overflow-hidden rounded-lg group">
+              <div
+                key={idx}
+                className="relative aspect-video max-h-72 bg-surface-container overflow-hidden rounded-lg group"
+              >
                 <ImageWithFallback
                   src={imgUrl}
                   alt={`Post image ${idx + 1}`}
@@ -234,33 +285,43 @@ export default function PostCard({ post, onUnsave }) {
           {/* Vote Bar */}
           <div className="flex items-center bg-surface-container-lowest rounded-full px-2 py-1 gap-1 border border-outline-variant/15 shadow-sm">
             <button
-              onClick={() => handleVote('upvote')}
+              onClick={() => handleVote("upvote")}
               className={`p-1 rounded-full transition-colors active:scale-110 ${
-                voteState === 'up'
-                  ? 'text-primary bg-primary-container/30'
-                  : 'hover:text-primary hover:bg-surface-container'
+                voteState === "up"
+                  ? "text-primary bg-primary-container/30"
+                  : "hover:text-primary hover:bg-surface-container"
               }`}
               title="Upvote"
             >
-              <span className={`material-symbols-outlined text-lg ${voteState === 'up' ? 'filled' : ''}`}>
+              <span
+                className={`material-symbols-outlined text-lg ${voteState === "up" ? "filled" : ""}`}
+              >
                 thumb_up
               </span>
             </button>
-            <span className={`text-xs font-bold px-1.5 ${
-              voteCount > 0 ? 'text-primary' : voteCount < 0 ? 'text-error' : 'text-on-surface-variant'
-            }`}>
+            <span
+              className={`text-xs font-bold px-1.5 ${
+                voteCount > 0
+                  ? "text-primary"
+                  : voteCount < 0
+                    ? "text-error"
+                    : "text-on-surface-variant"
+              }`}
+            >
               {voteCount}
             </span>
             <button
-              onClick={() => handleVote('downvote')}
+              onClick={() => handleVote("downvote")}
               className={`p-1 rounded-full transition-colors active:scale-110 ${
-                voteState === 'down'
-                  ? 'text-error bg-error-container/30'
-                  : 'hover:text-error hover:bg-surface-container'
+                voteState === "down"
+                  ? "text-error bg-error-container/30"
+                  : "hover:text-error hover:bg-surface-container"
               }`}
               title="Downvote"
             >
-              <span className={`material-symbols-outlined text-lg ${voteState === 'down' ? 'filled' : ''}`}>
+              <span
+                className={`material-symbols-outlined text-lg ${voteState === "down" ? "filled" : ""}`}
+              >
                 thumb_down
               </span>
             </button>
@@ -272,7 +333,9 @@ export default function PostCard({ post, onUnsave }) {
             state={{ post }}
             className="flex items-center gap-1.5 hover:text-primary transition-colors text-xs font-semibold py-1 px-2.5 rounded-full hover:bg-surface-container"
           >
-            <span className="material-symbols-outlined text-lg">chat_bubble</span>
+            <span className="material-symbols-outlined text-lg">
+              chat_bubble
+            </span>
             <span>{post?.commentsCount || post?.comments?.length || 0}</span>
           </Link>
         </div>
@@ -283,12 +346,14 @@ export default function PostCard({ post, onUnsave }) {
             onClick={handleSaveToggle}
             className={`p-2 rounded-full transition-colors active:scale-90 ${
               isSaved
-                ? 'text-primary bg-primary-container/30'
-                : 'hover:text-primary hover:bg-surface-container'
+                ? "text-primary bg-primary-container/30"
+                : "hover:text-primary hover:bg-surface-container"
             }`}
-            title={isSaved ? 'Remove from saved' : 'Save post'}
+            title={isSaved ? "Remove from saved" : "Save post"}
           >
-            <span className={`material-symbols-outlined text-xl ${isSaved ? 'filled' : ''}`}>
+            <span
+              className={`material-symbols-outlined text-xl ${isSaved ? "filled" : ""}`}
+            >
               bookmark
             </span>
           </button>
