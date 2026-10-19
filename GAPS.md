@@ -26,6 +26,7 @@
 
 - The user model and post model store image values as strings, but backend upload/read paths use Cloudinary upload and `getOptimizedImage`; the backend app has no static-file middleware. A relative frontend asset path would therefore not be a supported persisted image URL under the current backend contract. The requested local image/avatar migration is blocked while backend source changes are disallowed. Existing external image URLs can also fail independently, as the `loremflickr.com` 500 demonstrated.
 - Shared `Avatar` and `ImageWithFallback` components are now used for user avatars in navigation, post cards/details, comments, notifications, profiles, community rosters, and post composition, and for post/community images. Failed or missing sources render a neutral theme-based placeholder instead of a broken-image glyph or unrelated stock portrait. The frontend lint and production build pass after this change. This prevents broken layout but does not repair an external image host or upload the failed image elsewhere.
+
 ## Cleanup blocked
 
 - `frontend/stitch_screens/html` remains. The directory is a read-only reparse point with restrictive permissions; it was not removed or altered.

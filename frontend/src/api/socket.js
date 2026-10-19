@@ -1,12 +1,12 @@
-import { io } from 'socket.io-client';
+import { io } from "socket.io-client";
 
 let socket = null;
 
 export const getSocket = () => {
   if (!socket) {
-    socket = io('/', {
-      path: '/socket.io',
-      transports: ['websocket', 'polling'],
+    socket = io("/", {
+      path: "/socket.io",
+      transports: ["websocket", "polling"],
       withCredentials: true,
       autoConnect: true,
     });
@@ -16,32 +16,32 @@ export const getSocket = () => {
 
 export const joinPostRoom = (postId) => {
   const s = getSocket();
-  s.emit('join-post', postId);
+  s.emit("join-post", postId);
 };
 
 export const leavePostRoom = (postId) => {
   const s = getSocket();
-  s.emit('leave-post', postId);
+  s.emit("leave-post", postId);
 };
 
 export const joinPageRoom = (pageId) => {
   const s = getSocket();
-  s.emit('join-page', pageId);
+  s.emit("join-page", pageId);
 };
 
 export const leavePageRoom = (pageId) => {
   const s = getSocket();
-  s.emit('leave-page', pageId);
+  s.emit("leave-page", pageId);
 };
 
 export const joinUserRoom = (userId) => {
   const s = getSocket();
-  s.emit('join-user', userId);
+  s.emit("join-user", userId);
 };
 
 export const leaveUserRoom = (userId) => {
   const s = getSocket();
-  s.emit('leave-user', userId);
+  s.emit("leave-user", userId);
 };
 
 export default getSocket;

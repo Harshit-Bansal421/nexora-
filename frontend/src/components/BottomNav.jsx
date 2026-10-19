@@ -1,6 +1,6 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/authContextValue';
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../context/authContextValue";
 
 export default function BottomNav() {
   const { currentUser, isAuthenticated } = useAuth();
@@ -13,9 +13,9 @@ export default function BottomNav() {
       <Link
         to="/feed"
         className={`min-w-14 min-h-11 flex flex-col items-center justify-center px-2 py-1.5 rounded-2xl transition-all duration-200 ${
-          isActive('/feed') || isActive('/home')
-            ? 'bg-primary-container/40 text-primary font-bold'
-            : 'text-on-surface-variant hover:text-primary'
+          isActive("/feed") || isActive("/home")
+            ? "bg-primary-container/40 text-primary font-bold"
+            : "text-on-surface-variant hover:text-primary"
         }`}
       >
         <span className="material-symbols-outlined text-2xl">home</span>
@@ -25,9 +25,9 @@ export default function BottomNav() {
       <Link
         to="/pages/explore"
         className={`min-w-14 min-h-11 flex flex-col items-center justify-center px-2 py-1.5 rounded-2xl transition-all duration-200 ${
-          isActive('/pages/explore')
-            ? 'bg-primary-container/40 text-primary font-bold'
-            : 'text-on-surface-variant hover:text-primary'
+          isActive("/pages/explore")
+            ? "bg-primary-container/40 text-primary font-bold"
+            : "text-on-surface-variant hover:text-primary"
         }`}
       >
         <span className="material-symbols-outlined text-2xl">explore</span>
@@ -41,15 +41,17 @@ export default function BottomNav() {
         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary-dim text-white flex items-center justify-center shadow-lg shadow-primary/30 active:scale-90 transition-transform">
           <span className="material-symbols-outlined text-2xl">add</span>
         </div>
-        <span className="text-[11px] font-medium mt-1 text-on-surface-variant">Create</span>
+        <span className="text-[11px] font-medium mt-1 text-on-surface-variant">
+          Create
+        </span>
       </Link>
 
       <Link
         to="/search"
         className={`min-w-14 min-h-11 flex flex-col items-center justify-center px-2 py-1.5 rounded-2xl transition-all duration-200 ${
-          isActive('/search')
-            ? 'bg-primary-container/40 text-primary font-bold'
-            : 'text-on-surface-variant hover:text-primary'
+          isActive("/search")
+            ? "bg-primary-container/40 text-primary font-bold"
+            : "text-on-surface-variant hover:text-primary"
         }`}
       >
         <span className="material-symbols-outlined text-2xl">search</span>
@@ -57,11 +59,11 @@ export default function BottomNav() {
       </Link>
 
       <Link
-        to={isAuthenticated ? `/profile/${currentUser?.username}` : '/login'}
+        to={isAuthenticated ? `/profile/${currentUser?.username}` : "/login"}
         className={`min-w-14 min-h-11 flex flex-col items-center justify-center px-2 py-1.5 rounded-2xl transition-all duration-200 ${
           isAuthenticated && isActive(`/profile/${currentUser?.username}`)
-            ? 'bg-primary-container/40 text-primary font-bold'
-            : 'text-on-surface-variant hover:text-primary'
+            ? "bg-primary-container/40 text-primary font-bold"
+            : "text-on-surface-variant hover:text-primary"
         }`}
       >
         <span className="material-symbols-outlined text-2xl">person</span>

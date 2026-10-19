@@ -1,7 +1,7 @@
-import React from 'react';
-import { useLocation } from 'react-router-dom';
-import Navbar from './Navbar';
-import BottomNav from './BottomNav';
+import React from "react";
+import { useLocation } from "react-router-dom";
+import Navbar from "./Navbar";
+import BottomNav from "./BottomNav";
 
 export default function Layout({ children, hideNav = false }) {
   const location = useLocation();

@@ -1,24 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import Layout from '../components/Layout';
-import { postApi, pageApi } from '../api/client';
-import { useAuth } from '../context/authContextValue';
-import { useToast } from '../context/toastContextValue';
-import Avatar from '../components/Avatar';
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import Layout from "../components/Layout";
+import { postApi, pageApi } from "../api/client";
+import { useAuth } from "../context/authContextValue";
+import { useToast } from "../context/toastContextValue";
+import Avatar from "../components/Avatar";
 
-const TOPICS = ['Tech', 'Academic', 'Career', 'Life'];
+const TOPICS = ["Tech", "Academic", "Career", "Life"];
 
 export default function UploadPostPage() {
   const [searchParams] = useSearchParams();
-  const initialPageId = searchParams.get('pageId') || '';
+  const initialPageId = searchParams.get("pageId") || "";
   const navigate = useNavigate();
   const { currentUser, isAuthenticated } = useAuth();
   const { success, error, info } = useToast();
 
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [topic, setTopic] = useState('Tech');
-  const [destination, setDestination] = useState(initialPageId ? 'page' : 'feed');
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [topic, setTopic] = useState("Tech");
+  const [destination, setDestination] = useState(
+    initialPageId ? "page" : "feed",
+  );
   const [selectedPageId, setSelectedPageId] = useState(initialPageId);
   const [availablePages, setAvailablePages] = useState([]);
 
@@ -31,8 +33,8 @@ export default function UploadPostPage() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      info('Please log in to create a post.');
-      navigate('/login');
+      info("Please log in to create a post.");
+      navigate("/login");
     }
   }, [isAuthenticated, navigate, info]);
 
@@ -41,9 +43,9 @@ export default function UploadPostPage() {
       try {
         const res = await pageApi.getPages({ limit: 50 });
         const data = res?.data || res || [];
-        setAvailablePages(Array.isArray(data) ? data : (data?.pages || []));
+        setAvailablePages(Array.isArray(data) ? data : data?.pages || []);
       } catch (err) {
-        console.warn('Could not fetch pages for destination picker', err);
+        console.warn("Could not fetch pages for destination picker", err);
       }
     };
     fetchPages();
@@ -52,7 +54,7 @@ export default function UploadPostPage() {
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files || []);
     if (images.length + files.length > 3) {
-      error('You can upload a maximum of 3 images.');
+      error("You can upload a maximum of 3 images.");
       return;
     }
 
@@ -72,7 +74,7 @@ export default function UploadPostPage() {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 50 * 1024 * 1024) {
-        error('Video size must be under 50MB.');
+        error("Video size must be under 50MB.");
         return;
       }
       setVideo(file);
@@ -88,15 +90,15 @@ export default function UploadPostPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title.trim()) {
-      error('Please provide a title for your request.');
+      error("Please provide a title for your request.");
       return;
     }
     if (!description.trim()) {
-      error('Please provide details for your question or guide.');
+      error("Please provide details for your question or guide.");
       return;
     }
-    if (destination === 'page' && !selectedPageId) {
-      error('Please select which community page to post to.');
+    if (destination === "page" && !selectedPageId) {
+      error("Please select which community page to post to.");
       return;
     }
 
@@ -104,25 +106,25 @@ export default function UploadPostPage() {
 
     try {
       const formData = new FormData();
-      formData.append('title', title.trim());
-      formData.append('description', description.trim());
-      formData.append('topic', topic);
+      formData.append("title", title.trim());
+      formData.append("description", description.trim());
+      formData.append("topic", topic);
 
-      if (destination === 'page' && selectedPageId) {
-        formData.append('pages', selectedPageId);
+      if (destination === "page" && selectedPageId) {
+        formData.append("pages", selectedPageId);
       }
 
       images.forEach((img) => {
-        formData.append('PostImages', img);
+        formData.append("PostImages", img);
       });
 
       if (video) {
-        formData.append('PostVideos', video);
+        formData.append("PostVideos", video);
       }
 
       const res = await postApi.createPost(formData);
       const created = res?.data || res;
-      success('Question published successfully!');
+      success("Question published successfully!");
 
       if (created?._id) {
         const author = currentUser;
@@ -136,10 +138,10 @@ export default function UploadPostPage() {
           },
         });
       } else {
-        navigate('/feed');
+        navigate("/feed");
       }
     } catch (err) {
-      error(err?.message || 'Failed to publish post. Please check the fields.');
+      error(err?.message || "Failed to publish post. Please check the fields.");
     } finally {
       setPublishing(false);
     }
@@ -175,7 +177,9 @@ export default function UploadPostPage() {
             ) : (
               <>
                 <span>Publish Post</span>
-                <span className="material-symbols-outlined text-base">send</span>
+                <span className="material-symbols-outlined text-base">
+                  send
+                </span>
               </>
             )}
           </button>
@@ -188,13 +192,16 @@ export default function UploadPostPage() {
             <div className="flex items-center gap-3.5 mb-2">
               <Avatar
                 src={currentUser?.profileImage}
-                name={currentUser?.username || 'User'}
+                name={currentUser?.username || "User"}
                 className="w-12 h-12 rounded-full object-cover ring-2 ring-primary-container"
               />
               <div>
-                <h3 className="font-bold text-sm text-on-surface">{currentUser?.username}</h3>
+                <h3 className="font-bold text-sm text-on-surface">
+                  {currentUser?.username}
+                </h3>
                 <p className="text-xs text-on-surface-variant">
-                  Publishing under <span className="text-primary font-semibold">#{topic}</span>
+                  Publishing under{" "}
+                  <span className="text-primary font-semibold">#{topic}</span>
                 </p>
               </div>
             </div>
@@ -232,14 +239,23 @@ export default function UploadPostPage() {
               {imagePreviews.length > 0 && (
                 <div className="grid grid-cols-3 gap-3 pt-2">
                   {imagePreviews.map((preview, i) => (
-                    <div key={i} className="relative aspect-video rounded-xl overflow-hidden bg-surface-container border border-outline-variant/20 group">
-                      <img src={preview} alt="Upload preview" className="w-full h-full object-cover" />
+                    <div
+                      key={i}
+                      className="relative aspect-video rounded-xl overflow-hidden bg-surface-container border border-outline-variant/20 group"
+                    >
+                      <img
+                        src={preview}
+                        alt="Upload preview"
+                        className="w-full h-full object-cover"
+                      />
                       <button
                         type="button"
                         onClick={() => removeImage(i)}
                         className="absolute top-1.5 right-1.5 bg-black/60 text-white p-1 rounded-full hover:bg-black/80 transition-colors"
                       >
-                        <span className="material-symbols-outlined text-sm">close</span>
+                        <span className="material-symbols-outlined text-sm">
+                          close
+                        </span>
                       </button>
                     </div>
                   ))}
@@ -249,13 +265,19 @@ export default function UploadPostPage() {
               {/* Video Preview */}
               {videoPreview && (
                 <div className="relative rounded-xl overflow-hidden bg-black max-h-60 flex items-center justify-center">
-                  <video src={videoPreview} controls className="max-h-60 w-full" />
+                  <video
+                    src={videoPreview}
+                    controls
+                    className="max-h-60 w-full"
+                  />
                   <button
                     type="button"
                     onClick={removeVideo}
                     className="absolute top-2 right-2 bg-black/60 text-white p-1.5 rounded-full hover:bg-black/80 transition-colors"
                   >
-                    <span className="material-symbols-outlined text-sm">close</span>
+                    <span className="material-symbols-outlined text-sm">
+                      close
+                    </span>
                   </button>
                 </div>
               )}
@@ -263,7 +285,9 @@ export default function UploadPostPage() {
               {/* Attachment Actions */}
               <div className="flex flex-wrap gap-3 pt-4 border-t border-outline-variant/15">
                 <label className="inline-flex items-center gap-2 px-4 py-2 bg-surface-container-low hover:bg-surface-container rounded-xl text-xs font-bold text-on-surface cursor-pointer transition-colors">
-                  <span className="material-symbols-outlined text-lg text-primary">add_photo_alternate</span>
+                  <span className="material-symbols-outlined text-lg text-primary">
+                    add_photo_alternate
+                  </span>
                   <span>Add Images ({images.length}/3)</span>
                   <input
                     type="file"
@@ -276,7 +300,9 @@ export default function UploadPostPage() {
 
                 {!video && (
                   <label className="inline-flex items-center gap-2 px-4 py-2 bg-surface-container-low hover:bg-surface-container rounded-xl text-xs font-bold text-on-surface cursor-pointer transition-colors">
-                    <span className="material-symbols-outlined text-lg text-secondary">videocam</span>
+                    <span className="material-symbols-outlined text-lg text-secondary">
+                      videocam
+                    </span>
                     <span>Add Video (Max 1)</span>
                     <input
                       type="file"
@@ -294,7 +320,9 @@ export default function UploadPostPage() {
           <div className="lg:col-span-4 space-y-6">
             {/* Category Selector */}
             <div className="bg-surface-container-low rounded-3xl p-6 space-y-4 border border-outline-variant/10">
-              <h3 className="font-headline font-bold text-sm text-on-surface">Topic Category</h3>
+              <h3 className="font-headline font-bold text-sm text-on-surface">
+                Topic Category
+              </h3>
               <div className="flex flex-wrap gap-2">
                 {TOPICS.map((t) => (
                   <button
@@ -303,8 +331,8 @@ export default function UploadPostPage() {
                     onClick={() => setTopic(t)}
                     className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                       topic === t
-                        ? 'bg-primary text-white shadow-sm'
-                        : 'bg-surface-container-highest text-on-surface-variant hover:bg-surface-container-lowest'
+                        ? "bg-primary text-white shadow-sm"
+                        : "bg-surface-container-highest text-on-surface-variant hover:bg-surface-container-lowest"
                     }`}
                   >
                     {t}
@@ -315,44 +343,58 @@ export default function UploadPostPage() {
 
             {/* Publishing Destination */}
             <div className="bg-surface-container-low rounded-3xl p-6 space-y-4 border border-outline-variant/10">
-              <h3 className="font-headline font-bold text-sm text-on-surface">Publishing Target</h3>
+              <h3 className="font-headline font-bold text-sm text-on-surface">
+                Publishing Target
+              </h3>
               <div className="space-y-3">
                 <label className="flex items-center justify-between p-3.5 bg-surface-container-lowest rounded-2xl cursor-pointer hover:bg-primary/5 transition-colors border border-outline-variant/10">
                   <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-primary">rss_feed</span>
+                    <span className="material-symbols-outlined text-primary">
+                      rss_feed
+                    </span>
                     <div>
-                      <p className="text-xs font-bold text-on-surface">Public Feed</p>
-                      <p className="text-[10px] text-on-surface-variant">Visible across universal community feed</p>
+                      <p className="text-xs font-bold text-on-surface">
+                        Public Feed
+                      </p>
+                      <p className="text-[10px] text-on-surface-variant">
+                        Visible across universal community feed
+                      </p>
                     </div>
                   </div>
                   <input
                     type="radio"
                     name="dest"
-                    checked={destination === 'feed'}
-                    onChange={() => setDestination('feed')}
+                    checked={destination === "feed"}
+                    onChange={() => setDestination("feed")}
                     className="text-primary focus:ring-primary/20"
                   />
                 </label>
 
                 <label className="flex items-center justify-between p-3.5 bg-surface-container-lowest rounded-2xl cursor-pointer hover:bg-primary/5 transition-colors border border-outline-variant/10">
                   <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-secondary">hub</span>
+                    <span className="material-symbols-outlined text-secondary">
+                      hub
+                    </span>
                     <div>
-                      <p className="text-xs font-bold text-on-surface">Post to Community Hub</p>
-                      <p className="text-[10px] text-on-surface-variant">Share directly to a specific page</p>
+                      <p className="text-xs font-bold text-on-surface">
+                        Post to Community Hub
+                      </p>
+                      <p className="text-[10px] text-on-surface-variant">
+                        Share directly to a specific page
+                      </p>
                     </div>
                   </div>
                   <input
                     type="radio"
                     name="dest"
-                    checked={destination === 'page'}
-                    onChange={() => setDestination('page')}
+                    checked={destination === "page"}
+                    onChange={() => setDestination("page")}
                     className="text-primary focus:ring-primary/20"
                   />
                 </label>
               </div>
 
-              {destination === 'page' && (
+              {destination === "page" && (
                 <div className="pt-2">
                   <label className="text-[11px] font-bold text-on-surface-variant block mb-1">
                     Select Community Hub
@@ -376,11 +418,14 @@ export default function UploadPostPage() {
             {/* Quality Guidelines Card */}
             <div className="bg-tertiary-container/15 border border-tertiary/20 rounded-3xl p-5 space-y-2">
               <div className="flex items-center gap-2 text-tertiary font-bold text-xs uppercase tracking-wider">
-                <span className="material-symbols-outlined text-base filled">stars</span>
+                <span className="material-symbols-outlined text-base filled">
+                  stars
+                </span>
                 Tip for Faster Answers
               </div>
               <p className="text-xs text-on-surface-variant leading-relaxed">
-                Include reproduction steps or code snippets. Mentors reward detailed questions with verified badges and fast responses!
+                Include reproduction steps or code snippets. Mentors reward
+                detailed questions with verified badges and fast responses!
               </p>
             </div>
           </div>

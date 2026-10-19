@@ -47,6 +47,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
 ## 2. Authentication & User Endpoints (`/api/v1/users`)
 
 ### 2.1 Sign Up
+
 - **Method**: `POST`
 - **Path**: `/api/v1/users/signup`
 - **Auth Needed**: None (Public)
@@ -71,6 +72,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 2.2 Verify Email & Initial Login
+
 - **Method**: `POST`
 - **Path**: `/api/v1/users/verify-email`
 - **Auth Needed**: None (Public)
@@ -114,6 +116,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 2.3 Resend Verification or Reset Code
+
 - **Method**: `POST`
 - **Path**: `/api/v1/users/resend-email`
 - **Auth Needed**: None (Public)
@@ -135,6 +138,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 2.4 Login User
+
 - **Method**: `POST`
 - **Path**: `/api/v1/users/login`
 - **Auth Needed**: None (Public)
@@ -176,6 +180,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 2.5 Refresh Access Token
+
 - **Method**: `POST`
 - **Path**: `/api/v1/users/refreshToken`
 - **Auth Needed**: Cookie `RefreshToken`
@@ -201,6 +206,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 2.6 Forgot Password (Request Reset Code)
+
 - **Method**: `POST`
 - **Path**: `/api/v1/users/forgot-password`
 - **Auth Needed**: None (Public)
@@ -221,6 +227,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 2.7 Verify Password Reset OTP
+
 - **Method**: `POST`
 - **Path**: `/api/v1/users/verify-reset-otp`
 - **Auth Needed**: None (Public)
@@ -244,6 +251,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 2.8 Reset Password (New Password Entry)
+
 - **Method**: `POST`
 - **Path**: `/api/v1/users/reset-password`
 - **Auth Needed**: Cookie `ResetToken`
@@ -266,6 +274,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 2.9 Get Current Authenticated User
+
 - **Method**: `GET`
 - **Path**: `/api/v1/users/currentuser`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -297,6 +306,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 2.10 Logout (Current Device)
+
 - **Method**: `POST`
 - **Path**: `/api/v1/users/logout`
 - **Auth Needed**: Required (`jwtVerify`) + Cookie `RefreshToken`
@@ -313,6 +323,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 2.11 Logout All Devices
+
 - **Method**: `POST`
 - **Path**: `/api/v1/users/logout-all`
 - **Auth Needed**: Required (`jwtVerify`) + Cookie `RefreshToken`
@@ -328,6 +339,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 2.12 Update Username
+
 - **Method**: `PATCH`
 - **Path**: `/api/v1/users/update-username`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -346,6 +358,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 2.13 Change Password
+
 - **Method**: `PATCH`
 - **Path**: `/api/v1/users/change-password`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -366,6 +379,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 2.14 Follow User
+
 - **Method**: `POST`
 - **Path**: `/api/v1/users/follow/:user_id`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -382,6 +396,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 2.15 Unfollow User
+
 - **Method**: `DELETE`
 - **Path**: `/api/v1/users/unfollow/:user_id`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -401,6 +416,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
 ## 3. Post Endpoints (`/api/v1/posts`)
 
 ### 3.1 Get Posts Feed (Global Home Feed)
+
 - **Method**: `GET`
 - **Path**: `/api/v1/posts/`
 - **Auth Needed**: None (Public)
@@ -452,6 +468,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 3.2 Search Posts (Text Index)
+
 - **Method**: `GET`
 - **Path**: `/api/v1/posts/search`
 - **Auth Needed**: None (Public)
@@ -500,6 +517,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 3.3 Get Posts by Topic
+
 - **Method**: `GET`
 - **Path**: `/api/v1/posts/topic/:topic`
 - **Auth Needed**: None (Public)
@@ -537,6 +555,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 3.4 Get User Posts
+
 - **Method**: `GET`
 - **Path**: `/api/v1/posts/user/:username`
 - **Auth Needed**: None (Public)
@@ -569,6 +588,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 3.5 Get Saved Posts of Current User
+
 - **Method**: `GET`
 - **Path**: `/api/v1/posts/saved`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -609,6 +629,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 3.6 Get Posts of a Particular Page
+
 - **Method**: `GET`
 - **Path**: `/api/v1/posts/page/:pageid`
 - **Auth Needed**: Required (`jwtVerify`). If page is private, user must be member, moderator, or owner.
@@ -653,6 +674,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 3.7 Create Post
+
 - **Method**: `POST`
 - **Path**: `/api/v1/posts/`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -691,6 +713,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 3.8 Get Post by ID
+
 - **Method**: `GET`
 - **Path**: `/api/v1/posts/:post_id`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -726,6 +749,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 3.9 Vote on Post (Upvote / Downvote)
+
 - **Method**: `POST`
 - **Path**: `/api/v1/posts/:post_id/vote`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -748,6 +772,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 3.10 Save Post
+
 - **Method**: `POST`
 - **Path**: `/api/v1/posts/:post_id/save`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -756,13 +781,16 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```json
   {
     "statuscode": 200,
-    "data": { /* Updated User model */ },
+    "data": {
+      /* Updated User model */
+    },
     "message": "Post saved successfully",
     "status": true
   }
   ```
 
 ### 3.11 Unsave Post
+
 - **Method**: `DELETE`
 - **Path**: `/api/v1/posts/:post_id/save`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -771,13 +799,16 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```json
   {
     "statuscode": 200,
-    "data": { /* Updated User model */ },
+    "data": {
+      /* Updated User model */
+    },
     "message": "Post unsaved successfully",
     "status": true
   }
   ```
 
 ### 3.12 Update Post
+
 - **Method**: `PATCH`
 - **Path**: `/api/v1/posts/:post_id`
 - **Auth Needed**: Required (`jwtVerify`, `isPostOwner`)
@@ -798,13 +829,16 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```json
   {
     "statuscode": 200,
-    "data": { /* updated post with optimized image URLs */ },
+    "data": {
+      /* updated post with optimized image URLs */
+    },
     "message": "Post updated successfully",
     "status": true
   }
   ```
 
 ### 3.13 Delete Post
+
 - **Method**: `DELETE`
 - **Path**: `/api/v1/posts/:post_id`
 - **Auth Needed**: Required (`jwtVerify`, `isPostOwner`)
@@ -821,6 +855,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 3.14 Add Existing Post to Page(s)
+
 - **Method**: `POST`
 - **Path**: `/api/v1/posts/add/pages/:post_id`
 - **Auth Needed**: Required (`jwtVerify`, `isPageOrPostOwner`)
@@ -838,6 +873,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 3.15 Remove Existing Post from Page(s)
+
 - **Method**: `DELETE`
 - **Path**: `/api/v1/posts/remove/pages/:post_id`
 - **Auth Needed**: Required (`jwtVerify`, `isPageOrPostOwner`)
@@ -859,6 +895,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
 ## 4. Community Page Endpoints (`/api/v1/pages`)
 
 ### 4.1 Get Pages List (Explore Pages)
+
 - **Method**: `GET`
 - **Path**: `/api/v1/pages/`
 - **Auth Needed**: Optional (`verifyOptional`)
@@ -904,6 +941,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 4.2 Create Community Page
+
 - **Method**: `POST`
 - **Path**: `/api/v1/pages/`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -939,6 +977,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 4.3 Get Particular Page Details
+
 - **Method**: `GET`
 - **Path**: `/api/v1/pages/:page_id`
 - **Auth Needed**: Optional (`verifyOptional`, `loadingPage`)
@@ -982,6 +1021,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 4.4 Update Page Info
+
 - **Method**: `PATCH`
 - **Path**: `/api/v1/pages/:page_id`
 - **Auth Needed**: Required (`jwtVerify`, `loadingPage`, `isPageOwner`)
@@ -1000,13 +1040,16 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```json
   {
     "statuscode": 200,
-    "data": { /* updated page data */ },
+    "data": {
+      /* updated page data */
+    },
     "message": "Page updated successfully",
     "status": true
   }
   ```
 
 ### 4.5 Delete Page
+
 - **Method**: `DELETE`
 - **Path**: `/api/v1/pages/:page_id`
 - **Auth Needed**: Required (`jwtVerify`, `loadingPage`, `isPageOwner`)
@@ -1024,6 +1067,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 4.6 Join Page or Request to Join
+
 - **Method**: `POST`
 - **Path**: `/api/v1/pages/:page_id/join`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -1044,6 +1088,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   - Response: 201 Created (`"Join request sent successfully"`).
 
 ### 4.7 Leave Page
+
 - **Method**: `DELETE`
 - **Path**: `/api/v1/pages/:page_id/leave`
 - **Auth Needed**: Required (`jwtVerify`, `loadingPage`, `isPageMember`)
@@ -1063,6 +1108,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 4.8 View Page Members List
+
 - **Method**: `GET`
 - **Path**: `/api/v1/pages/:page_id/members`
 - **Auth Needed**: Required (`jwtVerify`, `loadingPage`, `isPageMember`)
@@ -1102,6 +1148,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 4.9 Remove Member(s) from Page
+
 - **Method**: `DELETE`
 - **Path**: `/api/v1/pages/:page_id/members`
 - **Auth Needed**: Required (`jwtVerify`, `loadingPage`, `isPageModeratorOrOwner`, `checkMembership`)
@@ -1121,6 +1168,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 4.10 Appoint Moderator(s)
+
 - **Method**: `POST`
 - **Path**: `/api/v1/pages/:page_id/moderators`
 - **Auth Needed**: Required (`jwtVerify`, `loadingPage`, `isPageOwner`, `checkMembership`)
@@ -1138,6 +1186,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 4.11 Remove Moderator(s)
+
 - **Method**: `DELETE`
 - **Path**: `/api/v1/pages/:page_id/moderators`
 - **Auth Needed**: Required (`jwtVerify`, `loadingPage`, `isPageOwner`, `checkMembership`)
@@ -1155,6 +1204,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 4.12 View Pending Join Requests
+
 - **Method**: `GET`
 - **Path**: `/api/v1/pages/:page_id/requests`
 - **Auth Needed**: Required (`jwtVerify`, `loadingPage`, `isPageModeratorOrOwner`)
@@ -1195,6 +1245,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 4.13 Approve / Reject Join Request
+
 - **Method**: `POST`
 - **Path**: `/api/v1/pages/:page_id/request`
 - **Auth Needed**: Required (`jwtVerify`, `loadingPage`, `isPageModeratorOrOwner`)
@@ -1222,6 +1273,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
 ## 5. Comment Endpoints (`/api/v1/comments`)
 
 ### 5.1 Get Comments of a Post (Nested & Sorted)
+
 - **Method**: `GET`
 - **Path**: `/api/v1/comments/post/:post_id`
 - **Auth Needed**: None (Public)
@@ -1273,6 +1325,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 5.2 Create Comment or Reply
+
 - **Method**: `POST`
 - **Path**: `/api/v1/comments/post/:post_id`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -1308,6 +1361,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 5.3 Edit Comment
+
 - **Method**: `PATCH`
 - **Path**: `/api/v1/comments/:comment_id`
 - **Auth Needed**: Required (`jwtVerify`, `isCommentOwner`)
@@ -1326,6 +1380,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 5.4 Delete Comment (and Cascading Replies)
+
 - **Method**: `DELETE`
 - **Path**: `/api/v1/comments/:comment_id`
 - **Auth Needed**: Required (`jwtVerify`, `isCommentOwner`)
@@ -1342,6 +1397,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 5.5 Upvote Comment (Toggle)
+
 - **Method**: `POST`
 - **Path**: `/api/v1/comments/:comment_id/upvote`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -1362,6 +1418,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 5.6 Set Comment Status (Pin or Mark Helpful)
+
 - **Method**: `POST`
 - **Path**: `/api/v1/comments/:post_id/:comment_id/status`
 - **Auth Needed**: Required (`jwtVerify`, `isPostOwner`)
@@ -1388,6 +1445,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
 ## 6. Notification Endpoints (`/api/v1/notifications`)
 
 ### 6.1 Get Unread Notifications
+
 - **Method**: `GET`
 - **Path**: `/api/v1/notifications/`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -1439,6 +1497,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 6.2 Mark Single Notification as Read
+
 - **Method**: `GET`
 - **Path**: `/api/v1/notifications/:notification_id/read`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -1454,6 +1513,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   ```
 
 ### 6.3 Mark All Notifications as Read
+
 - **Method**: `GET`
 - **Path**: `/api/v1/notifications/all/read-all`
 - **Auth Needed**: Required (`jwtVerify`)
@@ -1472,6 +1532,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
 ## 7. Socket.IO Real-Time Architecture (`src/socket.js`)
 
 ### 7.1 Connection Handshake & Authentication
+
 - **Endpoint**: Socket.IO connection to server (`ws://localhost:8000` or via `/socket.io/` proxy).
 - **Authentication**:
   Client passes JWT token using any of the three supported mechanisms:
@@ -1479,7 +1540,7 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
   import { io } from "socket.io-client";
   const socket = io("http://localhost:8000", {
     auth: { token: accessToken },
-    withCredentials: true
+    withCredentials: true,
   });
   ```
 - **Connection Lifecycle**:
@@ -1488,43 +1549,43 @@ All endpoints, authentication rules, parameter requirements, payload schemas, re
 
 ### 7.2 Client-to-Server Events (Emitted by Frontend)
 
-| Event Name | Payload | Room Joined / Description |
-|---|---|---|
-| `join-page` | `page_id` (string) | Subscribes socket to room `page:${page_id}` for page post updates and events |
-| `leave-page` | `page_id` (string) | Leaves room `page:${page_id}` |
-| `join-post` | `post_id` (string) | Subscribes socket to room `post:${post_id}` for live comments, reactions, and typing indicators |
-| `leave-post` | `post_id` (string) | Leaves room `post:${post_id}` |
-| `join-user` | `user_id` (string) | Subscribes socket to room `user:${user_id}` for follow/follower counts and direct updates |
-| `leave-user` | `user_id` (string) | Leaves room `user:${user_id}` |
-| `typing` | `post_id` (string) | Broadcasts typing indicator to everyone in `post:${post_id}` |
-| `stop-typing` | `post_id` (string) | Broadcasts stop typing event to everyone in `post:${post_id}` |
+| Event Name    | Payload            | Room Joined / Description                                                                       |
+| ------------- | ------------------ | ----------------------------------------------------------------------------------------------- |
+| `join-page`   | `page_id` (string) | Subscribes socket to room `page:${page_id}` for page post updates and events                    |
+| `leave-page`  | `page_id` (string) | Leaves room `page:${page_id}`                                                                   |
+| `join-post`   | `post_id` (string) | Subscribes socket to room `post:${post_id}` for live comments, reactions, and typing indicators |
+| `leave-post`  | `post_id` (string) | Leaves room `post:${post_id}`                                                                   |
+| `join-user`   | `user_id` (string) | Subscribes socket to room `user:${user_id}` for follow/follower counts and direct updates       |
+| `leave-user`  | `user_id` (string) | Leaves room `user:${user_id}`                                                                   |
+| `typing`      | `post_id` (string) | Broadcasts typing indicator to everyone in `post:${post_id}`                                    |
+| `stop-typing` | `post_id` (string) | Broadcasts stop typing event to everyone in `post:${post_id}`                                   |
 
 ### 7.3 Server-to-Client Events (Listened by Frontend)
 
-| Event Name | Room / Destination | Payload Shape | Description |
-|---|---|---|---|
-| `notification` | Direct to User | Notification Object | New real-time notification (push directly into bell badge / toast) |
-| `post-created` | `page:${page_id}` | Post Object | New post created in the community page |
-| `post-deleted` | `post:${post_id}`, `page:${page_id}` | Post Object | Post was deleted |
-| `updated-post` | `post:${post_id}`, `page:${page_id}` | Post Object | Post title, description, or media was updated |
-| `addPost-to-page` | `page:${page_id}` | Post Object | Existing post was added to this page |
-| `removePost-from-page` | `page:${page_id}` | Post Object | Existing post was detached from this page |
-| `reacted-post` | `post:${post_id}`, `page:${page_id}` | Post Object with updated upvotes/downvotes | Vote count change |
-| `new-comment` | `post:${post_id}` | Comment Object (populated with author) | New comment added to post in real-time |
-| `comment-updated` | `post:${post_id}` | `{ body: string, comment_id: string }` | Existing comment text updated |
-| `comment-deleted` | `post:${post_id}` | `[ { id, body } ]` | Comment and all nested replies removed |
-| `comment-vote-update` | `post:${post_id}` | `{ commentId, upvotesCount, userUpvoted }` | Comment upvote tally changed |
-| `comment-status` | `post:${post_id}` | `{ id: string, status: "pinned" \| "helpful" }` | Comment status changed |
-| `typing` | `post:${post_id}` | `{ username, profileImage, badge }` | Someone is typing in the comment box |
-| `stop-typing` | `post:${post_id}` | `{ username, profileImage, badge }` | Someone stopped typing |
-| `deleted-page` | `page:${page_id}` | Page ID | Community page was deleted |
-| `madeModerator-page` | `page:${page_id}` | Page Object | Moderator roster updated |
-| `removeuser-page` | `page:${page_id}` | Page ID | Member removed from community |
-| `joined-page` | `page:${page_id}` | User ID | New member joined open page |
-| `responseJoin-page` | `page:${page_id}` | `{ pageid, requestedBy, status }` | Join request approved or rejected |
-| `updated-page` | `page:${page_id}` | Page Object | Community name, description, or banner updated |
-| `followed-user` | `user:${user_id}` | User Object | Follower count / followers list updated |
-| `following-user` | `user:${req.user._id}` | User Object | Following list updated |
+| Event Name             | Room / Destination                   | Payload Shape                                   | Description                                                        |
+| ---------------------- | ------------------------------------ | ----------------------------------------------- | ------------------------------------------------------------------ |
+| `notification`         | Direct to User                       | Notification Object                             | New real-time notification (push directly into bell badge / toast) |
+| `post-created`         | `page:${page_id}`                    | Post Object                                     | New post created in the community page                             |
+| `post-deleted`         | `post:${post_id}`, `page:${page_id}` | Post Object                                     | Post was deleted                                                   |
+| `updated-post`         | `post:${post_id}`, `page:${page_id}` | Post Object                                     | Post title, description, or media was updated                      |
+| `addPost-to-page`      | `page:${page_id}`                    | Post Object                                     | Existing post was added to this page                               |
+| `removePost-from-page` | `page:${page_id}`                    | Post Object                                     | Existing post was detached from this page                          |
+| `reacted-post`         | `post:${post_id}`, `page:${page_id}` | Post Object with updated upvotes/downvotes      | Vote count change                                                  |
+| `new-comment`          | `post:${post_id}`                    | Comment Object (populated with author)          | New comment added to post in real-time                             |
+| `comment-updated`      | `post:${post_id}`                    | `{ body: string, comment_id: string }`          | Existing comment text updated                                      |
+| `comment-deleted`      | `post:${post_id}`                    | `[ { id, body } ]`                              | Comment and all nested replies removed                             |
+| `comment-vote-update`  | `post:${post_id}`                    | `{ commentId, upvotesCount, userUpvoted }`      | Comment upvote tally changed                                       |
+| `comment-status`       | `post:${post_id}`                    | `{ id: string, status: "pinned" \| "helpful" }` | Comment status changed                                             |
+| `typing`               | `post:${post_id}`                    | `{ username, profileImage, badge }`             | Someone is typing in the comment box                               |
+| `stop-typing`          | `post:${post_id}`                    | `{ username, profileImage, badge }`             | Someone stopped typing                                             |
+| `deleted-page`         | `page:${page_id}`                    | Page ID                                         | Community page was deleted                                         |
+| `madeModerator-page`   | `page:${page_id}`                    | Page Object                                     | Moderator roster updated                                           |
+| `removeuser-page`      | `page:${page_id}`                    | Page ID                                         | Member removed from community                                      |
+| `joined-page`          | `page:${page_id}`                    | User ID                                         | New member joined open page                                        |
+| `responseJoin-page`    | `page:${page_id}`                    | `{ pageid, requestedBy, status }`               | Join request approved or rejected                                  |
+| `updated-page`         | `page:${page_id}`                    | Page Object                                     | Community name, description, or banner updated                     |
+| `followed-user`        | `user:${user_id}`                    | User Object                                     | Follower count / followers list updated                            |
+| `following-user`       | `user:${req.user._id}`               | User Object                                     | Following list updated                                             |
 
 ---
 

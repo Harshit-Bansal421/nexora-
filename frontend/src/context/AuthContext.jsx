@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { AuthContext } from './authContextValue';
-import { authApi } from '../api/client';
-import { getSocket, joinUserRoom, leaveUserRoom } from '../api/socket';
+import React, { useState, useEffect, useCallback } from "react";
+import { AuthContext } from "./authContextValue";
+import { authApi } from "../api/client";
+import { getSocket, joinUserRoom, leaveUserRoom } from "../api/socket";
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -57,11 +57,11 @@ export function AuthProvider({ children }) {
       setUnreadNotificationsCount((prev) => prev + 1);
     };
 
-    socket.on('notification', handleNotification);
+    socket.on("notification", handleNotification);
 
     return () => {
       leaveUserRoom(currentUser._id);
-      socket.off('notification', handleNotification);
+      socket.off("notification", handleNotification);
     };
   }, [currentUser?._id]);
 
@@ -75,7 +75,7 @@ export function AuthProvider({ children }) {
     try {
       await authApi.logout();
     } catch (err) {
-      console.warn('Logout error', err);
+      console.warn("Logout error", err);
     } finally {
       setCurrentUser(null);
     }
@@ -85,7 +85,7 @@ export function AuthProvider({ children }) {
     try {
       await authApi.logoutAll();
     } catch (err) {
-      console.warn('Logout all error', err);
+      console.warn("Logout all error", err);
     } finally {
       setCurrentUser(null);
     }

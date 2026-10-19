@@ -29,6 +29,12 @@ const CommentSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
+    downvotes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     status: {
       type: String,
       enum: ["none", "helpful", "pinned"],
@@ -45,6 +51,10 @@ const CommentSchema = new mongoose.Schema(
 // Virtuals
 CommentSchema.virtual("upvoteCount").get(function () {
   return this.upvotes?.length || 0;
+});
+
+CommentSchema.virtual("downvoteCount").get(function () {
+  return this.downvotes?.length || 0;
 });
 
 // Indexes

@@ -1,13 +1,14 @@
-import ImageWithFallback from './ImageWithFallback';
+import ImageWithFallback from "./ImageWithFallback";
 
-export default function Avatar({ src, name = 'User', className = '' }) {
-  const initials = name
-    .trim()
-    .split(/\s+|[._-]/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('') || '?';
+export default function Avatar({ src, name = "User", className = "" }) {
+  const initials =
+    name
+      .trim()
+      .split(/\s+|[._-]/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "?";
 
   return (
     <ImageWithFallback

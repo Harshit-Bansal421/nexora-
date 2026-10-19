@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../context/authContextValue';
-import { pageApi, postApi } from '../api/client';
-import PostCard from '../components/PostCard';
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useAuth } from "../context/authContextValue";
+import { pageApi, postApi } from "../api/client";
+import PostCard from "../components/PostCard";
 
 export default function LandingPage() {
   const { isAuthenticated } = useAuth();
@@ -22,24 +22,32 @@ export default function LandingPage() {
         ]);
 
         if (isMounted) {
-          if (pagesRes.status === 'fulfilled') {
+          if (pagesRes.status === "fulfilled") {
             const pagesData = pagesRes.value?.data || pagesRes.value || [];
-            setTrendingPages(Array.isArray(pagesData) ? pagesData : pagesData?.posts || pagesData?.pages || []);
+            setTrendingPages(
+              Array.isArray(pagesData)
+                ? pagesData
+                : pagesData?.posts || pagesData?.pages || [],
+            );
           }
-          if (postsRes.status === 'fulfilled') {
+          if (postsRes.status === "fulfilled") {
             const postsData = postsRes.value?.data || postsRes.value || [];
-            setFeaturedPosts(Array.isArray(postsData) ? postsData : postsData?.posts || []);
+            setFeaturedPosts(
+              Array.isArray(postsData) ? postsData : postsData?.posts || [],
+            );
           }
         }
       } catch (err) {
-        console.warn('Error loading landing page previews:', err);
+        console.warn("Error loading landing page previews:", err);
       } finally {
         if (isMounted) setLoading(false);
       }
     };
 
     fetchLandingData();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
@@ -56,13 +64,22 @@ export default function LandingPage() {
         </div>
 
         <nav className="hidden md:flex items-center gap-8 text-sm font-headline">
-          <Link to="/feed" className="text-on-surface-variant hover:text-primary font-semibold transition-colors">
+          <Link
+            to="/feed"
+            className="text-on-surface-variant hover:text-primary font-semibold transition-colors"
+          >
             Community Feed
           </Link>
-          <Link to="/pages/explore" className="text-on-surface-variant hover:text-primary font-semibold transition-colors">
+          <Link
+            to="/pages/explore"
+            className="text-on-surface-variant hover:text-primary font-semibold transition-colors"
+          >
             Explore Hubs
           </Link>
-          <Link to="/search" className="text-on-surface-variant hover:text-primary font-semibold transition-colors">
+          <Link
+            to="/search"
+            className="text-on-surface-variant hover:text-primary font-semibold transition-colors"
+          >
             Search
           </Link>
         </nav>
@@ -101,7 +118,9 @@ export default function LandingPage() {
           <div className="relative z-10 grid md:grid-cols-2 gap-12 items-center">
             <div className="space-y-6 sm:space-y-8">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary-container text-on-primary-container text-xs font-bold uppercase tracking-wider">
-                <span className="material-symbols-outlined text-sm">auto_awesome</span>
+                <span className="material-symbols-outlined text-sm">
+                  auto_awesome
+                </span>
                 The Collaborative Canvas
               </div>
               <h1 className="font-headline text-4xl sm:text-6xl md:text-7xl font-extrabold text-on-surface leading-[1.1] tracking-tight">
@@ -109,7 +128,9 @@ export default function LandingPage() {
                 <span className="text-primary italic font-serif">Earn.</span>
               </h1>
               <p className="text-on-surface-variant text-base sm:text-lg md:text-xl leading-relaxed max-w-lg">
-                Join a collaborative community where knowledge is currency. Get the help you need, share what you know, and build recognized credibility.
+                Join a collaborative community where knowledge is currency. Get
+                the help you need, share what you know, and build recognized
+                credibility.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 pt-2">
                 <Link
@@ -117,7 +138,9 @@ export default function LandingPage() {
                   className="px-8 py-4 bg-gradient-to-br from-primary to-primary-dim text-on-primary font-semibold rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all text-center flex items-center justify-center gap-2"
                 >
                   <span>Get Started Free</span>
-                  <span className="material-symbols-outlined text-lg">arrow_forward</span>
+                  <span className="material-symbols-outlined text-lg">
+                    arrow_forward
+                  </span>
                 </Link>
                 <Link
                   to="/pages/explore"
@@ -140,13 +163,21 @@ export default function LandingPage() {
 
               {/* Floating Stat Badges */}
               <div className="absolute -bottom-6 -left-6 bg-surface-container-lowest p-5 rounded-2xl shadow-stitch-modal border border-outline-variant/15 max-w-[200px] animate-bounce-subtle">
-                <span className="material-symbols-outlined text-tertiary mb-1 text-2xl">auto_awesome</span>
-                <p className="text-2xl font-extrabold font-headline text-on-surface">12.4k+</p>
-                <p className="text-xs text-on-surface-variant font-medium">Active Helpers Daily</p>
+                <span className="material-symbols-outlined text-tertiary mb-1 text-2xl">
+                  auto_awesome
+                </span>
+                <p className="text-2xl font-extrabold font-headline text-on-surface">
+                  12.4k+
+                </p>
+                <p className="text-xs text-on-surface-variant font-medium">
+                  Active Helpers Daily
+                </p>
               </div>
 
               <div className="absolute -top-6 -right-6 bg-secondary text-on-secondary p-5 rounded-2xl shadow-stitch-modal max-w-[190px]">
-                <p className="text-xs font-semibold leading-snug">Verified solutions this week</p>
+                <p className="text-xs font-semibold leading-snug">
+                  Verified solutions this week
+                </p>
                 <p className="text-3xl font-black mt-1 font-headline">850+</p>
               </div>
             </div>
@@ -164,7 +195,8 @@ export default function LandingPage() {
               How Nexora Works
             </h2>
             <p className="text-on-surface-variant mt-2 text-base">
-              Peer-to-peer knowledge exchange designed for students and creators.
+              Peer-to-peer knowledge exchange designed for students and
+              creators.
             </p>
           </div>
 
@@ -172,11 +204,17 @@ export default function LandingPage() {
             {/* Ask Card */}
             <div className="group p-8 rounded-3xl bg-surface-container-low hover:bg-surface-container-high transition-all duration-300 border border-outline-variant/10 shadow-stitch-soft">
               <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 text-primary group-hover:scale-110 transition-transform">
-                <span className="material-symbols-outlined text-3xl">contact_support</span>
+                <span className="material-symbols-outlined text-3xl">
+                  contact_support
+                </span>
               </div>
-              <h3 className="font-headline text-xl font-bold mb-3 text-on-surface">Ask Anything</h3>
+              <h3 className="font-headline text-xl font-bold mb-3 text-on-surface">
+                Ask Anything
+              </h3>
               <p className="text-on-surface-variant leading-relaxed text-sm mb-6">
-                Post your challenge to specialized hubs. From coding debugging to career transitions, get verified, high-quality answers quickly.
+                Post your challenge to specialized hubs. From coding debugging
+                to career transitions, get verified, high-quality answers
+                quickly.
               </p>
               <div className="h-1.5 w-12 bg-primary rounded-full" />
             </div>
@@ -184,11 +222,16 @@ export default function LandingPage() {
             {/* Help Card */}
             <div className="group p-8 rounded-3xl bg-surface-container-low hover:bg-surface-container-high transition-all duration-300 border border-outline-variant/10 shadow-stitch-soft">
               <div className="w-14 h-14 rounded-2xl bg-secondary/10 flex items-center justify-center mb-6 text-secondary group-hover:scale-110 transition-transform">
-                <span className="material-symbols-outlined text-3xl">volunteer_activism</span>
+                <span className="material-symbols-outlined text-3xl">
+                  volunteer_activism
+                </span>
               </div>
-              <h3 className="font-headline text-xl font-bold mb-3 text-on-surface">Help Others</h3>
+              <h3 className="font-headline text-xl font-bold mb-3 text-on-surface">
+                Help Others
+              </h3>
               <p className="text-on-surface-variant leading-relaxed text-sm mb-6">
-                Share your skills in subjects you love. Mentor peers, guide solutions, and climb the platform ranks from Newcomer to Legend.
+                Share your skills in subjects you love. Mentor peers, guide
+                solutions, and climb the platform ranks from Newcomer to Legend.
               </p>
               <div className="h-1.5 w-12 bg-secondary rounded-full" />
             </div>
@@ -196,11 +239,16 @@ export default function LandingPage() {
             {/* Earn Card */}
             <div className="group p-8 rounded-3xl bg-surface-container-low hover:bg-surface-container-high transition-all duration-300 border border-outline-variant/10 shadow-stitch-soft">
               <div className="w-14 h-14 rounded-2xl bg-tertiary/10 flex items-center justify-center mb-6 text-tertiary group-hover:scale-110 transition-transform">
-                <span className="material-symbols-outlined text-3xl">stars</span>
+                <span className="material-symbols-outlined text-3xl">
+                  stars
+                </span>
               </div>
-              <h3 className="font-headline text-xl font-bold mb-3 text-on-surface">Earn Recognition</h3>
+              <h3 className="font-headline text-xl font-bold mb-3 text-on-surface">
+                Earn Recognition
+              </h3>
               <p className="text-on-surface-variant leading-relaxed text-sm mb-6">
-                Accumulate XP points and verified solution badges for every helpful interaction. Build a showcase of proven expertise.
+                Accumulate XP points and verified solution badges for every
+                helpful interaction. Build a showcase of proven expertise.
               </p>
               <div className="h-1.5 w-12 bg-tertiary rounded-full" />
             </div>
@@ -218,64 +266,86 @@ export default function LandingPage() {
                 Explore learning hubs created by students and mentors.
               </p>
             </div>
-            <Link to="/pages/explore" className="text-primary font-bold text-sm flex items-center gap-1 hover:underline">
+            <Link
+              to="/pages/explore"
+              className="text-primary font-bold text-sm flex items-center gap-1 hover:underline"
+            >
               <span>View all hubs</span>
-              <span className="material-symbols-outlined text-base">arrow_forward</span>
+              <span className="material-symbols-outlined text-base">
+                arrow_forward
+              </span>
             </Link>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {loading && [0, 1, 2, 3].map((index) => (
-              <div key={index} className="h-60 rounded-2xl bg-surface-container-low animate-pulse" aria-hidden="true" />
-            ))}
-            {trendingPages.length > 0 ? (
-              trendingPages.map((page) => (
+            {loading &&
+              [0, 1, 2, 3].map((index) => (
                 <div
-                  key={page._id}
-                  className="group overflow-hidden rounded-2xl bg-surface-container-lowest border border-outline-variant/15 hover:shadow-stitch-ambient transition-all duration-300 flex flex-col justify-between"
-                >
-                  <div className="h-36 overflow-hidden relative bg-surface-container">
-                    <img
-                      src={page.pageProfileImage || 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=400&auto=format&fit=crop&q=80'}
-                      alt={page.pageName}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute top-3 right-3 bg-white/90 dark:bg-black/80 px-2 py-0.5 rounded-full text-[10px] font-bold text-on-surface">
-                      {page.type || 'Open'}
+                  key={index}
+                  className="h-60 rounded-2xl bg-surface-container-low animate-pulse"
+                  aria-hidden="true"
+                />
+              ))}
+            {trendingPages.length > 0
+              ? trendingPages.map((page) => (
+                  <div
+                    key={page._id}
+                    className="group overflow-hidden rounded-2xl bg-surface-container-lowest border border-outline-variant/15 hover:shadow-stitch-ambient transition-all duration-300 flex flex-col justify-between"
+                  >
+                    <div className="h-36 overflow-hidden relative bg-surface-container">
+                      <img
+                        src={
+                          page.pageProfileImage ||
+                          "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=400&auto=format&fit=crop&q=80"
+                        }
+                        alt={page.pageName}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute top-3 right-3 bg-white/90 dark:bg-black/80 px-2 py-0.5 rounded-full text-[10px] font-bold text-on-surface">
+                        {page.type || "Open"}
+                      </div>
+                    </div>
+                    <div className="p-5 flex-1 flex flex-col justify-between">
+                      <div>
+                        <h4 className="font-bold text-base text-on-surface font-headline truncate">
+                          {page.pageName}
+                        </h4>
+                        <p className="text-xs text-on-surface-variant line-clamp-2 mt-1">
+                          {page.pageDescription ||
+                            "A collaborative learning hub."}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-outline-variant/10">
+                        <span className="text-xs text-on-surface-variant font-medium flex items-center gap-1">
+                          <span className="material-symbols-outlined text-sm">
+                            groups
+                          </span>
+                          {page.membersCount ?? page.members?.length ?? 0}{" "}
+                          members
+                        </span>
+                        <Link
+                          to={`/pages/${page._id}`}
+                          className="text-xs font-bold text-primary hover:underline"
+                        >
+                          Visit Hub
+                        </Link>
+                      </div>
                     </div>
                   </div>
-                  <div className="p-5 flex-1 flex flex-col justify-between">
-                    <div>
-                      <h4 className="font-bold text-base text-on-surface font-headline truncate">
-                        {page.pageName}
-                      </h4>
-                      <p className="text-xs text-on-surface-variant line-clamp-2 mt-1">
-                        {page.pageDescription || 'A collaborative learning hub.'}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between mt-4 pt-3 border-t border-outline-variant/10">
-                      <span className="text-xs text-on-surface-variant font-medium flex items-center gap-1">
-                        <span className="material-symbols-outlined text-sm">groups</span>
-                        {page.membersCount ?? page.members?.length ?? 0} members
-                      </span>
-                      <Link
-                        to={`/pages/${page._id}`}
-                        className="text-xs font-bold text-primary hover:underline"
-                      >
-                        Visit Hub
-                      </Link>
-                    </div>
+                ))
+              : !loading && (
+                  <div className="sm:col-span-2 lg:col-span-4 rounded-2xl border border-outline-variant/15 bg-surface-container-lowest p-6 text-center">
+                    <p className="text-sm text-on-surface-variant">
+                      No community hubs to show yet.
+                    </p>
+                    <Link
+                      to="/pages/explore"
+                      className="mt-3 inline-flex min-h-11 items-center text-sm font-bold text-primary hover:underline"
+                    >
+                      Explore all hubs
+                    </Link>
                   </div>
-                </div>
-              ))
-            ) : !loading && (
-              <div className="sm:col-span-2 lg:col-span-4 rounded-2xl border border-outline-variant/15 bg-surface-container-lowest p-6 text-center">
-                <p className="text-sm text-on-surface-variant">No community hubs to show yet.</p>
-                <Link to="/pages/explore" className="mt-3 inline-flex min-h-11 items-center text-sm font-bold text-primary hover:underline">
-                  Explore all hubs
-                </Link>
-              </div>
-            )}
+                )}
           </div>
         </section>
 
@@ -291,9 +361,14 @@ export default function LandingPage() {
                   Recent posts shared by the community.
                 </p>
               </div>
-              <Link to="/feed" className="text-primary font-bold text-sm flex items-center gap-1 hover:underline">
+              <Link
+                to="/feed"
+                className="text-primary font-bold text-sm flex items-center gap-1 hover:underline"
+              >
                 <span>View feed</span>
-                <span className="material-symbols-outlined text-base">arrow_forward</span>
+                <span className="material-symbols-outlined text-base">
+                  arrow_forward
+                </span>
               </Link>
             </div>
 

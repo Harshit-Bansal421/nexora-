@@ -336,6 +336,25 @@ const updateUsername = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, null, "Username updated successfully"));
 });
 
+// New profile update handler for bio (and future fields)
+const updateProfile = asyncHandler(async (req, res) => {
+  const { bio } = req.body || {};
+  if (bio !== undefined) {
+    if (typeof bio !== "string") {
+      throw new ApiError(400, "Bio must be a string");
+    }
+    if (bio.length > 150) {
+      throw new ApiError(400, "Bio cannot exceed 150 characters");
+    }
+    // Atomic update of bio field
+    await User.findByIdAndUpdate(req.user._id, { $set: { bio } });
+  }
+  // Could handle other profile fields here
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "Profile updated successfully"));
+});
+
 const UpdatePassword = asyncHandler(async (req, res) => {
   const { oldpassword, newpassword, confirmpassword } = req.body || {};
   if (
@@ -778,6 +797,7 @@ export {
   verifyEmailandLogin,
   updateUsername,
   UpdatePassword,
+  updateProfile,
   resendEmail,
   forgotPassword,
   verifyResetOTP,

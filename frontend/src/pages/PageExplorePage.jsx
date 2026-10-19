@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import Layout from '../components/Layout';
-import { pageApi } from '../api/client';
-import { useAuth } from '../context/authContextValue';
-import { useToast } from '../context/toastContextValue';
-import ImageWithFallback from '../components/ImageWithFallback';
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import Layout from "../components/Layout";
+import { pageApi } from "../api/client";
+import { useAuth } from "../context/authContextValue";
+import { useToast } from "../context/toastContextValue";
+import ImageWithFallback from "../components/ImageWithFallback";
 
 export default function PageExplorePage() {
   const { currentUser, isAuthenticated } = useAuth();
   const { success, error, info } = useToast();
 
   const [pages, setPages] = useState([]);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [joiningPageId, setJoiningPageId] = useState(null);
   const [pendingRequestIds, setPendingRequestIds] = useState(() => new Set());
@@ -19,44 +19,53 @@ export default function PageExplorePage() {
   // Modal for creating a new community page
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState({
-    pageName: '',
-    title: '',
-    pageDescription: '',
-    type: 'open',
+    pageName: "",
+    title: "",
+    pageDescription: "",
+    type: "open",
   });
   const [createImageFile, setCreateImageFile] = useState(null);
   const [creating, setCreating] = useState(false);
 
-  const fetchPages = async (searchTerm = '') => {
+  const fetchPages = async (searchTerm = "") => {
     try {
       const res = await pageApi.getPages({ search: searchTerm, limit: 30 });
       const data = res?.data || res || [];
-      const pageRows = Array.isArray(data) ? data : (data?.pages || []);
-      const enrichedPages = await Promise.all(pageRows.map(async (page) => {
-        try {
-          const detailRes = await pageApi.getPageById(page._id);
-          const details = detailRes?.data || detailRes;
-          const enriched = { ...page, ...details };
-          if (['member', 'moderator', 'owner'].includes(details?.userRole)) {
-            const membersRes = await pageApi.getPageMembers(page._id, { limit: 100 });
-            const memberData = membersRes?.data || membersRes;
-            const members = memberData?.membeList?.members || memberData?.members;
-            if (Array.isArray(members)) {
-              enriched.members = members.map((member) =>
-                typeof member === 'string' ? member : member._id,
-              );
-              enriched.membersCount = memberData?.membeList?.membersCount ?? members.length;
+      const pageRows = Array.isArray(data) ? data : data?.pages || [];
+      const enrichedPages = await Promise.all(
+        pageRows.map(async (page) => {
+          try {
+            const detailRes = await pageApi.getPageById(page._id);
+            const details = detailRes?.data || detailRes;
+            const enriched = { ...page, ...details };
+            if (["member", "moderator", "owner"].includes(details?.userRole)) {
+              const membersRes = await pageApi.getPageMembers(page._id, {
+                limit: 100,
+              });
+              const memberData = membersRes?.data || membersRes;
+              const members =
+                memberData?.membeList?.members || memberData?.members;
+              if (Array.isArray(members)) {
+                enriched.members = members.map((member) =>
+                  typeof member === "string" ? member : member._id,
+                );
+                enriched.membersCount =
+                  memberData?.membeList?.membersCount ?? members.length;
+              }
             }
+            return enriched;
+          } catch (err) {
+            console.warn(
+              `Could not load membership details for ${page.pageName}:`,
+              err,
+            );
+            return page;
           }
-          return enriched;
-        } catch (err) {
-          console.warn(`Could not load membership details for ${page.pageName}:`, err);
-          return page;
-        }
-      }));
+        }),
+      );
       setPages(enrichedPages);
     } catch (err) {
-      console.warn('Error fetching pages:', err);
+      console.warn("Error fetching pages:", err);
     } finally {
       setLoading(false);
     }
@@ -76,14 +85,19 @@ export default function PageExplorePage() {
 
   const handleJoinToggle = async (page) => {
     if (!isAuthenticated) {
-      info('Please log in to join community hubs.');
+      info("Please log in to join community hubs.");
       return;
     }
 
-    const isMember = ['member', 'moderator', 'owner'].includes(page.userRole)
-      || page.members?.includes(currentUser?._id);
-    if (page.userRole === 'owner' || page.owner?._id === currentUser?._id || page.owner === currentUser?._id) {
-      info('Page owners cannot leave their own community.');
+    const isMember =
+      ["member", "moderator", "owner"].includes(page.userRole) ||
+      page.members?.includes(currentUser?._id);
+    if (
+      page.userRole === "owner" ||
+      page.owner?._id === currentUser?._id ||
+      page.owner === currentUser?._id
+    ) {
+      info("Page owners cannot leave their own community.");
       return;
     }
 
@@ -92,7 +106,7 @@ export default function PageExplorePage() {
       if (isMember) {
         await pageApi.leavePage(page._id);
         info(`Left ${page.pageName}`);
-      } else if (page.type === 'private') {
+      } else if (page.type === "private") {
         await pageApi.joinPage(page._id);
         setPendingRequestIds((current) => new Set(current).add(page._id));
         success(`Join request sent to ${page.pageName}.`);
@@ -100,11 +114,11 @@ export default function PageExplorePage() {
         await pageApi.joinPage(page._id);
         success(`Successfully joined ${page.pageName}!`);
       }
-      if (isMember || page.type !== 'private') {
+      if (isMember || page.type !== "private") {
         fetchPages(search.trim());
       }
     } catch (err) {
-      error(err?.message || 'Could not update membership.');
+      error(err?.message || "Could not update membership.");
     } finally {
       setJoiningPageId(null);
     }
@@ -119,30 +133,39 @@ export default function PageExplorePage() {
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
-    if (!createForm.pageName.trim() || !createForm.title.trim() || !createForm.pageDescription.trim()) {
-      error('Please fill in all required fields.');
+    if (
+      !createForm.pageName.trim() ||
+      !createForm.title.trim() ||
+      !createForm.pageDescription.trim()
+    ) {
+      error("Please fill in all required fields.");
       return;
     }
 
     setCreating(true);
     try {
       const formData = new FormData();
-      formData.append('pageName', createForm.pageName.trim());
-      formData.append('title', createForm.title.trim());
-      formData.append('pageDescription', createForm.pageDescription.trim());
-      formData.append('type', createForm.type);
+      formData.append("pageName", createForm.pageName.trim());
+      formData.append("title", createForm.title.trim());
+      formData.append("pageDescription", createForm.pageDescription.trim());
+      formData.append("type", createForm.type);
       if (createImageFile) {
-        formData.append('pageProfileImage', createImageFile);
+        formData.append("pageProfileImage", createImageFile);
       }
 
       await pageApi.createPage(formData);
-      success('Community hub created successfully!');
+      success("Community hub created successfully!");
       setShowCreateModal(false);
-      setCreateForm({ pageName: '', title: '', pageDescription: '', type: 'open' });
+      setCreateForm({
+        pageName: "",
+        title: "",
+        pageDescription: "",
+        type: "open",
+      });
       setCreateImageFile(null);
       fetchPages();
     } catch (err) {
-      error(err?.message || 'Failed to create community hub.');
+      error(err?.message || "Failed to create community hub.");
     } finally {
       setCreating(false);
     }
@@ -158,21 +181,24 @@ export default function PageExplorePage() {
               Explore Community Hubs
             </h1>
             <p className="text-on-surface-variant text-sm mt-1">
-              Find dedicated communities to learn, solve questions, and share knowledge.
+              Find dedicated communities to learn, solve questions, and share
+              knowledge.
             </p>
           </div>
 
           <button
             onClick={() => {
               if (!isAuthenticated) {
-                info('Please sign in to create a community hub.');
+                info("Please sign in to create a community hub.");
                 return;
               }
               setShowCreateModal(true);
             }}
             className="px-6 py-3 bg-gradient-to-br from-primary to-primary-dim text-white font-bold text-xs rounded-full shadow-md hover:brightness-105 active:scale-95 transition-all flex items-center gap-2 w-fit"
           >
-            <span className="material-symbols-outlined text-lg">add_circle</span>
+            <span className="material-symbols-outlined text-lg">
+              add_circle
+            </span>
             <span>Create Community Hub</span>
           </button>
         </div>
@@ -195,19 +221,27 @@ export default function PageExplorePage() {
         {loading ? (
           <div className="text-center py-20">
             <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-xs text-on-surface-variant">Loading learning hubs...</p>
+            <p className="text-xs text-on-surface-variant">
+              Loading learning hubs...
+            </p>
           </div>
         ) : pages.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {pages.map((page) => {
-              const isMember = currentUser && (
-                ['member', 'moderator', 'owner'].includes(page.userRole)
-                || page.members?.includes(currentUser._id)
-              );
-              const isOwner = currentUser && (page.owner === currentUser._id || page.owner?._id === currentUser._id);
-              const memberCount = page.membersCount > 0
-                ? page.membersCount
-                : Array.isArray(page.members) ? page.members.length : null;
+              const isMember =
+                currentUser &&
+                (["member", "moderator", "owner"].includes(page.userRole) ||
+                  page.members?.includes(currentUser._id));
+              const isOwner =
+                currentUser &&
+                (page.owner === currentUser._id ||
+                  page.owner?._id === currentUser._id);
+              const memberCount =
+                page.membersCount > 0
+                  ? page.membersCount
+                  : Array.isArray(page.members)
+                    ? page.members.length
+                    : null;
 
               return (
                 <div
@@ -217,20 +251,23 @@ export default function PageExplorePage() {
                   {/* Banner / Cover */}
                   <div className="h-40 relative overflow-hidden bg-surface-container">
                     <ImageWithFallback
-                      src={page.pageProfileImage || 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&auto=format&fit=crop&q=80'}
+                      src={
+                        page.pageProfileImage ||
+                        "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&auto=format&fit=crop&q=80"
+                      }
                       alt={page.pageName}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                     <div className="absolute top-3 right-3 bg-white/90 dark:bg-black/80 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-on-surface uppercase tracking-wider backdrop-blur-sm">
-                      {page.type || 'Open'}
+                      {page.type || "Open"}
                     </div>
                     <div className="absolute bottom-3 left-4 right-4">
                       <h3 className="text-white font-headline font-bold text-xl drop-shadow-sm truncate">
                         {page.pageName}
                       </h3>
                       <p className="text-white/80 text-xs truncate">
-                        {page.title || 'Learning Community'}
+                        {page.title || "Learning Community"}
                       </p>
                     </div>
                   </div>
@@ -238,13 +275,18 @@ export default function PageExplorePage() {
                   {/* Body & Actions */}
                   <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                     <p className="text-xs text-on-surface-variant line-clamp-3 leading-relaxed">
-                      {page.pageDescription || 'Welcome to this hub for collaboration and discussions.'}
+                      {page.pageDescription ||
+                        "Welcome to this hub for collaboration and discussions."}
                     </p>
 
                     <div className="pt-3 border-t border-outline-variant/10 flex items-center justify-between">
                       <span className="text-xs text-on-surface-variant font-medium flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-sm">groups</span>
-                        {memberCount === null ? 'Member count unavailable' : `${memberCount} members`}
+                        <span className="material-symbols-outlined text-sm">
+                          groups
+                        </span>
+                        {memberCount === null
+                          ? "Member count unavailable"
+                          : `${memberCount} members`}
                       </span>
 
                       <div className="flex items-center gap-2">
@@ -256,24 +298,28 @@ export default function PageExplorePage() {
                         </Link>
                         <button
                           onClick={() => handleJoinToggle(page)}
-                          disabled={joiningPageId === page._id || isOwner || pendingRequestIds.has(page._id)}
+                          disabled={
+                            joiningPageId === page._id ||
+                            isOwner ||
+                            pendingRequestIds.has(page._id)
+                          }
                           className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 ${
                             isMember || isOwner
-                              ? 'bg-surface-container-high text-on-surface hover:bg-surface-container-highest'
-                              : 'bg-primary text-white hover:bg-primary-dim'
+                              ? "bg-surface-container-high text-on-surface hover:bg-surface-container-highest"
+                              : "bg-primary text-white hover:bg-primary-dim"
                           }`}
                         >
                           {joiningPageId === page._id
-                            ? '...'
+                            ? "..."
                             : isOwner
-                            ? 'Owner'
-                            : isMember
-                            ? 'Joined'
-                            : pendingRequestIds.has(page._id)
-                            ? 'Requested'
-                            : page.type === 'private'
-                            ? 'Request to Join'
-                            : 'Join'}
+                              ? "Owner"
+                              : isMember
+                                ? "Joined"
+                                : pendingRequestIds.has(page._id)
+                                  ? "Requested"
+                                  : page.type === "private"
+                                    ? "Request to Join"
+                                    : "Join"}
                         </button>
                       </div>
                     </div>
@@ -284,8 +330,12 @@ export default function PageExplorePage() {
           </div>
         ) : (
           <div className="text-center py-20 bg-surface-container-lowest rounded-3xl border border-outline-variant/15 p-8">
-            <span className="material-symbols-outlined text-5xl text-outline mb-2">groups</span>
-            <h3 className="font-headline font-bold text-xl text-on-surface">No community hubs found</h3>
+            <span className="material-symbols-outlined text-5xl text-outline mb-2">
+              groups
+            </span>
+            <h3 className="font-headline font-bold text-xl text-on-surface">
+              No community hubs found
+            </h3>
             <p className="text-xs text-on-surface-variant max-w-sm mx-auto mt-1 mb-5">
               Be the leader to build the first collaborative hub for your peers!
             </p>
@@ -304,14 +354,20 @@ export default function PageExplorePage() {
             <div className="bg-surface-container-lowest rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-stitch-modal border border-outline-variant/20 space-y-6">
               <div className="flex items-center justify-between border-b border-outline-variant/15 pb-4">
                 <div className="flex items-center gap-2.5">
-                  <span className="material-symbols-outlined text-2xl text-primary">add_circle</span>
-                  <h3 className="font-headline font-bold text-xl text-on-surface">Create Community Hub</h3>
+                  <span className="material-symbols-outlined text-2xl text-primary">
+                    add_circle
+                  </span>
+                  <h3 className="font-headline font-bold text-xl text-on-surface">
+                    Create Community Hub
+                  </h3>
                 </div>
                 <button
                   onClick={() => setShowCreateModal(false)}
                   className="p-1 rounded-full hover:bg-surface-container text-on-surface-variant transition-colors"
                 >
-                  <span className="material-symbols-outlined text-lg">close</span>
+                  <span className="material-symbols-outlined text-lg">
+                    close
+                  </span>
                 </button>
               </div>
 
@@ -324,7 +380,9 @@ export default function PageExplorePage() {
                     type="text"
                     required
                     value={createForm.pageName}
-                    onChange={(e) => setCreateForm({ ...createForm, pageName: e.target.value })}
+                    onChange={(e) =>
+                      setCreateForm({ ...createForm, pageName: e.target.value })
+                    }
                     placeholder="e.g. Next.js Builders"
                     className="w-full px-4 py-2.5 bg-surface-container-low border border-transparent rounded-xl text-sm focus:ring-2 focus:ring-primary/40 focus:bg-surface-container-lowest transition-all"
                   />
@@ -338,7 +396,9 @@ export default function PageExplorePage() {
                     type="text"
                     required
                     value={createForm.title}
-                    onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
+                    onChange={(e) =>
+                      setCreateForm({ ...createForm, title: e.target.value })
+                    }
                     placeholder="e.g. For React developers solving architecture challenges"
                     className="w-full px-4 py-2.5 bg-surface-container-low border border-transparent rounded-xl text-sm focus:ring-2 focus:ring-primary/40 focus:bg-surface-container-lowest transition-all"
                   />
@@ -352,7 +412,12 @@ export default function PageExplorePage() {
                     rows={3}
                     required
                     value={createForm.pageDescription}
-                    onChange={(e) => setCreateForm({ ...createForm, pageDescription: e.target.value })}
+                    onChange={(e) =>
+                      setCreateForm({
+                        ...createForm,
+                        pageDescription: e.target.value,
+                      })
+                    }
                     placeholder="Describe what members will learn, ask, and share here..."
                     className="w-full px-4 py-2.5 bg-surface-container-low border border-transparent rounded-xl text-sm focus:ring-2 focus:ring-primary/40 focus:bg-surface-container-lowest transition-all resize-none"
                   />
@@ -368,8 +433,10 @@ export default function PageExplorePage() {
                         type="radio"
                         name="type"
                         value="open"
-                        checked={createForm.type === 'open'}
-                        onChange={(e) => setCreateForm({ ...createForm, type: e.target.value })}
+                        checked={createForm.type === "open"}
+                        onChange={(e) =>
+                          setCreateForm({ ...createForm, type: e.target.value })
+                        }
                         className="text-primary focus:ring-primary/20"
                       />
                       <span>Open (Anyone can join)</span>
@@ -379,8 +446,10 @@ export default function PageExplorePage() {
                         type="radio"
                         name="type"
                         value="private"
-                        checked={createForm.type === 'private'}
-                        onChange={(e) => setCreateForm({ ...createForm, type: e.target.value })}
+                        checked={createForm.type === "private"}
+                        onChange={(e) =>
+                          setCreateForm({ ...createForm, type: e.target.value })
+                        }
                         className="text-primary focus:ring-primary/20"
                       />
                       <span>Private (Approval required)</span>
@@ -413,7 +482,7 @@ export default function PageExplorePage() {
                     disabled={creating}
                     className="px-6 py-2.5 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary-dim transition-all shadow-sm disabled:opacity-50"
                   >
-                    {creating ? 'Creating Hub...' : 'Create Hub'}
+                    {creating ? "Creating Hub..." : "Create Hub"}
                   </button>
                 </div>
               </form>

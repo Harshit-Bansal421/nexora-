@@ -1,24 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import Layout from '../components/Layout';
-import PostCard from '../components/PostCard';
-import { useAuth } from '../context/authContextValue';
-import { useToast } from '../context/toastContextValue';
-import { postApi, authApi } from '../api/client';
-import { getSocket, joinUserRoom, leaveUserRoom } from '../api/socket';
-import Avatar from '../components/Avatar';
+import React, { useState, useEffect } from "react";
+import { useParams, Link } from "react-router-dom";
+import Layout from "../components/Layout";
+import PostCard from "../components/PostCard";
+import { useAuth } from "../context/authContextValue";
+import { useToast } from "../context/toastContextValue";
+import { postApi, authApi } from "../api/client";
+import { getSocket, joinUserRoom, leaveUserRoom } from "../api/socket";
+import Avatar from "../components/Avatar";
 
 export default function UserProfilePage() {
   const { username } = useParams();
   const { currentUser, isAuthenticated } = useAuth();
   const { success, error, info } = useToast();
 
-  const isOwnProfile = currentUser && currentUser.username?.toLowerCase() === username?.toLowerCase();
+  const isOwnProfile =
+    currentUser &&
+    currentUser.username?.toLowerCase() === username?.toLowerCase();
 
   const [profileUser, setProfileUser] = useState(null);
   const [userPosts, setUserPosts] = useState([]);
   const [savedPosts, setSavedPosts] = useState([]);
-  const [activeTab, setActiveTab] = useState('posts'); // 'posts' | 'saved'
+  const [activeTab, setActiveTab] = useState("posts"); // 'posts' | 'saved'
   const [isFollowing, setIsFollowing] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
@@ -31,10 +33,13 @@ export default function UserProfilePage() {
       setLoading(true);
       try {
         // Fetch posts of user to extract author details
-        const res = await postApi.getUserPosts(username, { page: 1, limit: 20 });
+        const res = await postApi.getUserPosts(username, {
+          page: 1,
+          limit: 20,
+        });
         if (isMounted) {
           const data = res?.data || res || {};
-          const postList = Array.isArray(data) ? data : (data?.posts || []);
+          const postList = Array.isArray(data) ? data : data?.posts || [];
 
           // The endpoint returns profile data separately so empty profiles still render correctly.
           const userObj =
@@ -54,7 +59,7 @@ export default function UserProfilePage() {
             postList.map((post) => ({
               ...post,
               owner:
-                post.owner && typeof post.owner === 'object'
+                post.owner && typeof post.owner === "object"
                   ? post.owner
                   : userObj,
             })),
@@ -67,29 +72,31 @@ export default function UserProfilePage() {
           setIsFollowing(currentUser && followers.includes(currentUser._id));
         }
       } catch (err) {
-        console.warn('Error fetching user posts:', err);
+        console.warn("Error fetching user posts:", err);
       } finally {
         if (isMounted) setLoading(false);
       }
     };
 
     fetchUserData();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [username, isOwnProfile, currentUser]);
 
   // Load saved posts if own profile
   useEffect(() => {
-    if (isOwnProfile && activeTab === 'saved') {
+    if (isOwnProfile && activeTab === "saved") {
       const fetchSaved = async () => {
         setLoadingPosts(true);
         try {
           const res = await postApi.getSavedPosts({ page: 1, limit: 20 });
           const data = res?.data || res || {};
           setSavedPosts(
-            Array.isArray(data) ? data : (data?.savedPost || data?.posts || []),
+            Array.isArray(data) ? data : data?.savedPost || data?.posts || [],
           );
         } catch (err) {
-          console.warn('Error fetching saved posts:', err);
+          console.warn("Error fetching saved posts:", err);
         } finally {
           setLoadingPosts(false);
         }
@@ -111,19 +118,19 @@ export default function UserProfilePage() {
       setFollowerCount((prev) => Math.max(0, prev - 1));
     };
 
-    socket.on('followed-user', handleFollowed);
-    socket.on('unfollowed-user', handleUnfollowed);
+    socket.on("followed-user", handleFollowed);
+    socket.on("unfollowed-user", handleUnfollowed);
 
     return () => {
       leaveUserRoom(profileUser._id);
-      socket.off('followed-user', handleFollowed);
-      socket.off('unfollowed-user', handleUnfollowed);
+      socket.off("followed-user", handleFollowed);
+      socket.off("unfollowed-user", handleUnfollowed);
     };
   }, [profileUser?._id]);
 
   const handleFollowToggle = async () => {
     if (!isAuthenticated) {
-      info('Please log in to follow creators.');
+      info("Please log in to follow creators.");
       return;
     }
     if (!profileUser?._id) return;
@@ -142,15 +149,21 @@ export default function UserProfilePage() {
       }
     } catch (err) {
       setIsFollowing(!nextState);
-      setFollowerCount((prev) => (!nextState ? prev + 1 : Math.max(0, prev - 1)));
-      error(err?.message || 'Failed to update follow status.');
+      setFollowerCount((prev) =>
+        !nextState ? prev + 1 : Math.max(0, prev - 1),
+      );
+      error(err?.message || "Failed to update follow status.");
     }
   };
 
   if (loading) {
     return (
       <Layout>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6" role="status" aria-label="Loading profile">
+        <div
+          className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6"
+          role="status"
+          aria-label="Loading profile"
+        >
           <div className="h-44 sm:h-56 rounded-3xl bg-surface-container-low animate-pulse" />
           <div className="h-32 rounded-3xl bg-surface-container-low animate-pulse" />
           <div className="h-64 rounded-3xl bg-surface-container-low animate-pulse" />
@@ -163,10 +176,22 @@ export default function UserProfilePage() {
     return (
       <Layout>
         <div className="max-w-xl mx-auto px-4 py-20 text-center">
-          <span className="material-symbols-outlined text-5xl text-outline" aria-hidden="true">person_search</span>
+          <span
+            className="material-symbols-outlined text-5xl text-outline"
+            aria-hidden="true"
+          >
+            person_search
+          </span>
           <h1 className="mt-3 text-xl font-bold">Profile not found</h1>
-          <p className="mt-2 text-sm text-on-surface-variant">This account may have been removed or the address may be incorrect.</p>
-          <Link to="/feed" className="mt-5 inline-flex min-h-11 items-center rounded-full bg-primary px-5 font-bold text-on-primary">Back to feed</Link>
+          <p className="mt-2 text-sm text-on-surface-variant">
+            This account may have been removed or the address may be incorrect.
+          </p>
+          <Link
+            to="/feed"
+            className="mt-5 inline-flex min-h-11 items-center rounded-full bg-primary px-5 font-bold text-on-primary"
+          >
+            Back to feed
+          </Link>
         </div>
       </Layout>
     );
@@ -189,12 +214,12 @@ export default function UserProfilePage() {
                 <div className="p-1.5 bg-surface rounded-[2rem] shadow-stitch-ambient">
                   <Avatar
                     src={profileUser?.profileImage}
-                    name={profileUser?.username || 'User'}
+                    name={profileUser?.username || "User"}
                     className="w-24 h-24 sm:w-32 sm:h-32 rounded-[1.5rem] object-cover"
                   />
                 </div>
                 <div className="absolute bottom-2 right-2 bg-secondary text-on-secondary px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border-2 border-surface">
-                  {profileUser?.title || 'Newcomer'}
+                  {profileUser?.title || "Newcomer"}
                 </div>
               </div>
 
@@ -216,7 +241,9 @@ export default function UserProfilePage() {
                   to="/profile/edit"
                   className="bg-surface-container-highest hover:bg-surface-dim text-on-surface px-6 py-2.5 rounded-xl font-bold text-xs transition-colors flex items-center gap-1.5 shadow-sm"
                 >
-                  <span className="material-symbols-outlined text-base">edit</span>
+                  <span className="material-symbols-outlined text-base">
+                    edit
+                  </span>
                   Edit Profile
                 </Link>
               ) : (
@@ -224,14 +251,14 @@ export default function UserProfilePage() {
                   onClick={handleFollowToggle}
                   className={`px-8 py-2.5 rounded-xl font-bold text-xs transition-all active:scale-95 shadow-sm flex items-center gap-1.5 ${
                     isFollowing
-                      ? 'bg-surface-container-high text-on-surface hover:bg-surface-container-highest'
-                      : 'bg-gradient-to-br from-primary to-primary-dim text-white hover:brightness-105'
+                      ? "bg-surface-container-high text-on-surface hover:bg-surface-container-highest"
+                      : "bg-gradient-to-br from-primary to-primary-dim text-white hover:brightness-105"
                   }`}
                 >
                   <span className="material-symbols-outlined text-base">
-                    {isFollowing ? 'check' : 'person_add'}
+                    {isFollowing ? "check" : "person_add"}
                   </span>
-                  {isFollowing ? 'Following' : 'Follow'}
+                  {isFollowing ? "Following" : "Follow"}
                 </button>
               )}
             </div>
@@ -241,15 +268,23 @@ export default function UserProfilePage() {
           <div className="px-4 sm:px-6 mt-8 grid grid-cols-1 md:grid-cols-12 gap-5">
             {/* Bio Card */}
             <div className="md:col-span-8 bg-surface-container-low p-6 rounded-2xl border border-outline-variant/15">
-              <h3 className="font-headline font-bold text-base mb-2 text-on-surface">About</h3>
+              <h3 className="font-headline font-bold text-base mb-2 text-on-surface">
+                About
+              </h3>
               <p className="text-on-surface-variant text-sm leading-relaxed">
-                {profileUser?.bio || 'No bio added yet.'}
+                {profileUser?.bio || "No bio added yet."}
               </p>
               <div className="flex flex-wrap gap-4 mt-5 text-xs text-on-surface-variant">
                 {profileUser?.createdAt && (
                   <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-base">calendar_month</span>
-                    Joined {new Date(profileUser.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
+                    <span className="material-symbols-outlined text-base">
+                      calendar_month
+                    </span>
+                    Joined{" "}
+                    {new Date(profileUser.createdAt).toLocaleDateString(
+                      undefined,
+                      { month: "short", year: "numeric" },
+                    )}
                   </div>
                 )}
               </div>
@@ -284,7 +319,9 @@ export default function UserProfilePage() {
                     {profileUser?.point || 0} pts
                   </span>
                 </div>
-                <span className="material-symbols-outlined text-4xl filled">stars</span>
+                <span className="material-symbols-outlined text-4xl filled">
+                  stars
+                </span>
               </div>
             </div>
           </div>
@@ -294,22 +331,22 @@ export default function UserProfilePage() {
         <section className="px-4 sm:px-6 mt-10">
           <div className="flex border-b border-outline-variant/20 mb-6">
             <button
-              onClick={() => setActiveTab('posts')}
+              onClick={() => setActiveTab("posts")}
               className={`flex-1 pb-3 text-xs font-bold uppercase tracking-wider transition-colors text-center ${
-                activeTab === 'posts'
-                  ? 'text-primary border-b-2 border-primary'
-                  : 'text-on-surface-variant hover:text-on-surface'
+                activeTab === "posts"
+                  ? "text-primary border-b-2 border-primary"
+                  : "text-on-surface-variant hover:text-on-surface"
               }`}
             >
               Contributions ({userPosts.length})
             </button>
             {isOwnProfile && (
               <button
-                onClick={() => setActiveTab('saved')}
+                onClick={() => setActiveTab("saved")}
                 className={`flex-1 pb-3 text-xs font-bold uppercase tracking-wider transition-colors text-center ${
-                  activeTab === 'saved'
-                    ? 'text-primary border-b-2 border-primary'
-                    : 'text-on-surface-variant hover:text-on-surface'
+                  activeTab === "saved"
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-on-surface-variant hover:text-on-surface"
                 }`}
               >
                 Saved Vault ({savedPosts.length})
@@ -318,7 +355,7 @@ export default function UserProfilePage() {
           </div>
 
           {/* Posts Feed */}
-          {activeTab === 'posts' ? (
+          {activeTab === "posts" ? (
             userPosts.length > 0 ? (
               <div className="space-y-4">
                 {userPosts.map((post) => (
@@ -327,11 +364,15 @@ export default function UserProfilePage() {
               </div>
             ) : (
               <div className="text-center py-16 bg-surface-container-lowest rounded-3xl border border-outline-variant/15 p-8">
-                <span className="material-symbols-outlined text-4xl text-outline mb-2">article</span>
-                <h4 className="font-bold text-on-surface">No posts published yet</h4>
+                <span className="material-symbols-outlined text-4xl text-outline mb-2">
+                  article
+                </span>
+                <h4 className="font-bold text-on-surface">
+                  No posts published yet
+                </h4>
                 <p className="text-xs text-on-surface-variant mt-1">
                   {isOwnProfile
-                    ? 'Start sharing knowledge with the community by asking your first question.'
+                    ? "Start sharing knowledge with the community by asking your first question."
                     : `@${username} hasn't published any questions yet.`}
                 </p>
                 {isOwnProfile && (
@@ -339,33 +380,47 @@ export default function UserProfilePage() {
                     to="/posts/new"
                     className="mt-4 inline-flex items-center gap-1.5 px-6 py-2.5 bg-primary text-white text-xs font-bold rounded-full shadow-sm hover:bg-primary-dim transition-all"
                   >
-                    <span className="material-symbols-outlined text-base">add</span>
+                    <span className="material-symbols-outlined text-base">
+                      add
+                    </span>
                     Create First Post
                   </Link>
                 )}
               </div>
             )
+          ) : // Saved Vault
+          loadingPosts ? (
+            <div
+              className="space-y-4"
+              role="status"
+              aria-label="Loading saved posts"
+            >
+              {[0, 1].map((key) => (
+                <div
+                  key={key}
+                  className="h-48 rounded-2xl bg-surface-container-low animate-pulse"
+                />
+              ))}
+            </div>
+          ) : savedPosts.length > 0 ? (
+            <div className="space-y-4">
+              {savedPosts.map((post) => (
+                <PostCard key={post._id} post={post} />
+              ))}
+            </div>
           ) : (
-            // Saved Vault
-            loadingPosts ? (
-              <div className="space-y-4" role="status" aria-label="Loading saved posts">
-                {[0, 1].map((key) => <div key={key} className="h-48 rounded-2xl bg-surface-container-low animate-pulse" />)}
-              </div>
-            ) : savedPosts.length > 0 ? (
-              <div className="space-y-4">
-                {savedPosts.map((post) => (
-                  <PostCard key={post._id} post={post} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-16 bg-surface-container-lowest rounded-3xl border border-outline-variant/15 p-8">
-                <span className="material-symbols-outlined text-4xl text-outline mb-2">bookmark_border</span>
-                <h4 className="font-bold text-on-surface">Your saved vault is empty</h4>
-                <p className="text-xs text-on-surface-variant mt-1">
-                  Click the bookmark button on any post to save it for quick reference later.
-                </p>
-              </div>
-            )
+            <div className="text-center py-16 bg-surface-container-lowest rounded-3xl border border-outline-variant/15 p-8">
+              <span className="material-symbols-outlined text-4xl text-outline mb-2">
+                bookmark_border
+              </span>
+              <h4 className="font-bold text-on-surface">
+                Your saved vault is empty
+              </h4>
+              <p className="text-xs text-on-surface-variant mt-1">
+                Click the bookmark button on any post to save it for quick
+                reference later.
+              </p>
+            </div>
           )}
         </section>
       </div>

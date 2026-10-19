@@ -1,30 +1,37 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { authApi } from '../api/client';
-import { useToast } from '../context/toastContextValue';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { authApi } from "../api/client";
+import { useToast } from "../context/toastContextValue";
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
   const { success, error } = useToast();
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email.trim() || !email.includes('@')) {
-      error('Please enter a valid email address.');
+    if (!email.trim() || !email.includes("@")) {
+      error("Please enter a valid email address.");
       return;
     }
 
     setLoading(true);
 
     try {
-      const res = await authApi.forgotPassword({ email: email.trim().toLowerCase() });
-      success(res?.data || 'Password recovery OTP sent to your email!');
-      navigate(`/reset-password?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+      const res = await authApi.forgotPassword({
+        email: email.trim().toLowerCase(),
+      });
+      success(res?.data || "Password recovery OTP sent to your email!");
+      navigate(
+        `/reset-password?email=${encodeURIComponent(email.trim().toLowerCase())}`,
+      );
     } catch (err) {
-      error(err?.message || 'Failed to dispatch recovery email. Please check your address.');
+      error(
+        err?.message ||
+          "Failed to dispatch recovery email. Please check your address.",
+      );
     } finally {
       setLoading(false);
     }
@@ -49,20 +56,26 @@ export default function ForgotPasswordPage() {
         <div className="w-full max-w-md relative z-10">
           <div className="mb-8 text-center">
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-surface-container-low mb-4 shadow-stitch-soft border border-outline-variant/15">
-              <span className="material-symbols-outlined text-4xl text-primary">lock_reset</span>
+              <span className="material-symbols-outlined text-4xl text-primary">
+                lock_reset
+              </span>
             </div>
             <h1 className="font-headline text-3xl font-extrabold tracking-tight text-on-surface mb-2">
               Forgot password?
             </h1>
             <p className="text-on-surface-variant text-sm leading-relaxed px-4">
-              Don’t worry, it happens to the best of us. We’ll send you a 6-digit recovery code to reset your password.
+              Don’t worry, it happens to the best of us. We’ll send you a
+              6-digit recovery code to reset your password.
             </p>
           </div>
 
           <div className="bg-surface-container-lowest rounded-[2rem] p-8 shadow-stitch-ambient border border-outline-variant/15 space-y-6">
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1" htmlFor="email">
+                <label
+                  className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1"
+                  htmlFor="email"
+                >
                   Registered Email Address
                 </label>
                 <div className="relative group">
@@ -85,8 +98,13 @@ export default function ForgotPasswordPage() {
 
               {/* Informational Hint */}
               <div className="p-4 bg-surface-container rounded-xl flex gap-3 text-xs leading-5 text-on-primary-container border border-outline-variant/10">
-                <span className="material-symbols-outlined text-primary text-base mt-0.5">info</span>
-                <p>Check your inbox (and spam folder) for a recovery OTP. The code will remain valid for 10 minutes.</p>
+                <span className="material-symbols-outlined text-primary text-base mt-0.5">
+                  info
+                </span>
+                <p>
+                  Check your inbox (and spam folder) for a recovery OTP. The
+                  code will remain valid for 10 minutes.
+                </p>
               </div>
 
               <button
@@ -102,7 +120,9 @@ export default function ForgotPasswordPage() {
                 ) : (
                   <>
                     <span>Send Recovery OTP</span>
-                    <span className="material-symbols-outlined text-lg">arrow_forward</span>
+                    <span className="material-symbols-outlined text-lg">
+                      arrow_forward
+                    </span>
                   </>
                 )}
               </button>

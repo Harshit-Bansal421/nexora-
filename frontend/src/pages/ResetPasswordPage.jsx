@@ -1,17 +1,17 @@
-import React, { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { authApi } from '../api/client';
-import { useToast } from '../context/toastContextValue';
+import React, { useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { authApi } from "../api/client";
+import { useToast } from "../context/toastContextValue";
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { success, error } = useToast();
 
-  const [email, setEmail] = useState(searchParams.get('email') || '');
-  const [otp, setOtp] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState(searchParams.get("email") || "");
+  const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -20,7 +20,7 @@ export default function ResetPasswordPage() {
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     if (!email.trim() || !otp.trim()) {
-      error('Please enter both your registered email and the 6-digit OTP.');
+      error("Please enter both your registered email and the 6-digit OTP.");
       return;
     }
 
@@ -30,10 +30,13 @@ export default function ResetPasswordPage() {
         email: email.trim().toLowerCase(),
         otp: otp.trim(),
       });
-      success('Recovery OTP verified! You can now set your new password.');
+      success("Recovery OTP verified! You can now set your new password.");
       setOtpVerified(true);
     } catch (err) {
-      error(err?.message || 'Invalid or expired OTP. Please try again or request a new code.');
+      error(
+        err?.message ||
+          "Invalid or expired OTP. Please try again or request a new code.",
+      );
     } finally {
       setLoading(false);
     }
@@ -43,11 +46,11 @@ export default function ResetPasswordPage() {
   const handleResetPassword = async (e) => {
     e.preventDefault();
     if (!newPassword || newPassword.length < 5) {
-      error('New password must be at least 5 characters long.');
+      error("New password must be at least 5 characters long.");
       return;
     }
     if (newPassword !== confirmPassword) {
-      error('Passwords do not match. Please re-enter.');
+      error("Passwords do not match. Please re-enter.");
       return;
     }
 
@@ -57,10 +60,14 @@ export default function ResetPasswordPage() {
         newpassword: newPassword,
         confirmNewPassword: confirmPassword,
       });
-      success('Password successfully reset! Please sign in with your new password.');
-      navigate('/login');
+      success(
+        "Password successfully reset! Please sign in with your new password.",
+      );
+      navigate("/login");
     } catch (err) {
-      error(err?.message || 'Failed to update password. Session may have expired.');
+      error(
+        err?.message || "Failed to update password. Session may have expired.",
+      );
     } finally {
       setLoading(false);
     }
@@ -83,15 +90,17 @@ export default function ResetPasswordPage() {
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-surface-container-high rounded-3xl mb-4 shadow-sm border border-outline-variant/15">
-              <span className="material-symbols-outlined text-primary text-3xl">lock_reset</span>
+              <span className="material-symbols-outlined text-primary text-3xl">
+                lock_reset
+              </span>
             </div>
             <h2 className="text-3xl font-extrabold text-on-surface font-headline tracking-tight mb-2">
-              {otpVerified ? 'Create New Password' : 'Verify Recovery Code'}
+              {otpVerified ? "Create New Password" : "Verify Recovery Code"}
             </h2>
             <p className="text-on-surface-variant text-sm leading-relaxed">
               {otpVerified
-                ? 'Enter and confirm your new secure password.'
-                : 'Enter the recovery OTP sent to your email to continue.'}
+                ? "Enter and confirm your new secure password."
+                : "Enter the recovery OTP sent to your email to continue."}
             </p>
           </div>
 
@@ -124,7 +133,9 @@ export default function ResetPasswordPage() {
                     maxLength={6}
                     autoComplete="one-time-code"
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onChange={(e) =>
+                      setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                    }
                     placeholder="123456"
                     className="w-full px-4 py-3 bg-surface-container-low border border-transparent rounded-xl text-center text-xl font-bold tracking-widest text-primary focus:ring-2 focus:ring-primary/40 focus:bg-surface-container-lowest transition-all"
                   />
@@ -135,7 +146,7 @@ export default function ResetPasswordPage() {
                   disabled={loading}
                   className="w-full py-3.5 bg-gradient-to-br from-primary to-primary-dim text-white font-semibold rounded-xl text-base shadow-lg shadow-primary/20 hover:brightness-105 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {loading ? 'Verifying...' : 'Verify OTP'}
+                  {loading ? "Verifying..." : "Verify OTP"}
                 </button>
               </form>
             ) : (
@@ -147,7 +158,7 @@ export default function ResetPasswordPage() {
                   </label>
                   <div className="relative">
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      type={showPassword ? "text" : "password"}
                       required
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
@@ -160,7 +171,7 @@ export default function ResetPasswordPage() {
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface transition-colors"
                     >
                       <span className="material-symbols-outlined text-lg">
-                        {showPassword ? 'visibility_off' : 'visibility'}
+                        {showPassword ? "visibility_off" : "visibility"}
                       </span>
                     </button>
                   </div>
@@ -171,7 +182,7 @@ export default function ResetPasswordPage() {
                     Confirm New Password
                   </label>
                   <input
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -185,14 +196,17 @@ export default function ResetPasswordPage() {
                   disabled={loading}
                   className="w-full py-4 bg-gradient-to-br from-primary to-primary-dim text-white font-semibold rounded-xl text-base shadow-lg shadow-primary/20 hover:brightness-105 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {loading ? 'Resetting...' : 'Set New Password'}
+                  {loading ? "Resetting..." : "Set New Password"}
                 </button>
               </form>
             )}
           </div>
 
           <div className="mt-6 text-center">
-            <Link to="/login" className="text-sm font-medium text-on-surface-variant hover:text-primary transition-colors">
+            <Link
+              to="/login"
+              className="text-sm font-medium text-on-surface-variant hover:text-primary transition-colors"
+            >
               Cancel and return to login
             </Link>
           </div>

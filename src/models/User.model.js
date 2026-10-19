@@ -126,22 +126,29 @@ UserSchema.statics.applyContribution = async function (
   delta,
   session = null,
 ) {
-  const query = this.findById(userId);
-  if (session) query.session(session);
-  const user = await query;
-  if (!user) throw new ApiError(404, "User not found");
+  // Atomic increment of points
+  const update = { $inc: { point: delta } };
+  const options = { new: true, session, returnDocument: "after" };
+  const updatedUser = await this.findOneAndUpdate({ _id: userId }, update, options);
+  if (!updatedUser) throw new ApiError(404, "User not found");
 
-  user.point += delta;
-  if (user.point >= 5000) user.title = "Legend";
-  else if (user.point >= 1501) user.title = "Mentor";
-  else if (user.point >= 501) user.title = "Helper";
-  else if (user.point >= 101) user.title = "Contributor";
-  else user.title = "Newcomer";
+  // Prevent negative points
+  if (updatedUser.point < 0) {
+    await this.updateOne({ _id: userId }, { $set: { point: 0 } }, { session });
+    updatedUser.point = 0;
+  }
 
-  await user.save({
-    validateBeforeSave: false,
-    ...(session ? { session } : {}),
-  });
+  // Recalculate tier based on points
+  let newTitle = "Newcomer";
+  if (updatedUser.point >= 5000) newTitle = "Legend";
+  else if (updatedUser.point >= 1501) newTitle = "Mentor";
+  else if (updatedUser.point >= 501) newTitle = "Helper";
+  else if (updatedUser.point >= 101) newTitle = "Contributor";
+
+  if (updatedUser.title !== newTitle) {
+    await this.updateOne({ _id: userId }, { $set: { title: newTitle } }, { session });
+  }
+  return;
 };
 
 export const User = mongoose.model("User", UserSchema);

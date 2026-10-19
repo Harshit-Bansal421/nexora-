@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import Layout from '../components/Layout';
-import { pageApi } from '../api/client';
-import { useAuth } from '../context/authContextValue';
-import { useToast } from '../context/toastContextValue';
-import Avatar from '../components/Avatar';
-import ImageWithFallback from '../components/ImageWithFallback';
+import React, { useState, useEffect, useCallback } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import Layout from "../components/Layout";
+import { pageApi } from "../api/client";
+import { useAuth } from "../context/authContextValue";
+import { useToast } from "../context/toastContextValue";
+import Avatar from "../components/Avatar";
+import ImageWithFallback from "../components/ImageWithFallback";
 
 export default function PageInfoPage() {
   const { pageId } = useParams();
@@ -17,12 +17,16 @@ export default function PageInfoPage() {
   const [members, setMembers] = useState([]);
   const [membersCount, setMembersCount] = useState(null);
   const [requests, setRequests] = useState([]);
-  const [activeTab, setActiveTab] = useState('about'); // 'about' | 'members' | 'requests'
+  const [activeTab, setActiveTab] = useState("about"); // 'about' | 'members' | 'requests'
   const [loading, setLoading] = useState(true);
 
   // Edit Page Modal State
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editForm, setEditForm] = useState({ pageName: '', title: '', pageDescription: '' });
+  const [editForm, setEditForm] = useState({
+    pageName: "",
+    title: "",
+    pageDescription: "",
+  });
   const [updating, setUpdating] = useState(false);
 
   const fetchPageDetails = useCallback(async () => {
@@ -35,12 +39,14 @@ export default function PageInfoPage() {
       const pageData = res?.data || res;
       setPage(pageData);
       setEditForm({
-        pageName: pageData?.pageName || '',
-        title: pageData?.title || '',
-        pageDescription: pageData?.pageDescription || '',
+        pageName: pageData?.pageName || "",
+        title: pageData?.title || "",
+        pageDescription: pageData?.pageDescription || "",
       });
 
-      const canViewMembers = ['member', 'moderator', 'owner'].includes(pageData?.userRole);
+      const canViewMembers = ["member", "moderator", "owner"].includes(
+        pageData?.userRole,
+      );
       if (canViewMembers) {
         try {
           const memRes = await pageApi.getPageMembers(pageId, { limit: 100 });
@@ -49,10 +55,12 @@ export default function PageInfoPage() {
             ? memData
             : memData?.membeList?.members || memData?.members || [];
           setMembers(memberRows);
-          setMembersCount(memData?.membeList?.membersCount ?? memberRows.length);
+          setMembersCount(
+            memData?.membeList?.membersCount ?? memberRows.length,
+          );
         } catch (e) {
-          console.warn('Could not load community members:', e);
-          error(e?.message || 'Could not load community members.');
+          console.warn("Could not load community members:", e);
+          error(e?.message || "Could not load community members.");
         }
       } else {
         setMembers([]);
@@ -60,13 +68,13 @@ export default function PageInfoPage() {
       }
 
       // If owner or moderator, try fetching join requests
-      const isOwnerOrMod = currentUser && (
-        ['owner', 'moderator'].includes(pageData?.userRole) ||
-        pageData?.owner === currentUser._id ||
-        pageData?.owner?._id === currentUser._id ||
-        pageData?.moderators?.includes(currentUser._id)
-      );
-      if (isOwnerOrMod && pageData?.type === 'private') {
+      const isOwnerOrMod =
+        currentUser &&
+        (["owner", "moderator"].includes(pageData?.userRole) ||
+          pageData?.owner === currentUser._id ||
+          pageData?.owner?._id === currentUser._id ||
+          pageData?.moderators?.includes(currentUser._id));
+      if (isOwnerOrMod && pageData?.type === "private") {
         try {
           const reqRes = await pageApi.getJoinRequests(pageId);
           const reqData = reqRes?.data || reqRes || [];
@@ -76,11 +84,11 @@ export default function PageInfoPage() {
               : reqData?.pendingRequest || reqData?.requests || [],
           );
         } catch (e) {
-          error(e?.message || 'Could not load join requests.');
+          error(e?.message || "Could not load join requests.");
         }
       }
     } catch (err) {
-      error(err?.message || 'Could not load community information.');
+      error(err?.message || "Could not load community information.");
     } finally {
       setLoading(false);
     }
@@ -92,31 +100,31 @@ export default function PageInfoPage() {
     void fetchPageDetails();
   }, [fetchPageDetails]);
 
-  const isOwner = currentUser && (
-    page?.userRole === 'owner' ||
-    page?.owner === currentUser._id ||
-    page?.owner?._id === currentUser._id
-  );
-  const isModerator = currentUser && (
-    page?.userRole === 'moderator' ||
-    page?.moderators?.includes(currentUser._id)
-  );
+  const isOwner =
+    currentUser &&
+    (page?.userRole === "owner" ||
+      page?.owner === currentUser._id ||
+      page?.owner?._id === currentUser._id);
+  const isModerator =
+    currentUser &&
+    (page?.userRole === "moderator" ||
+      page?.moderators?.includes(currentUser._id));
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setUpdating(true);
     try {
       const formData = new FormData();
-      formData.append('pageName', editForm.pageName);
-      formData.append('title', editForm.title);
-      formData.append('pageDescription', editForm.pageDescription);
+      formData.append("pageName", editForm.pageName);
+      formData.append("title", editForm.title);
+      formData.append("pageDescription", editForm.pageDescription);
 
       await pageApi.updatePage(pageId, formData);
-      success('Community information updated!');
+      success("Community information updated!");
       setShowEditModal(false);
       fetchPageDetails();
     } catch (err) {
-      error(err?.message || 'Failed to update community details.');
+      error(err?.message || "Failed to update community details.");
     } finally {
       setUpdating(false);
     }
@@ -125,31 +133,35 @@ export default function PageInfoPage() {
   const handleAppointModerator = async (userId) => {
     try {
       await pageApi.addModerator(pageId, userId);
-      success('Member appointed as moderator.');
+      success("Member appointed as moderator.");
       fetchPageDetails();
     } catch (err) {
-      error(err?.message || 'Failed to appoint moderator.');
+      error(err?.message || "Failed to appoint moderator.");
     }
   };
 
   const handleRevokeModerator = async (userId) => {
     try {
       await pageApi.removeModerator(pageId, userId);
-      info('Moderator privileges revoked.');
+      info("Moderator privileges revoked.");
       fetchPageDetails();
     } catch (err) {
-      error(err?.message || 'Failed to revoke moderator privileges.');
+      error(err?.message || "Failed to revoke moderator privileges.");
     }
   };
 
   const handleRemoveMember = async (memberId) => {
-    if (window.confirm('Are you sure you want to remove this member from the hub?')) {
+    if (
+      window.confirm(
+        "Are you sure you want to remove this member from the hub?",
+      )
+    ) {
       try {
         await pageApi.removeMember(pageId, memberId);
-        info('Member removed from community.');
+        info("Member removed from community.");
         fetchPageDetails();
       } catch (err) {
-        error(err?.message || 'Failed to remove member.');
+        error(err?.message || "Failed to remove member.");
       }
     }
   };
@@ -159,24 +171,30 @@ export default function PageInfoPage() {
       const request = requests.find((entry) => entry._id === requestId);
       const requestedBy = request?.requestedBy?._id || request?.requestedBy;
       if (!requestedBy) {
-        throw new Error('The selected join request has no associated user.');
+        throw new Error("The selected join request has no associated user.");
       }
       await pageApi.handleJoinRequest(pageId, requestedBy, decision);
-      success(`Join request ${decision === 'approved' ? 'approved' : 'rejected'}.`);
+      success(
+        `Join request ${decision === "approved" ? "approved" : "rejected"}.`,
+      );
       fetchPageDetails();
     } catch (err) {
-      error(err?.message || 'Failed to process request.');
+      error(err?.message || "Failed to process request.");
     }
   };
 
   const handleDeletePage = async () => {
-    if (window.confirm('DANGER: Are you sure you want to permanently delete this community hub? This cannot be undone.')) {
+    if (
+      window.confirm(
+        "DANGER: Are you sure you want to permanently delete this community hub? This cannot be undone.",
+      )
+    ) {
       try {
         await pageApi.deletePage(pageId);
-        success('Community hub deleted.');
-        navigate('/pages/explore');
+        success("Community hub deleted.");
+        navigate("/pages/explore");
       } catch (err) {
-        error(err?.message || 'Failed to delete community hub.');
+        error(err?.message || "Failed to delete community hub.");
       }
     }
   };
@@ -186,13 +204,15 @@ export default function PageInfoPage() {
       <Layout>
         <div className="max-w-3xl mx-auto py-24 text-center">
           <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-xs text-on-surface-variant">Loading community info...</p>
+          <p className="text-xs text-on-surface-variant">
+            Loading community info...
+          </p>
         </div>
       </Layout>
     );
   }
 
-  const ownerObj = typeof page?.owner === 'object' ? page?.owner : null;
+  const ownerObj = typeof page?.owner === "object" ? page?.owner : null;
 
   return (
     <Layout>
@@ -203,7 +223,9 @@ export default function PageInfoPage() {
             to={`/pages/${pageId}`}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-on-surface-variant hover:text-primary transition-colors"
           >
-            <span className="material-symbols-outlined text-base">arrow_back</span>
+            <span className="material-symbols-outlined text-base">
+              arrow_back
+            </span>
             Back to Hub Feed
           </Link>
 
@@ -231,7 +253,10 @@ export default function PageInfoPage() {
         <section className="bg-surface-container-lowest rounded-3xl overflow-hidden border border-outline-variant/15 shadow-stitch-soft">
           <div className="h-40 sm:h-52 w-full overflow-hidden bg-surface-container relative">
             <ImageWithFallback
-              src={page?.pageProfileImage || 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=900&auto=format&fit=crop&q=80'}
+              src={
+                page?.pageProfileImage ||
+                "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=900&auto=format&fit=crop&q=80"
+              }
               alt={page?.pageName}
               className="w-full h-full object-cover"
             />
@@ -248,7 +273,7 @@ export default function PageInfoPage() {
                   {page?.pageName}
                 </h1>
                 <p className="text-xs text-on-surface-variant mt-0.5">
-                  {page?.title || 'Community Learning Hub'}
+                  {page?.title || "Community Learning Hub"}
                 </p>
               </div>
             </div>
@@ -256,32 +281,32 @@ export default function PageInfoPage() {
             {/* Tab Navigation */}
             <div className="flex border-b border-outline-variant/15 mt-6">
               <button
-                onClick={() => setActiveTab('about')}
+                onClick={() => setActiveTab("about")}
                 className={`flex-1 pb-3 text-xs font-bold uppercase tracking-wider transition-colors text-center ${
-                  activeTab === 'about'
-                    ? 'text-primary border-b-2 border-primary'
-                    : 'text-on-surface-variant hover:text-on-surface'
+                  activeTab === "about"
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-on-surface-variant hover:text-on-surface"
                 }`}
               >
                 About & Roles
               </button>
               <button
-                onClick={() => setActiveTab('members')}
+                onClick={() => setActiveTab("members")}
                 className={`flex-1 pb-3 text-xs font-bold uppercase tracking-wider transition-colors text-center ${
-                  activeTab === 'members'
-                    ? 'text-primary border-b-2 border-primary'
-                    : 'text-on-surface-variant hover:text-on-surface'
+                  activeTab === "members"
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-on-surface-variant hover:text-on-surface"
                 }`}
               >
-                Members ({membersCount ?? '—'})
+                Members ({membersCount ?? "—"})
               </button>
-              {(isOwner || isModerator) && page?.type === 'private' && (
+              {(isOwner || isModerator) && page?.type === "private" && (
                 <button
-                  onClick={() => setActiveTab('requests')}
+                  onClick={() => setActiveTab("requests")}
                   className={`flex-1 pb-3 text-xs font-bold uppercase tracking-wider transition-colors text-center ${
-                    activeTab === 'requests'
-                      ? 'text-primary border-b-2 border-primary'
-                      : 'text-on-surface-variant hover:text-on-surface'
+                    activeTab === "requests"
+                      ? "text-primary border-b-2 border-primary"
+                      : "text-on-surface-variant hover:text-on-surface"
                   }`}
                 >
                   Join Requests ({requests.length})
@@ -292,7 +317,7 @@ export default function PageInfoPage() {
         </section>
 
         {/* Tab 1: About & Roles */}
-        {activeTab === 'about' && (
+        {activeTab === "about" && (
           <div className="space-y-6">
             {/* Description */}
             <div className="bg-surface-container-low p-6 rounded-3xl border border-outline-variant/15 space-y-3">
@@ -300,7 +325,8 @@ export default function PageInfoPage() {
                 About Community
               </h3>
               <p className="text-sm text-on-surface/90 leading-relaxed">
-                {page?.pageDescription || 'Welcome to our peer-driven collaborative learning hub.'}
+                {page?.pageDescription ||
+                  "Welcome to our peer-driven collaborative learning hub."}
               </p>
             </div>
 
@@ -312,19 +338,23 @@ export default function PageInfoPage() {
                   <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
                     Community Owner
                   </span>
-                  <span className="material-symbols-outlined text-tertiary text-lg filled">stars</span>
+                  <span className="material-symbols-outlined text-tertiary text-lg filled">
+                    stars
+                  </span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Avatar
                     src={ownerObj?.profileImage}
-                    name={ownerObj?.username || 'Community Founder'}
+                    name={ownerObj?.username || "Community Founder"}
                     className="w-12 h-12 rounded-full object-cover ring-2 ring-primary/20"
                   />
                   <div>
                     <p className="font-bold text-sm text-on-surface">
-                      {ownerObj?.username || 'Community Founder'}
+                      {ownerObj?.username || "Community Founder"}
                     </p>
-                    <p className="text-xs text-secondary font-semibold">Founder & Host</p>
+                    <p className="text-xs text-secondary font-semibold">
+                      Founder & Host
+                    </p>
                   </div>
                 </div>
               </div>
@@ -340,7 +370,8 @@ export default function PageInfoPage() {
                   </span>
                 </div>
                 <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Responsible for content quality, approving join requests, and mentoring members.
+                  Responsible for content quality, approving join requests, and
+                  mentoring members.
                 </p>
               </div>
             </div>
@@ -348,7 +379,7 @@ export default function PageInfoPage() {
         )}
 
         {/* Tab 2: Member Roster */}
-        {activeTab === 'members' && (
+        {activeTab === "members" && (
           <div className="bg-surface-container-lowest p-6 rounded-3xl border border-outline-variant/15 shadow-stitch-soft space-y-4">
             <h3 className="font-headline font-bold text-base text-on-surface">
               Member Roster
@@ -357,12 +388,17 @@ export default function PageInfoPage() {
               <div className="divide-y divide-outline-variant/10">
                 {members.map((member) => {
                   const mId = member._id || member;
-                  const mUsername = member.username || `Member ${mId.toString().slice(-4)}`;
+                  const mUsername =
+                    member.username || `Member ${mId.toString().slice(-4)}`;
                   const isUserMod = page?.moderators?.includes(mId);
-                  const isUserOwner = (page?.owner === mId || page?.owner?._id === mId);
+                  const isUserOwner =
+                    page?.owner === mId || page?.owner?._id === mId;
 
                   return (
-                    <div key={mId} className="py-3.5 flex items-center justify-between">
+                    <div
+                      key={mId}
+                      className="py-3.5 flex items-center justify-between"
+                    >
                       <div className="flex items-center gap-3">
                         <Avatar
                           src={member.profileImage}
@@ -370,9 +406,15 @@ export default function PageInfoPage() {
                           className="w-10 h-10 rounded-full object-cover"
                         />
                         <div>
-                          <p className="font-bold text-sm text-on-surface">{mUsername}</p>
+                          <p className="font-bold text-sm text-on-surface">
+                            {mUsername}
+                          </p>
                           <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-                            {isUserOwner ? 'Owner' : isUserMod ? 'Moderator' : 'Member'}
+                            {isUserOwner
+                              ? "Owner"
+                              : isUserMod
+                                ? "Moderator"
+                                : "Member"}
                           </span>
                         </div>
                       </div>
@@ -400,7 +442,9 @@ export default function PageInfoPage() {
                             className="p-1 rounded-lg hover:bg-error-container/20 text-error transition-colors"
                             title="Remove from hub"
                           >
-                            <span className="material-symbols-outlined text-base">person_remove</span>
+                            <span className="material-symbols-outlined text-base">
+                              person_remove
+                            </span>
                           </button>
                         </div>
                       )}
@@ -411,7 +455,7 @@ export default function PageInfoPage() {
             ) : (
               <p className="text-xs text-on-surface-variant py-4 text-center">
                 {membersCount === null
-                  ? 'Join this hub to view its member roster.'
+                  ? "Join this hub to view its member roster."
                   : `${membersCount} members are currently part of this learning hub.`}
               </p>
             )}
@@ -419,7 +463,7 @@ export default function PageInfoPage() {
         )}
 
         {/* Tab 3: Pending Join Requests */}
-        {activeTab === 'requests' && (
+        {activeTab === "requests" && (
           <div className="bg-surface-container-lowest p-6 rounded-3xl border border-outline-variant/15 shadow-stitch-soft space-y-4">
             <h3 className="font-headline font-bold text-base text-on-surface">
               Pending Join Requests
@@ -427,10 +471,13 @@ export default function PageInfoPage() {
             {requests.length > 0 ? (
               <div className="divide-y divide-outline-variant/10">
                 {requests.map((req) => (
-                  <div key={req._id} className="py-4 flex items-center justify-between">
+                  <div
+                    key={req._id}
+                    className="py-4 flex items-center justify-between"
+                  >
                     <div>
                       <p className="font-bold text-sm text-on-surface">
-                        {req.requestedBy?.username || 'User'}
+                        {req.requestedBy?.username || "User"}
                       </p>
                       {req.message && (
                         <p className="text-xs text-on-surface-variant mt-0.5 italic">
@@ -440,13 +487,17 @@ export default function PageInfoPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => handleJoinRequestDecision(req._id, 'approved')}
+                        onClick={() =>
+                          handleJoinRequestDecision(req._id, "approved")
+                        }
                         className="px-4 py-1.5 bg-secondary text-white text-xs font-bold rounded-xl shadow-sm hover:bg-secondary-dim transition-all"
                       >
                         Approve
                       </button>
                       <button
-                        onClick={() => handleJoinRequestDecision(req._id, 'reject')}
+                        onClick={() =>
+                          handleJoinRequestDecision(req._id, "reject")
+                        }
                         className="px-4 py-1.5 bg-surface-container text-on-surface text-xs font-bold rounded-xl hover:bg-surface-container-high transition-all"
                       >
                         Decline
@@ -479,7 +530,9 @@ export default function PageInfoPage() {
                     type="text"
                     required
                     value={editForm.pageName}
-                    onChange={(e) => setEditForm({ ...editForm, pageName: e.target.value })}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, pageName: e.target.value })
+                    }
                     className="w-full px-4 py-2.5 bg-surface-container-low rounded-xl text-sm border-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
@@ -492,7 +545,9 @@ export default function PageInfoPage() {
                     type="text"
                     required
                     value={editForm.title}
-                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, title: e.target.value })
+                    }
                     className="w-full px-4 py-2.5 bg-surface-container-low rounded-xl text-sm border-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
@@ -505,7 +560,12 @@ export default function PageInfoPage() {
                     rows={3}
                     required
                     value={editForm.pageDescription}
-                    onChange={(e) => setEditForm({ ...editForm, pageDescription: e.target.value })}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        pageDescription: e.target.value,
+                      })
+                    }
                     className="w-full px-4 py-2.5 bg-surface-container-low rounded-xl text-sm border-none focus:ring-2 focus:ring-primary/40 resize-none"
                   />
                 </div>
@@ -523,7 +583,7 @@ export default function PageInfoPage() {
                     disabled={updating}
                     className="px-5 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-dim shadow-sm disabled:opacity-50"
                   >
-                    {updating ? 'Saving...' : 'Save Changes'}
+                    {updating ? "Saving..." : "Save Changes"}
                   </button>
                 </div>
               </form>

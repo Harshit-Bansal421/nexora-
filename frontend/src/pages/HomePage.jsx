@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import Layout from '../components/Layout';
-import TopicPills from '../components/TopicPills';
-import PostCard from '../components/PostCard';
-import { postApi } from '../api/client';
-import { getSocket } from '../api/socket';
+import React, { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
+import Layout from "../components/Layout";
+import TopicPills from "../components/TopicPills";
+import PostCard from "../components/PostCard";
+import { postApi } from "../api/client";
+import { getSocket } from "../api/socket";
 
 export default function HomePage() {
-  const [activeTopic, setActiveTopic] = useState('all');
+  const [activeTopic, setActiveTopic] = useState("all");
   const [posts, setPosts] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -15,37 +15,43 @@ export default function HomePage() {
   const [loadingMore, setLoadingMore] = useState(false);
 
   // Fetch posts by topic or default
-  const fetchPosts = useCallback(async (selectedTopic, pageNum = 1, append = false) => {
-    try {
-      let res;
-      if (selectedTopic === 'all') {
-        res = await postApi.getPosts({ page: pageNum, limit: 10 });
-      } else {
-        res = await postApi.getTopicPosts(selectedTopic, { page: pageNum, limit: 10 });
+  const fetchPosts = useCallback(
+    async (selectedTopic, pageNum = 1, append = false) => {
+      try {
+        let res;
+        if (selectedTopic === "all") {
+          res = await postApi.getPosts({ page: pageNum, limit: 10 });
+        } else {
+          res = await postApi.getTopicPosts(selectedTopic, {
+            page: pageNum,
+            limit: 10,
+          });
+        }
+
+        const data = res?.data || res || {};
+        const postList = Array.isArray(data) ? data : data?.posts || [];
+
+        if (append) {
+          setPosts((prev) => [...prev, ...postList]);
+        } else {
+          setPosts(postList);
+        }
+
+        setHasMore(
+          typeof data?.pagination?.hasNextPage === "boolean"
+            ? data.pagination.hasNextPage
+            : postList.length >= 10,
+        );
+        setPage(pageNum);
+      } catch (err) {
+        console.warn("Error fetching posts:", err);
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
       }
-
-      const data = res?.data || res || {};
-      const postList = Array.isArray(data) ? data : (data?.posts || []);
-
-      if (append) {
-        setPosts((prev) => [...prev, ...postList]);
-      } else {
-        setPosts(postList);
-      }
-
-      setHasMore(
-        typeof data?.pagination?.hasNextPage === 'boolean'
-          ? data.pagination.hasNextPage
-          : postList.length >= 10,
-      );
-      setPage(pageNum);
-    } catch (err) {
-      console.warn('Error fetching posts:', err);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   // Reload when topic changes
   useEffect(() => {
@@ -58,14 +64,14 @@ export default function HomePage() {
   useEffect(() => {
     const socket = getSocket();
     const handleNewPost = (newPost) => {
-      if (newPost && (activeTopic === 'all' || newPost.topic === activeTopic)) {
+      if (newPost && (activeTopic === "all" || newPost.topic === activeTopic)) {
         setPosts((prev) => [newPost, ...prev]);
       }
     };
 
-    socket.on('post-created', handleNewPost);
+    socket.on("post-created", handleNewPost);
     return () => {
-      socket.off('post-created', handleNewPost);
+      socket.off("post-created", handleNewPost);
     };
   }, [activeTopic]);
 
@@ -92,23 +98,31 @@ export default function HomePage() {
                 Need a hand today?
               </h2>
               <p className="text-primary-container text-xs sm:text-sm leading-relaxed mb-5 max-w-sm">
-                Ask fellow students for help with coursework, projects, and career questions.
+                Ask fellow students for help with coursework, projects, and
+                career questions.
               </p>
               <Link
                 to="/posts/new"
                 className="bg-surface-container-lowest text-primary px-6 py-2.5 rounded-full font-bold text-xs shadow-sm hover:bg-primary-container/20 hover:text-white transition-all inline-flex items-center gap-1.5"
               >
-                <span className="material-symbols-outlined text-base">edit_square</span>
+                <span className="material-symbols-outlined text-base">
+                  edit_square
+                </span>
                 Start a Request
               </Link>
             </div>
             {/* Background Lightbulb Accent */}
             <div className="absolute -right-4 -bottom-4 opacity-15 pointer-events-none">
-              <span className="material-symbols-outlined text-[140px] filled">lightbulb</span>
+              <span className="material-symbols-outlined text-[140px] filled">
+                lightbulb
+              </span>
             </div>
           </div>
 
-          <Link to="/pages/explore" className="col-span-12 md:col-span-4 bg-tertiary-container p-6 rounded-2xl text-on-tertiary-container flex flex-col justify-between shadow-stitch-soft hover:shadow-stitch-ambient transition-shadow">
+          <Link
+            to="/pages/explore"
+            className="col-span-12 md:col-span-4 bg-tertiary-container p-6 rounded-2xl text-on-tertiary-container flex flex-col justify-between shadow-stitch-soft hover:shadow-stitch-ambient transition-shadow"
+          >
             <div className="flex items-center justify-between">
               <span className="material-symbols-outlined text-3xl">groups</span>
               <span className="text-[10px] font-extrabold uppercase tracking-widest bg-black/10 px-2 py-0.5 rounded-full">
@@ -127,7 +141,10 @@ export default function HomePage() {
         </section>
 
         {/* Filter Bar */}
-        <TopicPills activeTopic={activeTopic} onSelectTopic={handleSelectTopic} />
+        <TopicPills
+          activeTopic={activeTopic}
+          onSelectTopic={handleSelectTopic}
+        />
 
         {/* Dynamic Feed Posts */}
         {loading ? (
@@ -162,7 +179,9 @@ export default function HomePage() {
                   disabled={loadingMore}
                   className="min-h-11 px-6 py-2.5 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold rounded-full transition-all active:scale-95 disabled:opacity-50"
                 >
-                  {loadingMore ? 'Loading more discussions...' : 'Load More Posts'}
+                  {loadingMore
+                    ? "Loading more discussions..."
+                    : "Load More Posts"}
                 </button>
               </div>
             )}
@@ -176,7 +195,8 @@ export default function HomePage() {
               No discussions yet in this category
             </h3>
             <p className="text-xs text-on-surface-variant max-w-sm mx-auto mb-5">
-              Be the first to ask a question or share your knowledge with fellow students!
+              Be the first to ask a question or share your knowledge with fellow
+              students!
             </p>
             <Link
               to="/posts/new"

@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { authApi } from '../api/client';
-import { useAuth } from '../context/authContextValue';
-import { useToast } from '../context/toastContextValue';
+import React, { useState, useRef, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { authApi } from "../api/client";
+import { useAuth } from "../context/authContextValue";
+import { useToast } from "../context/toastContextValue";
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
@@ -10,9 +10,9 @@ export default function VerifyEmailPage() {
   const { refreshUser } = useAuth();
   const { success, error } = useToast();
 
-  const emailParam = searchParams.get('email') || '';
+  const emailParam = searchParams.get("email") || "";
   const [email, setEmail] = useState(emailParam);
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
@@ -25,13 +25,16 @@ export default function VerifyEmailPage() {
 
   useEffect(() => {
     if (resendCooldown > 0) {
-      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      const timer = setTimeout(
+        () => setResendCooldown(resendCooldown - 1),
+        1000,
+      );
       return () => clearTimeout(timer);
     }
   }, [resendCooldown]);
 
   const handleChange = (index, value) => {
-    const char = value.replace(/\D/g, '').slice(-1);
+    const char = value.replace(/\D/g, "").slice(-1);
     const newOtp = [...otp];
     newOtp[index] = char;
     setOtp(newOtp);
@@ -43,17 +46,17 @@ export default function VerifyEmailPage() {
   };
 
   const handleKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
   const handlePaste = (e) => {
     e.preventDefault();
-    const pasted = e.clipboardData.getData('text').trim().slice(0, 6);
+    const pasted = e.clipboardData.getData("text").trim().slice(0, 6);
     if (/^\d+$/.test(pasted)) {
       const newOtp = [...otp];
-      newOtp.fill('');
+      newOtp.fill("");
       for (let i = 0; i < pasted.length; i++) {
         newOtp[i] = pasted[i];
       }
@@ -64,25 +67,32 @@ export default function VerifyEmailPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const fullOtp = otp.join('');
+    const fullOtp = otp.join("");
     if (fullOtp.length !== 6) {
-      error('Please enter the full 6-digit verification code.');
+      error("Please enter the full 6-digit verification code.");
       return;
     }
     if (!email) {
-      error('Please provide the registered email address.');
+      error("Please provide the registered email address.");
       return;
     }
 
     setLoading(true);
 
     try {
-      await authApi.verifyEmail({ email: email.trim().toLowerCase(), otp: fullOtp });
-      success('Email successfully verified! Welcome to Nexora.');
+      await authApi.verifyEmail({
+        email: email.trim().toLowerCase(),
+        otp: fullOtp,
+      });
+      success("Email successfully verified! Welcome to Nexora.");
       await refreshUser();
-      navigate('/feed');
+      navigate("/feed");
     } catch (err) {
-      error(err?.message || err?.error || 'Verification failed. Code may be invalid or expired.');
+      error(
+        err?.message ||
+          err?.error ||
+          "Verification failed. Code may be invalid or expired.",
+      );
     } finally {
       setLoading(false);
     }
@@ -91,16 +101,21 @@ export default function VerifyEmailPage() {
   const handleResend = async () => {
     if (resendCooldown > 0) return;
     if (!email) {
-      error('Please specify your registered email address first.');
+      error("Please specify your registered email address first.");
       return;
     }
 
     try {
-      await authApi.resendEmail({ email: email.trim().toLowerCase(), type: 'email_verify' });
-      success('A fresh 6-digit verification code has been dispatched to your email.');
+      await authApi.resendEmail({
+        email: email.trim().toLowerCase(),
+        type: "email_verify",
+      });
+      success(
+        "A fresh 6-digit verification code has been dispatched to your email.",
+      );
       setResendCooldown(60);
     } catch (err) {
-      error(err?.message || 'Could not resend code. Please try again.');
+      error(err?.message || "Could not resend code. Please try again.");
     }
   };
 
@@ -130,7 +145,9 @@ export default function VerifyEmailPage() {
             <div className="absolute inset-0 bg-primary/10 rounded-3xl rotate-6" />
             <div className="absolute inset-0 bg-primary/15 rounded-3xl -rotate-3" />
             <div className="relative flex items-center justify-center w-full h-full bg-surface-container-lowest rounded-3xl shadow-sm border border-outline-variant/15">
-              <span className="material-symbols-outlined text-4xl text-primary">mail</span>
+              <span className="material-symbols-outlined text-4xl text-primary">
+                mail
+              </span>
             </div>
           </div>
 
@@ -138,9 +155,11 @@ export default function VerifyEmailPage() {
             Verify your email
           </h1>
           <p className="text-on-surface-variant leading-relaxed mb-6 text-sm">
-            We've sent a 6-digit verification code to{' '}
-            <span className="font-semibold text-on-surface">{email || 'your email'}</span>.
-            Enter it below to activate your account.
+            We've sent a 6-digit verification code to{" "}
+            <span className="font-semibold text-on-surface">
+              {email || "your email"}
+            </span>
+            . Enter it below to activate your account.
           </p>
 
           {!emailParam && (
@@ -160,7 +179,10 @@ export default function VerifyEmailPage() {
 
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* 6 Digit Inputs */}
-            <div className="flex justify-center gap-2 sm:gap-3" onPaste={handlePaste}>
+            <div
+              className="flex justify-center gap-2 sm:gap-3"
+              onPaste={handlePaste}
+            >
               {otp.map((digit, idx) => (
                 <input
                   key={idx}
@@ -189,7 +211,9 @@ export default function VerifyEmailPage() {
               ) : (
                 <>
                   <span>Verify Account</span>
-                  <span className="material-symbols-outlined text-lg">check_circle</span>
+                  <span className="material-symbols-outlined text-lg">
+                    check_circle
+                  </span>
                 </>
               )}
             </button>
@@ -198,14 +222,16 @@ export default function VerifyEmailPage() {
           {/* Resend Section */}
           <div className="mt-8 pt-6 border-t border-outline-variant/15 text-sm text-on-surface-variant">
             <p>
-              Didn't receive the email?{' '}
+              Didn't receive the email?{" "}
               <button
                 type="button"
                 onClick={handleResend}
                 disabled={resendCooldown > 0}
                 className="text-primary font-bold hover:underline ml-1 disabled:opacity-50 disabled:no-underline"
               >
-                {resendCooldown > 0 ? `Resend Code in ${resendCooldown}s` : 'Resend Code'}
+                {resendCooldown > 0
+                  ? `Resend Code in ${resendCooldown}s`
+                  : "Resend Code"}
               </button>
             </p>
           </div>
@@ -213,8 +239,13 @@ export default function VerifyEmailPage() {
 
         {/* Back link */}
         <div className="mt-6 flex justify-between items-center px-4 text-sm text-on-surface-variant">
-          <Link to="/login" className="hover:text-primary flex items-center gap-1 transition-colors">
-            <span className="material-symbols-outlined text-base">arrow_back</span>
+          <Link
+            to="/login"
+            className="hover:text-primary flex items-center gap-1 transition-colors"
+          >
+            <span className="material-symbols-outlined text-base">
+              arrow_back
+            </span>
             Back to login
           </Link>
           <Link to="/signup" className="hover:text-primary transition-colors">

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/authContextValue';
-import { useToast } from '../context/toastContextValue';
+import React, { useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../context/authContextValue";
+import { useToast } from "../context/toastContextValue";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -9,18 +9,18 @@ export default function LoginPage() {
   const { login } = useAuth();
   const { success, info } = useToast();
 
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErrorMessage('');
+    setErrorMessage("");
 
     if (!username.trim() || !password) {
-      setErrorMessage('Please provide both username and password.');
+      setErrorMessage("Please provide both username and password.");
       return;
     }
 
@@ -28,11 +28,14 @@ export default function LoginPage() {
 
     try {
       await login({ username: username.trim().toLowerCase(), password });
-      success('Logged in successfully! Welcome back.');
-      const returnTo = location.state?.from || '/feed';
+      success("Logged in successfully! Welcome back.");
+      const returnTo = location.state?.from || "/feed";
       navigate(returnTo, { replace: true });
     } catch (err) {
-      const msg = err?.message || err?.error || 'Invalid credentials. Please verify your username and password.';
+      const msg =
+        err?.message ||
+        err?.error ||
+        "Invalid credentials. Please verify your username and password.";
       setErrorMessage(msg);
     } finally {
       setLoading(false);
@@ -40,7 +43,9 @@ export default function LoginPage() {
   };
 
   const handleSocialClick = (provider) => {
-    info(`${provider} login is coming soon. Please sign in with your username and password.`);
+    info(
+      `${provider} login is coming soon. Please sign in with your username and password.`,
+    );
   };
 
   return (
@@ -78,14 +83,19 @@ export default function LoginPage() {
           <div className="bg-surface-container-lowest p-7 sm:p-8 rounded-[1.75rem] shadow-stitch-ambient border border-outline-variant/15 space-y-6">
             {errorMessage && (
               <div className="p-3.5 rounded-xl bg-error-container/20 border border-error/20 text-error text-xs font-medium flex items-center gap-2">
-                <span className="material-symbols-outlined text-base">error</span>
+                <span className="material-symbols-outlined text-base">
+                  error
+                </span>
                 <span>{errorMessage}</span>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1" htmlFor="username">
+                <label
+                  className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant ml-1"
+                  htmlFor="username"
+                >
                   Username
                 </label>
                 <div className="relative group">
@@ -106,7 +116,10 @@ export default function LoginPage() {
 
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center px-1">
-                  <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant" htmlFor="password">
+                  <label
+                    className="text-xs font-bold uppercase tracking-wider text-on-surface-variant"
+                    htmlFor="password"
+                  >
                     Password
                   </label>
                   <Link
@@ -122,7 +135,7 @@ export default function LoginPage() {
                   </span>
                   <input
                     id="password"
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -135,7 +148,7 @@ export default function LoginPage() {
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface transition-colors"
                   >
                     <span className="material-symbols-outlined text-lg">
-                      {showPassword ? 'visibility_off' : 'visibility'}
+                      {showPassword ? "visibility_off" : "visibility"}
                     </span>
                   </button>
                 </div>
@@ -154,7 +167,9 @@ export default function LoginPage() {
                 ) : (
                   <>
                     <span>Login to Nexora</span>
-                    <span className="material-symbols-outlined text-lg">arrow_forward</span>
+                    <span className="material-symbols-outlined text-lg">
+                      arrow_forward
+                    </span>
                   </>
                 )}
               </button>
@@ -172,7 +187,7 @@ export default function LoginPage() {
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => handleSocialClick('Google')}
+                onClick={() => handleSocialClick("Google")}
                 className="flex items-center justify-center gap-2 py-3 px-4 bg-surface-container-low hover:bg-surface-container-high rounded-xl transition-all text-xs font-semibold text-on-surface border border-outline-variant/10 active:scale-95"
               >
                 <img
@@ -185,18 +200,23 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                onClick={() => handleSocialClick('GitHub')}
+                onClick={() => handleSocialClick("GitHub")}
                 className="flex items-center justify-center gap-2 py-3 px-4 bg-surface-container-low hover:bg-surface-container-high rounded-xl transition-all text-xs font-semibold text-on-surface border border-outline-variant/10 active:scale-95"
               >
-                <span className="material-symbols-outlined text-lg">terminal</span>
+                <span className="material-symbols-outlined text-lg">
+                  terminal
+                </span>
                 <span>GitHub</span>
               </button>
             </div>
           </div>
 
           <div className="text-center text-sm text-on-surface-variant">
-            Don't have an account?{' '}
-            <Link to="/signup" className="text-primary font-bold hover:underline ml-1">
+            Don't have an account?{" "}
+            <Link
+              to="/signup"
+              className="text-primary font-bold hover:underline ml-1"
+            >
               Sign up
             </Link>
           </div>

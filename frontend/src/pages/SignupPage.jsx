@@ -1,29 +1,29 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { authApi } from '../api/client';
-import { useToast } from '../context/toastContextValue';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { authApi } from "../api/client";
+import { useToast } from "../context/toastContextValue";
 
 export default function SignupPage() {
   const navigate = useNavigate();
   const { success, error } = useToast();
 
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
+    username: "",
+    email: "",
+    password: "",
   });
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [validationError, setValidationError] = useState('');
+  const [validationError, setValidationError] = useState("");
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 4 * 1024 * 1024) {
-        error('Profile image must be less than 4MB');
+        error("Profile image must be less than 4MB");
         return;
       }
       setProfileImageFile(file);
@@ -44,26 +44,32 @@ export default function SignupPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setValidationError('');
+    setValidationError("");
 
-    if (!formData.username.trim() || formData.username.length < 4 || formData.username.length > 20) {
-      setValidationError('Username must be between 4 and 20 characters.');
+    if (
+      !formData.username.trim() ||
+      formData.username.length < 4 ||
+      formData.username.length > 20
+    ) {
+      setValidationError("Username must be between 4 and 20 characters.");
       return;
     }
-    if (!formData.email.trim() || !formData.email.includes('@')) {
-      setValidationError('Please enter a valid email address.');
+    if (!formData.email.trim() || !formData.email.includes("@")) {
+      setValidationError("Please enter a valid email address.");
       return;
     }
     if (!formData.password || formData.password.length < 5) {
-      setValidationError('Password must be at least 5 characters long.');
+      setValidationError("Password must be at least 5 characters long.");
       return;
     }
     if (!profileImageFile) {
-      setValidationError('Please upload a profile avatar picture to complete registration.');
+      setValidationError(
+        "Please upload a profile avatar picture to complete registration.",
+      );
       return;
     }
     if (!agreedToTerms) {
-      setValidationError('Please agree to the Terms of Service to continue.');
+      setValidationError("Please agree to the Terms of Service to continue.");
       return;
     }
 
@@ -71,16 +77,21 @@ export default function SignupPage() {
 
     try {
       const data = new FormData();
-      data.append('username', formData.username.trim().toLowerCase());
-      data.append('email', formData.email.trim().toLowerCase());
-      data.append('password', formData.password);
-      data.append('profileImage', profileImageFile);
+      data.append("username", formData.username.trim().toLowerCase());
+      data.append("email", formData.email.trim().toLowerCase());
+      data.append("password", formData.password);
+      data.append("profileImage", profileImageFile);
 
       const res = await authApi.signup(data);
-      success(res?.data || 'Verification code sent to your email!');
-      navigate(`/verify-email?email=${encodeURIComponent(formData.email.trim().toLowerCase())}`);
+      success(res?.data || "Verification code sent to your email!");
+      navigate(
+        `/verify-email?email=${encodeURIComponent(formData.email.trim().toLowerCase())}`,
+      );
     } catch (err) {
-      const msg = err?.message || err?.error || 'Registration failed. Please check your details.';
+      const msg =
+        err?.message ||
+        err?.error ||
+        "Registration failed. Please check your details.";
       error(msg);
       setValidationError(msg);
     } finally {
@@ -108,35 +119,52 @@ export default function SignupPage() {
               <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-on-primary">
                 <span className="material-symbols-outlined text-xl">hub</span>
               </div>
-              <span className="text-2xl font-extrabold text-primary font-headline tracking-tight">Nexora</span>
+              <span className="text-2xl font-extrabold text-primary font-headline tracking-tight">
+                Nexora
+              </span>
             </Link>
 
             <h2 className="text-4xl font-headline font-extrabold text-on-primary-container leading-tight mt-6">
-              Join the<br />Collaborative Canvas.
+              Join the
+              <br />
+              Collaborative Canvas.
             </h2>
             <p className="mt-4 text-on-primary-container/80 text-base leading-relaxed max-w-sm font-medium">
-              Where knowledge finds its home and every question meets a helping hand.
+              Where knowledge finds its home and every question meets a helping
+              hand.
             </p>
           </div>
 
           <div className="relative z-10 space-y-4">
             <div className="flex items-center gap-4 bg-white/40 backdrop-blur-md p-4 rounded-2xl border border-white/30">
               <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-white">
-                <span className="material-symbols-outlined text-lg">verified_user</span>
+                <span className="material-symbols-outlined text-lg">
+                  verified_user
+                </span>
               </div>
               <div>
-                <p className="text-on-primary-container font-bold text-sm">Verified Network</p>
-                <p className="text-on-primary-container/70 text-xs">Access trusted peers and experienced mentors</p>
+                <p className="text-on-primary-container font-bold text-sm">
+                  Verified Network
+                </p>
+                <p className="text-on-primary-container/70 text-xs">
+                  Access trusted peers and experienced mentors
+                </p>
               </div>
             </div>
 
             <div className="flex items-center gap-4 bg-white/40 backdrop-blur-md p-4 rounded-2xl border border-white/30">
               <div className="w-10 h-10 rounded-full bg-tertiary flex items-center justify-center text-white">
-                <span className="material-symbols-outlined text-lg">volunteer_activism</span>
+                <span className="material-symbols-outlined text-lg">
+                  volunteer_activism
+                </span>
               </div>
               <div>
-                <p className="text-on-primary-container font-bold text-sm">Real Impact</p>
-                <p className="text-on-primary-container/70 text-xs">Help others solve blockers and earn reputation</p>
+                <p className="text-on-primary-container font-bold text-sm">
+                  Real Impact
+                </p>
+                <p className="text-on-primary-container/70 text-xs">
+                  Help others solve blockers and earn reputation
+                </p>
               </div>
             </div>
           </div>
@@ -160,7 +188,9 @@ export default function SignupPage() {
 
             {validationError && (
               <div className="mb-6 p-4 rounded-xl bg-error-container/20 border border-error/20 text-error text-xs font-medium flex items-center gap-2">
-                <span className="material-symbols-outlined text-base">error</span>
+                <span className="material-symbols-outlined text-base">
+                  error
+                </span>
                 <span>{validationError}</span>
               </div>
             )}
@@ -174,16 +204,24 @@ export default function SignupPage() {
                 <div className="flex items-center gap-4 p-3 bg-surface-container-low rounded-2xl border border-outline-variant/20">
                   <div className="relative w-14 h-14 rounded-full overflow-hidden bg-surface-container-highest flex-shrink-0 border-2 border-white shadow-sm">
                     {imagePreview ? (
-                      <img src={imagePreview} alt="Avatar preview" className="w-full h-full object-cover" />
+                      <img
+                        src={imagePreview}
+                        alt="Avatar preview"
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-outline">
-                        <span className="material-symbols-outlined text-2xl">person</span>
+                        <span className="material-symbols-outlined text-2xl">
+                          person
+                        </span>
                       </div>
                     )}
                   </div>
                   <div className="flex-1">
                     <label className="inline-block px-4 py-2 bg-surface-container-lowest text-primary text-xs font-bold rounded-xl border border-outline-variant/30 hover:bg-surface-container transition-colors cursor-pointer">
-                      <span>{imagePreview ? 'Change Avatar' : 'Select Picture'}</span>
+                      <span>
+                        {imagePreview ? "Change Avatar" : "Select Picture"}
+                      </span>
                       <input
                         type="file"
                         accept="image/png, image/jpeg, image/jpg, image/webp"
@@ -191,7 +229,9 @@ export default function SignupPage() {
                         className="hidden"
                       />
                     </label>
-                    <p className="text-[11px] text-on-surface-variant/70 mt-1">JPG, PNG, or WEBP up to 4MB</p>
+                    <p className="text-[11px] text-on-surface-variant/70 mt-1">
+                      JPG, PNG, or WEBP up to 4MB
+                    </p>
                   </div>
                 </div>
               </div>
@@ -209,7 +249,9 @@ export default function SignupPage() {
                     type="text"
                     required
                     value={formData.username}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, username: e.target.value })
+                    }
                     placeholder="e.g. alex_helper"
                     className="w-full bg-surface-container-low border border-transparent rounded-xl py-3 pl-11 pr-4 focus:ring-2 focus:ring-primary/40 focus:bg-surface-container-lowest transition-all text-sm text-on-surface placeholder:text-outline/60 font-medium"
                   />
@@ -229,7 +271,9 @@ export default function SignupPage() {
                     type="email"
                     required
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
                     placeholder="name@example.com"
                     className="w-full bg-surface-container-low border border-transparent rounded-xl py-3 pl-11 pr-4 focus:ring-2 focus:ring-primary/40 focus:bg-surface-container-lowest transition-all text-sm text-on-surface placeholder:text-outline/60 font-medium"
                   />
@@ -245,9 +289,13 @@ export default function SignupPage() {
                   {formData.password && (
                     <span className="text-[11px] font-bold text-secondary flex items-center gap-1">
                       <span className="material-symbols-outlined text-xs">
-                        {strength >= 3 ? 'verified' : 'info'}
+                        {strength >= 3 ? "verified" : "info"}
                       </span>
-                      {strength >= 3 ? 'Strong' : strength === 2 ? 'Medium' : 'Weak'}
+                      {strength >= 3
+                        ? "Strong"
+                        : strength === 2
+                          ? "Medium"
+                          : "Weak"}
                     </span>
                   )}
                 </div>
@@ -256,10 +304,12 @@ export default function SignupPage() {
                     lock
                   </span>
                   <input
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     required
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
                     placeholder="••••••••••••"
                     className="w-full bg-surface-container-low border border-transparent rounded-xl py-3 pl-11 pr-11 focus:ring-2 focus:ring-primary/40 focus:bg-surface-container-lowest transition-all text-sm text-on-surface placeholder:text-outline/60 font-medium"
                   />
@@ -269,17 +319,25 @@ export default function SignupPage() {
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface transition-colors"
                   >
                     <span className="material-symbols-outlined text-lg">
-                      {showPassword ? 'visibility_off' : 'visibility'}
+                      {showPassword ? "visibility_off" : "visibility"}
                     </span>
                   </button>
                 </div>
 
                 {/* Password Strength Indicator */}
                 <div className="flex gap-1.5 mt-2">
-                  <div className={`h-1 flex-1 rounded-full transition-all ${strength >= 1 ? 'bg-secondary' : 'bg-outline-variant/30'}`} />
-                  <div className={`h-1 flex-1 rounded-full transition-all ${strength >= 2 ? 'bg-secondary' : 'bg-outline-variant/30'}`} />
-                  <div className={`h-1 flex-1 rounded-full transition-all ${strength >= 3 ? 'bg-secondary' : 'bg-outline-variant/30'}`} />
-                  <div className={`h-1 flex-1 rounded-full transition-all ${strength >= 4 ? 'bg-secondary' : 'bg-outline-variant/30'}`} />
+                  <div
+                    className={`h-1 flex-1 rounded-full transition-all ${strength >= 1 ? "bg-secondary" : "bg-outline-variant/30"}`}
+                  />
+                  <div
+                    className={`h-1 flex-1 rounded-full transition-all ${strength >= 2 ? "bg-secondary" : "bg-outline-variant/30"}`}
+                  />
+                  <div
+                    className={`h-1 flex-1 rounded-full transition-all ${strength >= 3 ? "bg-secondary" : "bg-outline-variant/30"}`}
+                  />
+                  <div
+                    className={`h-1 flex-1 rounded-full transition-all ${strength >= 4 ? "bg-secondary" : "bg-outline-variant/30"}`}
+                  />
                 </div>
               </div>
 
@@ -292,10 +350,19 @@ export default function SignupPage() {
                   onChange={(e) => setAgreedToTerms(e.target.checked)}
                   className="mt-1 rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4 cursor-pointer"
                 />
-                <label htmlFor="terms" className="text-xs text-on-surface-variant leading-relaxed select-none cursor-pointer">
-                  I agree to Nexora's{' '}
-                  <span className="text-primary font-semibold hover:underline">Terms of Service</span> and{' '}
-                  <span className="text-primary font-semibold hover:underline">Privacy Policy</span>.
+                <label
+                  htmlFor="terms"
+                  className="text-xs text-on-surface-variant leading-relaxed select-none cursor-pointer"
+                >
+                  I agree to Nexora's{" "}
+                  <span className="text-primary font-semibold hover:underline">
+                    Terms of Service
+                  </span>{" "}
+                  and{" "}
+                  <span className="text-primary font-semibold hover:underline">
+                    Privacy Policy
+                  </span>
+                  .
                 </label>
               </div>
 
@@ -313,7 +380,9 @@ export default function SignupPage() {
                 ) : (
                   <>
                     <span>Create Account</span>
-                    <span className="material-symbols-outlined text-lg">arrow_forward</span>
+                    <span className="material-symbols-outlined text-lg">
+                      arrow_forward
+                    </span>
                   </>
                 )}
               </button>
@@ -321,8 +390,11 @@ export default function SignupPage() {
 
             {/* Footer link to Login */}
             <div className="text-center mt-8 pt-6 border-t border-outline-variant/15 text-sm text-on-surface-variant">
-              Already have an account?{' '}
-              <Link to="/login" className="text-primary font-bold hover:underline ml-1">
+              Already have an account?{" "}
+              <Link
+                to="/login"
+                className="text-primary font-bold hover:underline ml-1"
+              >
                 Log in
               </Link>
             </div>

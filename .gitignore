@@ -36,6 +36,7 @@ Thumbs.db
 *.pid
 *.seed
 *.pid.lock
+cookies.txt
 
 # pnpm and yarn logs
 yarn-debug.log*

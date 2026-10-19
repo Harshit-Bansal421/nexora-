@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState } from "react";
 
 export default function ImageWithFallback({
   src,
-  alt = '',
-  fallbackSrc = '',
+  alt = "",
+  fallbackSrc = "",
   fallback = null,
-  className = '',
+  className = "",
   ...props
 }) {
   const [failure, setFailure] = useState(null);
@@ -19,10 +19,12 @@ export default function ImageWithFallback({
     return (
       <span
         role="img"
-        aria-label={alt ? `${alt} unavailable` : 'Image unavailable'}
+        aria-label={alt ? `${alt} unavailable` : "Image unavailable"}
         className={`inline-flex items-center justify-center bg-surface-container text-on-surface-variant ${className}`}
       >
-        <span aria-hidden="true" className="material-symbols-outlined">image</span>
+        <span aria-hidden="true" className="material-symbols-outlined">
+          image
+        </span>
       </span>
     );
   }

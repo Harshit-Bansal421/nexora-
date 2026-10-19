@@ -16,7 +16,8 @@ import {
   verifyResetOTP,
   resetPassword,
   followUser,
-  unfollowUser
+  unfollowUser,
+  updateProfile,
 } from "../controllers/userauth.controller.js";
 import { jwtVerify } from "../middleware/jwtVerify.js";
 
@@ -42,7 +43,7 @@ router.route("/logout").post(jwtVerify, ratelimit.writeLimiter(), logoutUser);
 router.route("/logout-all").post(jwtVerify, ratelimit.sensitiveLimiter(), logoutUserAllDevice);
 router.route("/update-username").patch(jwtVerify, ratelimit.writeLimiter(), updateUsername);
 router.route("/change-password").patch(jwtVerify, ratelimit.sensitiveLimiter(), UpdatePassword);
-// router.route("/update-profile").patch();
+router.route("/update-profile").patch(jwtVerify, ratelimit.writeLimiter(), updateProfile);
 
 
 
