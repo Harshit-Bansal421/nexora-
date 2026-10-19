@@ -1,4 +1,5 @@
 import { io } from "socket.io-client";
+import api from "./client";
 import { SOCKET_URL } from "./config";
 
 let socket = null;
@@ -16,14 +17,8 @@ export const getSocket = () => {
       transports: ["websocket", "polling"],
       withCredentials: true,
       auth: (callback) => {
-        fetch("/api/v1/users/socket-token", {
-          credentials: "same-origin",
-          headers: { Accept: "application/json" },
-        })
-          .then(async (response) => {
-            if (!response.ok) throw new Error("Socket authentication failed");
-            return response.json();
-          })
+        api
+          .get("/users/socket-token")
           .then((response) => callback({ token: response?.data?.token }))
           .catch(() => callback({}));
       },
