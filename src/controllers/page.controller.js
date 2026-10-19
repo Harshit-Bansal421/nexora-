@@ -12,6 +12,7 @@ import { Post } from "../models/Post.model.js";
 import { JoinRequest } from "../models/Joinrequest.model.js";
 import { getIO } from "../socket.js";
 import { createNotification } from "../utils/createNotification.js";
+import { parsePagination } from "../utils/pagination.js";
 
 const createPage = asyncHandler(async (req, res) => {
   const { pageName, pageDescription, title, type = "open" } = req.body || {};
@@ -127,17 +128,10 @@ const deletePage = asyncHandler(async (req, res) => {
 });
 
 const getPages = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, search, topic, title } = req.query;
-
-  const PageNumber = Number(page);
-  const limitNumber = Number(limit);
-  if (!Number.isInteger(PageNumber) || PageNumber < 1) {
-    throw new ApiError(400, "Page must be a positive integer");
-  }
-  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
-    throw new ApiError(400, "Limit must be between 1 and 100");
-  }
-  const skip = (PageNumber - 1) * limitNumber;
+  const { page: PageNumber, limit: limitNumber, skip } = parsePagination(
+    req.query,
+  );
+  const { search, topic, title } = req.query;
 
   const filter = {};
   filter.type = "open";
@@ -299,18 +293,10 @@ const removeModerator = asyncHandler(async (req, res) => {
 
 const seeMembersList = asyncHandler(async (req, res) => {
   //get page id from req.page
-  const { page = 1, limit = 10 } = req.query;
   const page_id = req.page._id;
-
-  const pageNumber = Number(page);
-  const limitNumber = Number(limit);
-  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
-    throw new ApiError(400, "Page must be a positive integer");
-  }
-  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
-    throw new ApiError(400, "Limit must be between 1 and 100");
-  }
-  const skip = (pageNumber - 1) * limitNumber;
+  const { page: pageNumber, limit: limitNumber, skip } = parsePagination(
+    req.query,
+  );
 
   const [membeList] = await Page.aggregate([
     { $match: { _id: page_id } },
@@ -507,16 +493,9 @@ const seePendingRequest = asyncHandler(async (req, res) => {
   const page_id = req.page._id;
   const status = "pending";
 
-  const { page = 1, limit = 10 } = req.query;
-  const pageNumber = Number(page);
-  const limitNumber = Number(limit);
-  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
-    throw new ApiError(400, "Page must be a positive integer");
-  }
-  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
-    throw new ApiError(400, "Limit must be between 1 and 100");
-  }
-  const skip = (pageNumber - 1) * limitNumber;
+  const { page: pageNumber, limit: limitNumber, skip } = parsePagination(
+    req.query,
+  );
 
   //get pending request from join request and use aggregate pipeline for requestedBy info
   const requests = await JoinRequest.find({ page: page_id, status: status })

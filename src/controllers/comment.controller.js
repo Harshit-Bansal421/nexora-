@@ -7,6 +7,7 @@ import { getIO } from "../socket.js";
 import { createNotification } from "../utils/createNotification.js";
 import { User } from '../models/User.model.js'
 import { assertPostAccess } from "../utils/postAccess.js";
+import { parsePagination } from "../utils/pagination.js";
 
 
 const createComment = asyncHandler(async (req, res) => {
@@ -107,22 +108,16 @@ const getComnment = asyncHandler(async (req, res) => {
   } = req.query;
 
   const isTopLevel = !parentComment || parentComment === "null";
-  const pageNumber = Number(page);
-  const limitNumber = Number(limit);
-  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
-    throw new ApiError(400, "Page must be a positive integer");
-  }
-  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
-    throw new ApiError(400, "Limit must be between 1 and 100");
-  }
+  const { page: pageNumber, limit: limitNumber, skip } = parsePagination({
+    page,
+    limit,
+  });
   if (!["top", "latest"].includes(sort)) {
     throw new ApiError(400, "Sort must be top or latest");
   }
   if (!isTopLevel && !mongoose.Types.ObjectId.isValid(parentComment)) {
     throw new ApiError(400, "Invalid parent comment ID");
   }
-  const skip = (pageNumber - 1) * limitNumber;
-
   // Step 3 — build sort option
   // top level → by upvotes
   // replies   → by date ascending (conversation order)

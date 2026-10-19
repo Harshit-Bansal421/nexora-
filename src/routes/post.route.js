@@ -27,7 +27,7 @@ const router = Router();
 //specific named route first
 
 //publc route any one can access them
-router.route("/").get(ratelimit.readLimiter(), getPost);
+router.route("/").get(ratelimit.readLimiter(), verifyOptional, getPost);
 router.route("/search").get(ratelimit.readLimiter(), searchOnText);
 router.route("/topic/:topic").get(ratelimit.readLimiter(), getTopicPosts);
 router.route("/user/:username").get(ratelimit.readLimiter(), getUserPosts);

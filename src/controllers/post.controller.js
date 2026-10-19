@@ -18,6 +18,7 @@ import {
   postVisibilityStagesForUser,
   publicPostVisibilityStages,
 } from "../utils/postAccess.js";
+import { parsePagination } from "../utils/pagination.js";
 
 const createPost = asyncHandler(async (req, res) => {
   //get all the info from req.body,req.user,req.files
@@ -392,6 +393,26 @@ const getPostById = asyncHandler(async (req, res) => {
       $addFields: {
         upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
         downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
+        userVote: req.user?._id
+          ? {
+              $cond: [
+                { $in: [req.user._id, { $ifNull: ["$upvotes", []] }] },
+                "upvote",
+                {
+                  $cond: [
+                    {
+                      $in: [
+                        req.user._id,
+                        { $ifNull: ["$downvotes", []] },
+                      ],
+                    },
+                    "downvote",
+                    null,
+                  ],
+                },
+              ],
+            }
+          : null,
       },
     },
     {
@@ -400,6 +421,7 @@ const getPostById = asyncHandler(async (req, res) => {
         owner: "$ownerInfo",
         upvotesCount: 1,
         downvotesCount: 1,
+        userVote: 1,
         topic: 1,
         title: 1,
         postVideo: 1,
@@ -485,14 +507,7 @@ const unsavePost = asyncHandler(async (req, res) => {
 
 const getSavePost = asyncHandler(async (req, res) => {
   const userid = req.user?._id;
-  const page = Number(req.query?.page ?? 1);
-  const limit = Number(req.query?.limit ?? 10);
-  if (!Number.isInteger(page) || page < 1) {
-    throw new ApiError(400, "Page must be a positive integer");
-  }
-  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
-    throw new ApiError(400, "Limit must be between 1 and 100");
-  }
+  const { page, limit } = parsePagination(req.query);
   if (!userid) throw new ApiError(401, "Unauthorized access");
 
   const user = await User.findById(userid).select("savedPost").lean();
@@ -581,15 +596,8 @@ const getSavePost = asyncHandler(async (req, res) => {
 
 const getUserPosts = asyncHandler(async (req, res) => {
   const username = req.params.username?.trim().toLowerCase();
-  const pageNumber = Number(req.query.page ?? 1);
-  const limitNumber = Number(req.query.limit ?? 10);
+  const { page: pageNumber, limit: limitNumber } = parsePagination(req.query);
   if (!username) throw new ApiError(400, "Username is required");
-  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
-    throw new ApiError(400, "Page must be a positive integer");
-  }
-  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
-    throw new ApiError(400, "Limit must be between 1 and 100");
-  }
 
   const user = await User.findOne({ username }).select(
     "-password -refreshToken",
@@ -664,15 +672,8 @@ const getUserPosts = asyncHandler(async (req, res) => {
 
 const getTopicPosts = asyncHandler(async (req, res) => {
   const { topic } = req.params;
-  const pageNumber = Number(req.query.page ?? 1);
-  const limitNumber = Number(req.query.limit ?? 10);
+  const { page: pageNumber, limit: limitNumber } = parsePagination(req.query);
   if (!topic) throw new ApiError(400, "Topic is required");
-  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
-    throw new ApiError(400, "Page must be a positive integer");
-  }
-  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
-    throw new ApiError(400, "Limit must be between 1 and 100");
-  }
 
   const posts = await Post.aggregate([
     { $match: { topic: topic } },
@@ -773,14 +774,7 @@ const getTopicPosts = asyncHandler(async (req, res) => {
 });
 
 const getPost = asyncHandler(async (req, res) => {
-  const pageNumber = Number(req.query.page ?? 1);
-  const limitNumber = Number(req.query.limit ?? 10);
-  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
-    throw new ApiError(400, "Page must be a positive integer");
-  }
-  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
-    throw new ApiError(400, "Limit must be between 1 and 100");
-  }
+  const { page: pageNumber, limit: limitNumber } = parsePagination(req.query);
   const postData = await Post.aggregate([
     { $match: {} },
     ...publicPostVisibilityStages(),
@@ -825,6 +819,26 @@ const getPost = asyncHandler(async (req, res) => {
             $addFields: {
               upvotesCount: { $size: { $ifNull: ["$upvotes", []] } },
               downvotesCount: { $size: { $ifNull: ["$downvotes", []] } },
+              userVote: req.user?._id
+                ? {
+                    $cond: [
+                      { $in: [req.user._id, { $ifNull: ["$upvotes", []] }] },
+                      "upvote",
+                      {
+                        $cond: [
+                          {
+                            $in: [
+                              req.user._id,
+                              { $ifNull: ["$downvotes", []] },
+                            ],
+                          },
+                          "downvote",
+                          null,
+                        ],
+                      },
+                    ],
+                  }
+                : null,
             },
           },
           {
@@ -833,6 +847,7 @@ const getPost = asyncHandler(async (req, res) => {
               owner: "$ownerInfo",
               upvotesCount: 1,
               downvotesCount: 1,
+              userVote: 1,
               topic: 1,
               title: 1,
               postVideo: 1,
@@ -1002,14 +1017,7 @@ const searchOnText = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Search query cannot exceed 100 characters");
   }
 
-  const pageNumber = Number(req.query.page ?? 1);
-  const limitNumber = Number(req.query.limit ?? 10);
-  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
-    throw new ApiError(400, "Page must be a positive integer");
-  }
-  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
-    throw new ApiError(400, "Limit must be between 1 and 100");
-  }
+  const { page: pageNumber, limit: limitNumber } = parsePagination(req.query);
 
   const [result] = await Post.aggregate([
     { $match: { $text: { $search: search.trim() } } },
@@ -1078,7 +1086,7 @@ const searchOnText = asyncHandler(async (req, res) => {
 const getPagePost = asyncHandler(async (req, res) => {
   //get pageid from req.params
   const { pageid } = req.params;
-  const { page = 1, limit = 10 } = req.query;
+  const { page: pageNumber, limit: limitNumber, skip } = parsePagination(req.query);
 
   //validate it
   if (!mongoose.Types.ObjectId.isValid(pageid)) {
@@ -1110,16 +1118,6 @@ const getPagePost = asyncHandler(async (req, res) => {
   }
 
   //get all posts from post collections where pages array contains pageid
-  const pageNumber = Number(page);
-  const limitNumber = Number(limit);
-  if (!Number.isInteger(pageNumber) || pageNumber < 1) {
-    throw new ApiError(400, "Page must be a positive integer");
-  }
-  if (!Number.isInteger(limitNumber) || limitNumber < 1 || limitNumber > 100) {
-    throw new ApiError(400, "Limit must be between 1 and 100");
-  }
-  const skip = (pageNumber - 1) * limitNumber;
-
   const posts = await Post.aggregate([
     { $match: { pages: new mongoose.Types.ObjectId(pageid) } },
     ...postVisibilityStagesForUser(req.user?._id),
