@@ -9,6 +9,22 @@ import Avatar from "../components/Avatar";
 import ImageWithFallback from "../components/ImageWithFallback";
 import VoteButtons from "../components/VoteButtons";
 
+const removeDeletedCommentIds = (items, deletedIds) =>
+  items
+    .filter((comment) => !deletedIds.has(String(comment._id)))
+    .map((comment) => ({
+      ...comment,
+      replies: removeDeletedCommentIds(comment.replies || [], deletedIds),
+    }));
+
+const removeCommentBranch = (items, commentId) =>
+  items
+    .filter((comment) => String(comment._id) !== String(commentId))
+    .map((comment) => ({
+      ...comment,
+      replies: removeCommentBranch(comment.replies || [], commentId),
+    }));
+
 export default function PostCommentsPage() {
   const { postId } = useParams();
   const location = useLocation();
@@ -24,6 +40,7 @@ export default function PostCommentsPage() {
   const [replyTarget, setReplyTarget] = useState(null); // { id, username }
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
 
   const getCommentTree = useCallback(
@@ -133,10 +150,7 @@ export default function PostCommentsPage() {
     };
     const handleCommentDelete = (deleted = []) => {
       const deletedIds = new Set(deleted.map(({ id }) => String(id)));
-      const removeTree = (items) => items
-        .filter((comment) => !deletedIds.has(String(comment._id)))
-        .map((comment) => ({ ...comment, replies: removeTree(comment.replies || []) }));
-      setComments(removeTree);
+      setComments((previous) => removeDeletedCommentIds(previous, deletedIds));
     };
     const handleCommentStatus = ({ id, status }) => {
       const updateTree = (items) => items.map((comment) => String(comment._id) === String(id)
@@ -226,10 +240,46 @@ export default function PostCommentsPage() {
     }
   };
 
-  const postOwner = post?.author || post?.owner;
+  const handleDeleteComment = async (commentId) => {
+    if (deletingCommentId) return;
+    setDeletingCommentId(String(commentId));
+    try {
+      await commentApi.deleteComment(commentId);
+      setComments((previous) => removeCommentBranch(previous, commentId));
+      success("Comment deleted.");
+    } catch (err) {
+      error(err?.message || "Could not delete this comment.");
+    } finally {
+      setDeletingCommentId(null);
+    }
+  };
+
+  const postOwner = post?.ownerInfo || post?.author || post?.owner;
   const isPostOwner =
-    currentUser &&
-    (postOwner?._id === currentUser._id || postOwner === currentUser._id);
+    Boolean(currentUser?._id) &&
+    String(postOwner?._id || postOwner || "") === String(currentUser._id);
+  const canDeleteComment = (comment) => {
+    const authorId = comment?.author?._id || comment?.author;
+    return isPostOwner || (
+      Boolean(currentUser?._id) && String(authorId || "") === String(currentUser._id)
+    );
+  };
+  const renderDeleteAction = (comment) => {
+    if (!canDeleteComment(comment)) return null;
+    const isDeleting = deletingCommentId === String(comment._id);
+    return (
+      <button
+        type="button"
+        disabled={Boolean(deletingCommentId)}
+        onClick={() => handleDeleteComment(comment._id)}
+        className="min-h-11 rounded-lg px-3 text-xs font-semibold text-error hover:bg-error/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error disabled:opacity-60"
+        aria-label={`Delete comment by ${comment.author?.username || "member"}`}
+      >
+        {isDeleting ? "Deleting…" : "Delete"}
+      </button>
+    );
+  };
+
   const renderReplies = (replies = []) =>
     replies.map((reply) => {
       const replyAuthor = reply.author || { username: "peer" };
@@ -265,6 +315,7 @@ export default function PostCommentsPage() {
             >
               Reply
             </button>
+            {renderDeleteAction(reply)}
           </div>
           {renderReplies(reply.replies)}
         </div>
@@ -520,11 +571,14 @@ export default function PostCommentsPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 bg-tertiary-container/20 text-tertiary px-3 py-1 rounded-xl text-xs font-bold">
-                    <span className="material-symbols-outlined text-sm filled">
-                      stars
-                    </span>
-                    <span>+50 XP</span>
+                  <div className="flex items-center gap-2">
+                    {renderDeleteAction(comment)}
+                    <div className="flex items-center gap-1.5 bg-tertiary-container/20 text-tertiary px-3 py-1 rounded-xl text-xs font-bold">
+                      <span className="material-symbols-outlined text-sm filled">
+                        stars
+                      </span>
+                      <span>+50 XP</span>
+                    </div>
                   </div>
                 </div>
 
@@ -574,17 +628,20 @@ export default function PostCommentsPage() {
                     </div>
                   </div>
 
-                  {isPostOwner && (
-                    <button
-                      onClick={() => handleSetStatus(comment._id, "helpful")}
-                      className="px-3 py-1 bg-secondary/10 hover:bg-secondary/20 text-secondary rounded-xl text-xs font-bold transition-all flex items-center gap-1"
-                    >
-                      <span className="material-symbols-outlined text-sm">
-                        check_circle
-                      </span>
-                      Mark Helpful
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {isPostOwner && (
+                      <button
+                        onClick={() => handleSetStatus(comment._id, "helpful")}
+                        className="px-3 py-1 bg-secondary/10 hover:bg-secondary/20 text-secondary rounded-xl text-xs font-bold transition-all flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-sm">
+                          check_circle
+                        </span>
+                        Mark Helpful
+                      </button>
+                    )}
+                    {renderDeleteAction(comment)}
+                  </div>
                 </div>
 
                 <p className="text-on-surface text-sm leading-relaxed whitespace-pre-line pl-12">

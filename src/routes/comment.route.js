@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { isCommentOwner } from "../middleware/isCommentOwner.js";
+import { canDeleteComment } from "../middleware/canDeleteComment.js";
 import { jwtVerify } from "../middleware/jwtVerify.js";
 import ratelimit from "../middleware/RateLimiting.js";
 import { isPostOwner } from "../middleware/isPostowner.js";
@@ -22,7 +23,7 @@ router.route("/post/:post_id").get(ratelimit.readLimiter(), verifyOptional, getC
 router.route("/post/:post_id").post(jwtVerify, ratelimit.writeLimiter(), createComment);
 
 //comment owner only
-router.route("/:comment_id").delete(jwtVerify, ratelimit.writeLimiter(), isCommentOwner, deleteComment);
+router.route("/:comment_id").delete(jwtVerify, ratelimit.writeLimiter(), canDeleteComment, deleteComment);
 router.route("/:comment_id").patch(jwtVerify, ratelimit.writeLimiter(), isCommentOwner, editComment);
 
 //any logged in user

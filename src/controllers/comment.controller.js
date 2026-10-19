@@ -49,41 +49,60 @@ const createComment = asyncHandler(async (req, res) => {
     post: post_id,
   });
 
-  //send notification to the post owner
-  await createNotification(
-    postowner,
-    author,
-    "comment",
-    `${req.user.username} commented on your post`,
-    post_id,
-    responsedata._id,
-  );
-
-  //send notification to the parent comment owner
-  if (parentComment) {
-    const parent = await Comment.findById(parentComment).select("author");
-    await createNotification(
-      parent.author,
-      author,
-      "reply",
-      `${req.user.username} replied to your comment`,
-      post_id,
-      responsedata._id,
-    );
-  }
-
-  //also send real time comment to those who are in the post
+  // Broadcast the persisted comment before optional notification work so a
+  // notification failure cannot hide it from clients already in the room.
   const io = getIO.get();
   const populatedComment = await Comment.findById(responsedata._id).populate(
     "author",
     "username profileImage title",
   );
 
-  io.to(`post:${post_id}`).emit("new-comment", populatedComment);
-  io.to(`post:${post_id}`).emit("comment-count-updated", {
-    postId: post_id,
-    commentsCount: await Comment.countDocuments({ post: post_id }),
-  });
+  io?.to(`post:${post_id}`).emit("new-comment", populatedComment);
+  try {
+    io?.to(`post:${post_id}`).emit("comment-count-updated", {
+      postId: post_id,
+      commentsCount: await Comment.countDocuments({ post: post_id }),
+    });
+  } catch (error) {
+    console.error("Comment count broadcast failed", {
+      name: error?.name || "UnknownError",
+    });
+  }
+
+  // Notifications are secondary to the persisted comment. Do not turn a
+  // successful comment into an apparent failure if notification storage fails.
+  try {
+    await createNotification(
+      postowner,
+      author,
+      "comment",
+      `${req.user.username} commented on your post`,
+      post_id,
+      responsedata._id,
+    );
+  } catch (error) {
+    console.error("Comment notification failed", {
+      name: error?.name || "UnknownError",
+    });
+  }
+
+  if (parentComment) {
+    try {
+      const parent = await Comment.findById(parentComment).select("author");
+      await createNotification(
+        parent.author,
+        author,
+        "reply",
+        `${req.user.username} replied to your comment`,
+        post_id,
+        responsedata._id,
+      );
+    } catch (error) {
+      console.error("Reply notification failed", {
+        name: error?.name || "UnknownError",
+      });
+    }
+  }
   //send a response
   return res
     .status(201)
