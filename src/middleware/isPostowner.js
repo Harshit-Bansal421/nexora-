@@ -1,6 +1,6 @@
 import ApiError from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { Post } from "../models/Post.model.js";
+import { Post } from "../models/post.model.js";
 import mongoose from "mongoose";
 
 export const isPostOwner = asyncHandler(async (req, res, next) => {

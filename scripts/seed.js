@@ -7,7 +7,7 @@ import { stdin, stdout } from "node:process";
 import { DB_NAME } from "../src/constants.js";
 import { User } from "../src/models/User.model.js";
 import { Page } from "../src/models/Page.model.js";
-import { Post } from "../src/models/Post.model.js";
+import { Post } from "../src/models/post.model.js";
 import { Comment } from "../src/models/Comment.model.js";
 import { JoinRequest } from "../src/models/Joinrequest.model.js";
 import { Notification } from "../src/models/Notification.model.js";

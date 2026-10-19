@@ -1,6 +1,6 @@
 import ApiError from "./ApiError.js";
 import { Page } from "../models/Page.model.js";
-import { Post } from "../models/Post.model.js";
+import { Post } from "../models/post.model.js";
 
 export const postVisibilityStagesForUser = (userId) => {
   const inaccessiblePageStages = [{ $match: { type: "private" } }];

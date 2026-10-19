@@ -8,7 +8,7 @@ import {
   getOptimizedImage,
   deleteFromCloudinary,
 } from "../utils/Cloudinary.js";
-import { Post } from "../models/Post.model.js";
+import { Post } from "../models/post.model.js";
 import { JoinRequest } from "../models/Joinrequest.model.js";
 import { User } from "../models/User.model.js";
 import { getIO } from "../socket.js";

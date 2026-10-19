@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import { Server } from "socket.io";
 import { User } from "./models/User.model.js";
 import { Page } from "./models/Page.model.js";
-import { Post } from "./models/Post.model.js";
+import { Post } from "./models/post.model.js";
 import { getOptimizedImage } from "./utils/Cloudinary.js";
 import { isOriginAllowed } from "./utils/originPolicy.js";
 

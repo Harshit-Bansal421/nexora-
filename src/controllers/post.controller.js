@@ -1,4 +1,4 @@
-import { Post } from "../models/Post.model.js";
+import { Post } from "../models/post.model.js";
 import { Comment } from "../models/Comment.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";

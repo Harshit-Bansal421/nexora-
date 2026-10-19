@@ -2,7 +2,7 @@ import ApiError from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import mongoose from "mongoose";
 import { Page } from "../models/Page.model.js";
-import { Post } from "../models/Post.model.js";
+import { Post } from "../models/post.model.js";
 
 const isPageOrPostOwner = asyncHandler(async (req, res, next) => {
   //we have user id from req.user and we get pages_id in which he want to add the post from req.body
