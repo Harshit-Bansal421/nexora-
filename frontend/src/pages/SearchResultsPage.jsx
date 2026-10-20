@@ -2,8 +2,9 @@ import React, { useRef, useState, useEffect, useCallback } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import Layout from "../components/Layout";
 import PostCard from "../components/PostCard";
-import { postApi, pageApi } from "../api/client";
+import { authApi, postApi, pageApi } from "../api/client";
 import ImageWithFallback from "../components/ImageWithFallback";
+import Avatar from "../components/Avatar";
 
 export default function SearchResultsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -11,9 +12,10 @@ export default function SearchResultsPage() {
     searchParams.get("q") || searchParams.get("search") || "";
 
   const searchInput = useRef(null);
-  const [activeTab, setActiveTab] = useState("posts"); // 'posts' | 'pages'
+  const [activeTab, setActiveTab] = useState("posts"); // 'posts' | 'pages' | 'people'
   const [postsResults, setPostsResults] = useState([]);
   const [pagesResults, setPagesResults] = useState([]);
+  const [peopleResults, setPeopleResults] = useState([]);
   const [resultsQuery, setResultsQuery] = useState("");
   const loading = Boolean(initialQuery && resultsQuery !== initialQuery);
 
@@ -21,9 +23,11 @@ export default function SearchResultsPage() {
     if (!searchTerm.trim()) return;
 
     try {
-      const [postsRes, pagesRes] = await Promise.allSettled([
+      const peopleQuery = searchTerm.trim().replace(/^@/, "");
+      const [postsRes, pagesRes, peopleRes] = await Promise.allSettled([
         postApi.searchPosts(searchTerm),
         pageApi.getPages({ search: searchTerm }),
+        authApi.searchUsers(peopleQuery),
       ]);
 
       if (postsRes.status === "fulfilled") {
@@ -43,6 +47,14 @@ export default function SearchResultsPage() {
       } else {
         setPagesResults([]);
       }
+      if (peopleRes.status === "fulfilled") {
+        const peopleData = peopleRes.value?.data || peopleRes.value || [];
+        setPeopleResults(
+          Array.isArray(peopleData) ? peopleData : peopleData?.users || [],
+        );
+      } else {
+        setPeopleResults([]);
+      }
     } catch (err) {
       console.warn("Search error:", err);
     } finally {
@@ -52,6 +64,7 @@ export default function SearchResultsPage() {
 
   useEffect(() => {
     if (initialQuery) {
+      if (initialQuery.startsWith("@")) setActiveTab("people");
       // This effect synchronizes browser history changes with the search API.
       // oxlint-disable-next-line react/set-state-in-effect
       void performSearch(initialQuery);
@@ -75,6 +88,7 @@ export default function SearchResultsPage() {
     if (searchInput.current) searchInput.current.value = "";
     setPostsResults([]);
     setPagesResults([]);
+    setPeopleResults([]);
     setResultsQuery("");
     setSearchParams({});
   };
@@ -97,7 +111,7 @@ export default function SearchResultsPage() {
               type="text"
               name="q"
               defaultValue={initialQuery}
-              placeholder="Search for questions, keywords, or learning hubs..."
+              placeholder="Search people (@username), posts, hubs, or topics..."
               className="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-2xl py-4 pl-12 pr-24 text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-stitch-soft text-base transition-all"
             />
             {initialQuery && (
@@ -127,6 +141,19 @@ export default function SearchResultsPage() {
               </span>
             </button>
 
+            <button
+              onClick={() => setActiveTab("people")}
+              className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all shadow-sm flex items-center gap-2 ${
+                activeTab === "people"
+                  ? "bg-primary text-on-primary shadow-primary/20"
+                  : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
+              }`}
+            >
+              <span>People</span>
+              <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px]">
+                {peopleResults.length}
+              </span>
+            </button>
             <button
               onClick={() => setActiveTab("pages")}
               className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all shadow-sm flex items-center gap-2 ${
@@ -185,6 +212,52 @@ export default function SearchResultsPage() {
             <div className="text-center py-16 text-on-surface-variant text-sm">
               Type keywords above to discover answers and discussions across all
               topics.
+            </div>
+          )
+        ) : activeTab === "people" ? (
+          peopleResults.length ? (
+            <div className="space-y-2">
+              {peopleResults.map((person) => (
+                <Link
+                  key={person._id}
+                  to={`/profile/${encodeURIComponent(person.username)}`}
+                  className="flex items-center gap-3 rounded-2xl border border-outline-variant/15 bg-surface-container-lowest p-4 hover:border-primary/30 hover:shadow-stitch-soft"
+                >
+                  <Avatar
+                    src={person.profileImage}
+                    name={person.username}
+                    className="h-12 w-12 rounded-full object-cover"
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-on-surface">
+                      @{person.username}
+                    </p>
+                    <p className="truncate text-xs text-on-surface-variant">
+                      {person.title || "Community member"}
+                      {person.bio ? ` · ${person.bio}` : ""}
+                    </p>
+                  </div>
+                  <span className="ml-auto text-xs font-bold text-primary">
+                    View profile
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : initialQuery ? (
+            <div className="rounded-3xl border border-outline-variant/15 bg-surface-container-lowest p-8 text-center">
+              <span className="material-symbols-outlined text-4xl text-outline">
+                person_search
+              </span>
+              <h3 className="mt-2 font-headline font-bold text-lg text-on-surface">
+                No profiles found
+              </h3>
+              <p className="mt-1 text-xs text-on-surface-variant">
+                Try searching for a username or a different name.
+              </p>
+            </div>
+          ) : (
+            <div className="py-16 text-center text-sm text-on-surface-variant">
+              Search by username to find people.
             </div>
           )
         ) : // Pages Results

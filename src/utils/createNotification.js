@@ -20,10 +20,14 @@ export const createNotification = async (
     post,
     comment,
     page,
-});
+  });
   if (!res) throw new ApiError(400, "error in creating notification");
 
-  await res.populate({ path: "sender", select: "username profileImage" });
+  await res.populate([
+    { path: "sender", select: "username profileImage title" },
+    { path: "post", select: "title description topic" },
+    { path: "page", select: "pageName pageDescription pageProfileImage" },
+  ]);
   sendToUser(recipient, "notification", res);
   return res;
 };

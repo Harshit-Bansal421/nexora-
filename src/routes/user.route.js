@@ -20,6 +20,7 @@ import {
   unfollowUser,
   updateProfile,
   getFollowList,
+  searchUsers,
 } from "../controllers/userauth.controller.js";
 import { jwtVerify } from "../middleware/jwtVerify.js";
 
@@ -28,6 +29,7 @@ const router = Router();
 //for login-> we do actuall login
 
 //public routes
+router.route("/search").get(ratelimit.readLimiter(), searchUsers);
 router.route("/signup").post(ratelimit.authLimiter(), upload.avatarUpload(), SignupUser);
 router.route("/login").post(ratelimit.authLimiter(), loginUser);
 router.route("/refreshToken").post(ratelimit.sensitiveLimiter(), getNewAccessToken);

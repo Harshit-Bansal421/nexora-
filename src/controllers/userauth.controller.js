@@ -31,6 +31,23 @@ const normalizeEmail = (email) =>
 const isValidEmail = (email) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
+const searchUsers = asyncHandler(async (req, res) => {
+  const query =
+    typeof req.query.q === "string"
+      ? req.query.q.trim().replace(/^@/, "")
+      : "";
+  if (!query || query.length > 50) {
+    return res.status(200).json(new ApiResponse(200, { users: [] }, "Users retrieved successfully"));
+  }
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const users = await User.find({ username: { $regex: escaped, $options: "i" } })
+    .select("username profileImage title bio")
+    .sort({ username: 1 })
+    .limit(6)
+    .lean();
+  return res.status(200).json(new ApiResponse(200, { users }, "Users retrieved successfully"));
+});
+
 const SignupUser = asyncHandler(async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   const username =
@@ -912,4 +929,5 @@ export {
   followUser,
   unfollowUser,
   getFollowList,
+  searchUsers,
 };

@@ -1,8 +1,9 @@
 import axios from "axios";
+import { API_BASE_URL } from "./config";
 
 // Base API client
 const api = axios.create({
-  baseURL: "/api/v1",
+  baseURL: API_BASE_URL,
   withCredentials: true, // Needed for JWT cookies
   headers: {
     Accept: "application/json",
@@ -29,11 +30,7 @@ api.interceptors.response.use(
     ) {
       originalRequest._retry = true;
       try {
-        await axios.post(
-          "/api/v1/users/refreshToken",
-          {},
-          { withCredentials: true },
-        );
+        await api.post("/users/refreshToken", {});
         return api(originalRequest);
       } catch {
         // Refresh failed, let the error fall through
@@ -46,6 +43,7 @@ api.interceptors.response.use(
 
 // Auth & User APIs
 export const authApi = {
+  searchUsers: (query) => api.get("/users/search", { params: { q: query } }),
   signup: (formData) =>
     api.post("/users/signup", formData, {
       headers: { "Content-Type": "multipart/form-data" },

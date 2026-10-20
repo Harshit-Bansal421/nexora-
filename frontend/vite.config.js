@@ -2,7 +2,8 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 const backendTarget =
-  process.env.VITE_BACKEND_PROXY_TARGET || "http://localhost:8000";
+  process.env.VITE_BACKEND_PROXY_TARGET ||
+  "https://nexora-2-6ymt.onrender.com";
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -13,7 +14,7 @@ export default defineConfig({
       "/api": {
         target: backendTarget,
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
       "/socket.io": {
         target: backendTarget,

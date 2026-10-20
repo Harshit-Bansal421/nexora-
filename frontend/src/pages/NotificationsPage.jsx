@@ -34,8 +34,19 @@ export default function NotificationsPage() {
         limit: 30,
       });
       const data = res?.data || res || [];
-      const notifList = Array.isArray(data) ? data : data?.notifications || [];
-      setNotifications(notifList);
+      const notifList = Array.isArray(data)
+        ? data
+        : data?.notifications || data?.data?.notifications || [];
+      setNotifications((current) => {
+        const fetchedIds = new Set(
+          notifList.map(notificationId).filter(Boolean),
+        );
+        const liveOnly = current.filter((item) => {
+          const id = notificationId(item);
+          return id ? !fetchedIds.has(id) : false;
+        });
+        return [...liveOnly, ...notifList];
+      });
       setUnreadNotificationsCount(notifList.filter((n) => !n.isRead).length);
     } catch (err) {
       error(err?.message || "Couldn't load notifications. Please try again.");
@@ -51,8 +62,12 @@ export default function NotificationsPage() {
 
     const socket = getSocket();
     const handleLiveNotification = (newNotif) => {
-      setNotifications((prev) => [newNotif, ...prev]);
-      setUnreadNotificationsCount((prev) => prev + 1);
+      if (!newNotif || typeof newNotif !== "object") return;
+      setNotifications((prev) => {
+        const id = notificationId(newNotif);
+        if (id && prev.some((item) => notificationId(item) === id)) return prev;
+        return [newNotif, ...prev];
+      });
     };
 
     socket.on("notification", handleLiveNotification);
@@ -85,18 +100,12 @@ export default function NotificationsPage() {
       }
     }
 
-    if (notif.page || COMMUNITY_NOTIFICATION_TYPES.has(notif.type)) {
-      // Older community notifications stored the page ID in `post`; continue
-      // opening those correctly while new notifications use the page field.
-      const pageId = notif.page || notif.post;
-      if (pageId) {
-        const pagePath = `/pages/${pageId._id || pageId}`;
-        navigate(
-          notif.type === "join_request" ? `${pagePath}/info?tab=requests` : pagePath,
-        );
-      }
-    } else if (notif.post) {
-      navigate(`/posts/${notif.post._id || notif.post}/comments`);
+    const target = getNotificationTarget(notif);
+    if (target) {
+      navigate(target.path);
+    } else if (notif.type === "follow") {
+      const username = notif.sender?.username || notif.user?.username;
+      if (username) navigate(`/profile/${encodeURIComponent(username)}`);
     }
   };
 
@@ -198,7 +207,7 @@ export default function NotificationsPage() {
 
               return (
                 <div
-                  key={notif._id ?? notif.id ?? index}
+                  key={notificationId(notif) ?? index}
                   onClick={() => handleNotificationClick(notif)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
@@ -232,10 +241,10 @@ export default function NotificationsPage() {
                                 : COMMUNITY_NOTIFICATION_TYPES.has(notif.type)
                                   ? "groups"
                                   : notif.type?.includes("helpful")
-                            ? "verified"
-                            : notif.type?.includes("vote")
-                              ? "thumb_up"
-                              : "reply"}
+                                    ? "verified"
+                                    : notif.type?.includes("vote")
+                                      ? "thumb_up"
+                                      : "reply"}
                         </span>
                       </div>
                     </div>
@@ -246,9 +255,7 @@ export default function NotificationsPage() {
                           <strong className="text-primary font-bold">
                             {sender.username}
                           </strong>{" "}
-                          {notif.message ||
-                            notif.title ||
-                            "interacted with your contribution"}
+                          {notif.message || notificationMessage(notif.type)}
                         </p>
                         <span className="text-[11px] text-on-surface-variant font-medium whitespace-nowrap">
                           {notif.createdAt
@@ -262,6 +269,33 @@ export default function NotificationsPage() {
                           "{notif.contentSnippet}"
                         </p>
                       )}
+                      {(notif.post?.title || notif.page?.pageName) && (
+                        <p className="mt-1.5 truncate text-xs font-medium text-on-surface-variant">
+                          {notif.post?.title || notif.page?.pageName}
+                        </p>
+                      )}
+                      {getNotificationTarget(notif) ? (
+                        <span className="inline-flex items-center gap-1 mt-2 text-xs font-bold text-primary">
+                          {getNotificationTarget(notif).label}
+                          <span
+                            className="material-symbols-outlined text-sm"
+                            aria-hidden="true"
+                          >
+                            arrow_outward
+                          </span>
+                        </span>
+                      ) : notif.type === "follow" &&
+                        (sender.username || notif.user?.username) ? (
+                        <span className="inline-flex items-center gap-1 mt-2 text-xs font-bold text-primary">
+                          View profile
+                          <span
+                            className="material-symbols-outlined text-sm"
+                            aria-hidden="true"
+                          >
+                            arrow_outward
+                          </span>
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -285,6 +319,63 @@ export default function NotificationsPage() {
       </div>
     </Layout>
   );
+}
+
+function notificationId(notification) {
+  const id = notification?._id || notification?.id;
+  return id == null ? null : String(id);
+}
+
+function getNotificationTarget(notification) {
+  const idOf = (value) => value?._id || value?.id || value;
+  // Older community notifications sometimes stored their page id in `post`.
+  const pageId =
+    idOf(notification?.page) ||
+    (COMMUNITY_NOTIFICATION_TYPES.has(notification?.type)
+      ? idOf(notification?.post)
+      : null);
+  if (pageId) {
+    const pagePath = `/pages/${pageId}`;
+    return {
+      path:
+        notification.type === "join_request"
+          ? `${pagePath}/info?tab=requests`
+          : pagePath,
+      label:
+        notification.type === "join_request"
+          ? "Review community request"
+          : "View community",
+    };
+  }
+  const postId = idOf(notification?.post);
+  if (postId)
+    return {
+      path: `/posts/${postId}/comments`,
+      label: "View post and discussion",
+    };
+  return null;
+}
+
+function notificationMessage(type) {
+  const messages = {
+    comment: "commented on your post",
+    reply: "replied to your comment",
+    post_upvote: "upvoted your post",
+    post_downvote: "downvoted your post",
+    comment_upvote: "upvoted your comment",
+    helpful: "marked your comment helpful",
+    pinned: "pinned your comment",
+    follow: "started following you",
+    page_join: "joined your community",
+    page_removed: "removed you from a community",
+    page_deleted: "deleted a community you belonged to",
+    mod_appointed: "made you a community moderator",
+    mod_removed: "removed your community moderator role",
+    join_request: "requested to join your community",
+    request_approved: "approved your community request",
+    request_rejected: "declined your community request",
+  };
+  return messages[type] || "sent you an update";
 }
 
 function formatRelativeTime(value) {

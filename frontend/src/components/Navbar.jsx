@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import { authApi, pageApi, postApi } from "../api/client";
 import { useAuth } from "../context/authContextValue";
 import { useToast } from "../context/toastContextValue";
 import Avatar from "./Avatar";
@@ -13,12 +14,22 @@ export default function Navbar() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState({
+    users: [],
+    posts: [],
+    pages: [],
+  });
+  const [searchLoading, setSearchLoading] = useState(false);
   const dropdownRef = useRef(null);
+  const searchRef = useRef(null);
 
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (
+        !dropdownRef.current?.contains(event.target) &&
+        !searchRef.current?.contains(event.target)
+      ) {
         setDropdownOpen(false);
       }
     }
@@ -26,9 +37,46 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setSearchResults({ users: [], posts: [], pages: [] });
+      setSearchLoading(false);
+      return;
+    }
+    let active = true;
+    setSearchLoading(true);
+    const timer = setTimeout(async () => {
+      const [usersRes, postsRes, pagesRes] = await Promise.allSettled([
+        authApi.searchUsers(query),
+        postApi.searchPosts(query),
+        pageApi.getPages({ search: query, page: 1, limit: 5 }),
+      ]);
+      if (!active) return;
+      const payload = (result) =>
+        result.status === "fulfilled"
+          ? result.value?.data || result.value || {}
+          : {};
+      const usersData = payload(usersRes);
+      const postsData = payload(postsRes);
+      const pagesData = payload(pagesRes);
+      setSearchResults({
+        users: usersData.users || [],
+        posts: postsData.posts || (Array.isArray(postsData) ? postsData : []),
+        pages: pagesData.pages || [],
+      });
+      setSearchLoading(false);
+    }, 250);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
+
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      setDropdownOpen(false);
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
@@ -98,8 +146,12 @@ export default function Navbar() {
         </div>
 
         {/* Global Search Bar */}
-        <div className="flex-1 max-w-md hidden sm:block">
-          <form onSubmit={handleSearchSubmit} className="relative">
+        <div className="flex-1 max-w-md hidden sm:block" ref={searchRef}>
+          <form
+            onSubmit={handleSearchSubmit}
+            className="relative"
+            role="search"
+          >
             <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-outline text-lg pointer-events-none">
               search
             </span>
@@ -107,9 +159,156 @@ export default function Navbar() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search posts, hubs, or topics..."
+              onFocus={() => setDropdownOpen(true)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setDropdownOpen(false);
+              }}
+              placeholder="Search people (@username), posts, hubs, or topics..."
+              aria-label="Search people, posts, communities, and topics"
+              aria-expanded={dropdownOpen && searchQuery.trim().length >= 2}
+              aria-controls="global-search-results"
               className="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-transparent rounded-full text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/40 focus:bg-surface-container-lowest transition-all"
             />
+            {dropdownOpen && searchQuery.trim().length >= 2 && (
+              <div
+                id="global-search-results"
+                className="absolute left-0 right-0 top-full mt-2 max-h-[70vh] overflow-y-auto rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-2 shadow-stitch-modal z-[60]"
+              >
+                {searchLoading ? (
+                  <p className="px-3 py-4 text-sm text-on-surface-variant">
+                    Searching…
+                  </p>
+                ) : (
+                  <>
+                    <SearchGroup
+                      title="People"
+                      icon="person"
+                      empty="No profiles found"
+                    >
+                      {searchResults.users.slice(0, 4).map((user) => (
+                        <Link
+                          key={user._id}
+                          to={`/profile/${encodeURIComponent(user.username)}`}
+                          onClick={() => {
+                            setDropdownOpen(false);
+                            setSearchQuery("");
+                          }}
+                          className="flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-surface-container-low"
+                        >
+                          <Avatar
+                            src={user.profileImage}
+                            name={user.username}
+                            className="h-9 w-9 rounded-full object-cover"
+                          />
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-bold text-on-surface">
+                              @{user.username}
+                            </span>
+                            <span className="block truncate text-xs text-on-surface-variant">
+                              {user.title || "Community member"}
+                            </span>
+                          </span>
+                        </Link>
+                      ))}
+                    </SearchGroup>
+                    <SearchGroup
+                      title="Posts"
+                      icon="article"
+                      empty="No matching posts"
+                    >
+                      {searchResults.posts.slice(0, 3).map((post) => (
+                        <Link
+                          key={post._id}
+                          to={`/posts/${post._id}/comments`}
+                          state={{ post }}
+                          onClick={() => {
+                            setDropdownOpen(false);
+                            setSearchQuery("");
+                          }}
+                          className="block rounded-xl px-3 py-2 hover:bg-surface-container-low"
+                        >
+                          <span className="block truncate text-sm font-bold text-on-surface">
+                            {post.title || "Untitled post"}
+                          </span>
+                          <span className="block truncate text-xs text-on-surface-variant">
+                            {post.topic ? `#${post.topic} · ` : ""}
+                            {post.description || "Open discussion"}
+                          </span>
+                        </Link>
+                      ))}
+                    </SearchGroup>
+                    <SearchGroup
+                      title="Communities"
+                      icon="groups"
+                      empty="No matching communities"
+                    >
+                      {searchResults.pages.slice(0, 3).map((page) => (
+                        <Link
+                          key={page._id}
+                          to={`/pages/${page._id}`}
+                          onClick={() => {
+                            setDropdownOpen(false);
+                            setSearchQuery("");
+                          }}
+                          className="block rounded-xl px-3 py-2 hover:bg-surface-container-low"
+                        >
+                          <span className="block truncate text-sm font-bold text-on-surface">
+                            {page.pageName}
+                          </span>
+                          <span className="block truncate text-xs text-on-surface-variant">
+                            {page.pageDescription || "Community hub"}
+                          </span>
+                        </Link>
+                      ))}
+                    </SearchGroup>
+                    {[
+                      ...new Set(
+                        searchResults.posts
+                          .map((post) => post.topic)
+                          .filter(Boolean),
+                      ),
+                    ].length > 0 && (
+                      <SearchGroup title="Topics" icon="tag" empty="">
+                        {[
+                          ...new Set(
+                            searchResults.posts
+                              .map((post) => post.topic)
+                              .filter(Boolean),
+                          ),
+                        ]
+                          .slice(0, 4)
+                          .map((topic) => (
+                            <Link
+                              key={topic}
+                              to={`/search?q=${encodeURIComponent(topic)}`}
+                              onClick={() => {
+                                setDropdownOpen(false);
+                                setSearchQuery("");
+                              }}
+                              className="inline-flex m-1 rounded-full bg-primary-container/40 px-3 py-1 text-xs font-semibold text-primary"
+                            >
+                              #{topic}
+                            </Link>
+                          ))}
+                      </SearchGroup>
+                    )}
+                    {!searchResults.users.length &&
+                      !searchResults.posts.length &&
+                      !searchResults.pages.length && (
+                        <p className="px-3 py-2 text-sm text-on-surface-variant">
+                          No results yet. Try another name or keyword.
+                        </p>
+                      )}
+                    <button
+                      type="submit"
+                      className="mt-1 w-full rounded-xl px-3 py-2 text-left text-xs font-bold text-primary hover:bg-primary-container/30"
+                    >
+                      See all results for “{searchQuery.trim()}”
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </form>
         </div>
 
@@ -242,5 +441,23 @@ export default function Navbar() {
         </div>
       </div>
     </header>
+  );
+}
+
+function SearchGroup({ title, icon, empty, children }) {
+  const items = React.Children.toArray(children);
+  if (!items.length && !empty) return null;
+  return (
+    <section className="py-1">
+      <h3 className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-on-surface-variant">
+        <span className="material-symbols-outlined text-sm">{icon}</span>
+        {title}
+      </h3>
+      {items.length ? (
+        items
+      ) : (
+        <p className="px-3 py-1 text-xs text-on-surface-variant">{empty}</p>
+      )}
+    </section>
   );
 }

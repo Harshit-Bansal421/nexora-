@@ -288,7 +288,7 @@ export default function PostCommentsPage() {
           key={reply._id}
           className="ml-4 sm:ml-8 border-l-2 border-outline-variant/30 pl-3"
         >
-          <div className="flex items-center gap-2">
+          <Link to={`/profile/${encodeURIComponent(replyAuthor.username)}`} className="inline-flex items-center gap-2 rounded-full hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`View ${replyAuthor.username}'s profile`}>
             <Avatar
               src={replyAuthor.profileImage}
               name={replyAuthor.username || "Peer"}
@@ -297,7 +297,7 @@ export default function PostCommentsPage() {
             <span className="text-xs font-bold text-on-surface">
               {replyAuthor.username}
             </span>
-          </div>
+          </Link>
           <p className="py-2 pl-9 text-sm text-on-surface whitespace-pre-line">
             {reply.body}
           </p>
@@ -548,16 +548,18 @@ export default function PostCommentsPage() {
               <article className="bg-surface-container-lowest rounded-2xl p-6 shadow-stitch-soft border border-secondary/20 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Avatar
-                      src={cAuthor.profileImage}
-                      name={cAuthor.username || "Contributor"}
-                      className="w-10 h-10 rounded-full object-cover ring-2 ring-secondary/20"
-                    />
+                    <Link to={`/profile/${encodeURIComponent(cAuthor.username)}`} aria-label={`View ${cAuthor.username}'s profile`} className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                      <Avatar
+                        src={cAuthor.profileImage}
+                        name={cAuthor.username || "Contributor"}
+                        className="w-10 h-10 rounded-full object-cover ring-2 ring-secondary/20"
+                      />
+                    </Link>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="font-headline font-bold text-sm text-on-surface">
+                        <Link to={`/profile/${encodeURIComponent(cAuthor.username)}`} className="font-headline font-bold text-sm text-on-surface hover:text-primary hover:underline">
                           {cAuthor.username}
-                        </h4>
+                        </Link>
                         <span className="bg-secondary/10 text-secondary text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
                           <span className="material-symbols-outlined text-xs filled">
                             verified
@@ -613,15 +615,17 @@ export default function PostCommentsPage() {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Avatar
-                      src={cAuthor.profileImage}
-                      name={cAuthor.username || "Peer"}
-                      className="w-9 h-9 rounded-full object-cover"
-                    />
+                    <Link to={`/profile/${encodeURIComponent(cAuthor.username)}`} aria-label={`View ${cAuthor.username}'s profile`} className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                      <Avatar
+                        src={cAuthor.profileImage}
+                        name={cAuthor.username || "Peer"}
+                        className="w-9 h-9 rounded-full object-cover"
+                      />
+                    </Link>
                     <div>
-                      <h4 className="font-headline font-bold text-sm text-on-surface">
+                      <Link to={`/profile/${encodeURIComponent(cAuthor.username)}`} className="font-headline font-bold text-sm text-on-surface hover:text-primary hover:underline">
                         {cAuthor.username}
-                      </h4>
+                      </Link>
                       <p className="text-[11px] text-on-surface-variant">
                         Community Member
                       </p>

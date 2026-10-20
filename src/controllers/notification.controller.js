@@ -39,7 +39,32 @@ const getNotification = asyncHandler(async (req, res) => {
               pipeline: [{ $project: { username: 1, profileImage: 1 } }],
             },
           },
-          { $unwind: "$sender" },
+          { $unwind: { path: "$sender", preserveNullAndEmptyArrays: true } },
+          {
+            $lookup: {
+              from: "posts",
+              localField: "post",
+              foreignField: "_id",
+              as: "postInfo",
+              pipeline: [{ $project: { title: 1, description: 1, topic: 1 } }],
+            },
+          },
+          {
+            $lookup: {
+              from: "pages",
+              localField: "page",
+              foreignField: "_id",
+              as: "pageInfo",
+              pipeline: [{ $project: { pageName: 1, pageDescription: 1, pageProfileImage: 1 } }],
+            },
+          },
+          {
+            $addFields: {
+              post: { $ifNull: [{ $arrayElemAt: ["$postInfo", 0] }, "$post"] },
+              page: { $ifNull: [{ $arrayElemAt: ["$pageInfo", 0] }, "$page"] },
+            },
+          },
+          { $project: { postInfo: 0, pageInfo: 0 } },
         ],
         totalCount: [{ $count: "count" }],
       },
