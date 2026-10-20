@@ -255,7 +255,7 @@ export default function NotificationsPage() {
                           <strong className="text-primary font-bold">
                             {sender.username}
                           </strong>{" "}
-                          {notif.message || notificationMessage(notif.type)}
+                          {getNotificationMessage(notif, sender)}
                         </p>
                         <span className="text-[11px] text-on-surface-variant font-medium whitespace-nowrap">
                           {notif.createdAt
@@ -367,15 +367,31 @@ function notificationMessage(type) {
     pinned: "pinned your comment",
     follow: "started following you",
     page_join: "joined your community",
-    page_removed: "removed you from a community",
-    page_deleted: "deleted a community you belonged to",
-    mod_appointed: "made you a community moderator",
-    mod_removed: "removed your community moderator role",
+    page_removed: "removed you from this community",
+    page_deleted: "deleted a community you were part of",
+    mod_appointed: "made you a moderator",
+    mod_removed: "removed your moderator role",
     join_request: "requested to join your community",
-    request_approved: "approved your community request",
-    request_rejected: "declined your community request",
+    request_approved: "approved your join request",
+    request_rejected: "declined your join request",
   };
   return messages[type] || "sent you an update";
+}
+
+function getNotificationMessage(notification, sender) {
+  const canonicalMessage = notificationMessage(notification.type);
+  if (canonicalMessage !== "sent you an update") return canonicalMessage;
+
+  const message = notification.message?.trim();
+  const username = sender?.username?.trim();
+  if (
+    message &&
+    username &&
+    message.toLowerCase().startsWith(`${username.toLowerCase()} `)
+  ) {
+    return message.slice(username.length).trimStart();
+  }
+  return message || canonicalMessage;
 }
 
 function formatRelativeTime(value) {

@@ -1,13 +1,27 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import { useAuth } from "../context/authContextValue";
 import { useToast } from "../context/toastContextValue";
 
 export default function SettingsPage() {
-  const { logout, logoutAll } = useAuth();
-  const { success, info } = useToast();
+  const { logout, logoutAll, theme, updateTheme } = useAuth();
+  const { success, info, error: toastError } = useToast();
   const navigate = useNavigate();
+  const [savingTheme, setSavingTheme] = useState(false);
+
+  const handleThemeChange = async (event) => {
+    const nextTheme = event.target.value;
+    setSavingTheme(true);
+    try {
+      await updateTheme(nextTheme);
+      success("Appearance preference saved.");
+    } catch (err) {
+      toastError(err?.message || "Could not save your appearance preference.");
+    } finally {
+      setSavingTheme(false);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -150,6 +164,38 @@ export default function SettingsPage() {
             </p>
           </button>
         </div>
+
+        <section className="rounded-3xl border border-outline-variant/15 bg-surface-container-lowest p-6 shadow-stitch-soft sm:p-7">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/40 text-primary">
+                <span className="material-symbols-outlined text-2xl">dark_mode</span>
+              </div>
+              <div>
+                <h2 className="font-headline text-xl font-bold text-on-surface">
+                  Appearance
+                </h2>
+                <p className="mt-1 max-w-xl text-sm text-on-surface-variant">
+                  Choose a theme or follow your device setting. System is the default.
+                </p>
+              </div>
+            </div>
+            <label className="flex min-h-11 items-center gap-3">
+              <span className="text-sm font-semibold text-on-surface">Theme</span>
+              <select
+                value={theme}
+                onChange={handleThemeChange}
+                disabled={savingTheme}
+                aria-label="Theme preference"
+                className="stitch-input min-w-40 py-2.5 sm:w-48"
+              >
+                <option value="system">System default</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+          </div>
+        </section>
 
         {/* Account Maintenance Section */}
         <section className="pt-6 border-t border-outline-variant/15 space-y-4">

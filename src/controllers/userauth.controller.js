@@ -378,7 +378,8 @@ const updateUsername = asyncHandler(async (req, res) => {
 
 // New profile update handler for bio (and future fields)
 const updateProfile = asyncHandler(async (req, res) => {
-  const { bio } = req.body || {};
+  const { bio, theme } = req.body || {};
+  const updates = {};
   if (bio !== undefined) {
     if (typeof bio !== "string") {
       throw new ApiError(400, "Bio must be a string");
@@ -386,19 +387,26 @@ const updateProfile = asyncHandler(async (req, res) => {
     if (bio.length > 150) {
       throw new ApiError(400, "Bio cannot exceed 150 characters");
     }
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user._id,
-      { $set: { bio: bio.trim() } },
-      { new: true, runValidators: true },
-    ).select("bio");
-    return res.status(200).json(
-      new ApiResponse(200, { bio: updatedUser.bio }, "Profile updated successfully"),
-    );
+    updates.bio = bio.trim();
   }
-  // Could handle other profile fields here
-  return res
-    .status(200)
-    .json(new ApiResponse(200, null, "Profile updated successfully"));
+  if (theme !== undefined) {
+    if (!["system", "light", "dark"].includes(theme)) {
+      throw new ApiError(400, "Theme must be system, light, or dark");
+    }
+    updates.theme = theme;
+  }
+  if (!Object.keys(updates).length) {
+    throw new ApiError(400, "At least one profile setting is required");
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user._id,
+    { $set: updates },
+    { new: true, runValidators: true },
+  ).select("bio theme");
+  return res.status(200).json(
+    new ApiResponse(200, updatedUser, "Profile updated successfully"),
+  );
 });
 
 const getFollowList = asyncHandler(async (req, res) => {

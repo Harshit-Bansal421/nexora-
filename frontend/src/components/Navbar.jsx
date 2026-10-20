@@ -146,7 +146,11 @@ export default function Navbar() {
         </div>
 
         {/* Global Search Bar */}
-        <div className="flex-1 max-w-md hidden sm:block" ref={searchRef}>
+        <div
+          className="flex-1 max-w-md hidden sm:block"
+          style={location.pathname === "/search" ? { display: "none" } : undefined}
+          ref={searchRef}
+        >
           <form
             onSubmit={handleSearchSubmit}
             className="relative"

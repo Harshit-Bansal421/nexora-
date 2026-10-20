@@ -30,30 +30,35 @@ export default function SearchResultsPage() {
         authApi.searchUsers(peopleQuery),
       ]);
 
+      let foundPosts = [];
+      let foundPages = [];
+      let foundPeople = [];
       if (postsRes.status === "fulfilled") {
         const postsData = postsRes.value?.data || postsRes.value || [];
-        setPostsResults(
-          Array.isArray(postsData) ? postsData : postsData?.posts || [],
-        );
-      } else {
-        setPostsResults([]);
+        foundPosts = Array.isArray(postsData)
+          ? postsData
+          : postsData?.posts || [];
       }
+      setPostsResults(foundPosts);
 
       if (pagesRes.status === "fulfilled") {
         const pagesData = pagesRes.value?.data || pagesRes.value || [];
-        setPagesResults(
-          Array.isArray(pagesData) ? pagesData : pagesData?.pages || [],
-        );
-      } else {
-        setPagesResults([]);
+        foundPages = Array.isArray(pagesData)
+          ? pagesData
+          : pagesData?.pages || [];
       }
+      setPagesResults(foundPages);
       if (peopleRes.status === "fulfilled") {
         const peopleData = peopleRes.value?.data || peopleRes.value || [];
-        setPeopleResults(
-          Array.isArray(peopleData) ? peopleData : peopleData?.users || [],
-        );
+        foundPeople = Array.isArray(peopleData)
+          ? peopleData
+          : peopleData?.users || [];
+      }
+      setPeopleResults(foundPeople);
+      if (searchTerm.startsWith("@") || foundPeople.length) {
+        setActiveTab("people");
       } else {
-        setPeopleResults([]);
+        setActiveTab("posts");
       }
     } catch (err) {
       console.warn("Search error:", err);

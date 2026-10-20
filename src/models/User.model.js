@@ -50,6 +50,11 @@ const UserSchema = mongoose.Schema(
       maxlength: [150, "bio can no exceed 150 characters"],
       default: "",
     },
+    theme: {
+      type: String,
+      enum: ["system", "light", "dark"],
+      default: "system",
+    },
     badges: [String],
     googleId: {
       type: String,

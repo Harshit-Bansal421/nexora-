@@ -7,6 +7,7 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const theme = currentUser?.theme || "system";
 
   const refreshUser = useCallback(async () => {
     try {
@@ -19,6 +20,29 @@ export function AuthProvider({ children }) {
       return null;
     }
   }, []);
+
+  const updateTheme = useCallback(async (nextTheme) => {
+    const res = await authApi.updateProfile({ theme: nextTheme });
+    const userData = res?.data || res;
+    setCurrentUser((user) =>
+      user ? { ...user, ...userData, theme: userData?.theme || nextTheme } : user,
+    );
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const applyTheme = () => {
+      const resolvedTheme =
+        theme === "system" ? (media?.matches ? "dark" : "light") : theme;
+      root.dataset.theme = resolvedTheme;
+      root.dataset.themePreference = theme;
+    };
+
+    applyTheme();
+    media?.addEventListener?.("change", applyTheme);
+    return () => media?.removeEventListener?.("change", applyTheme);
+  }, [theme]);
 
   useEffect(() => {
     let mounted = true;
@@ -101,6 +125,8 @@ export function AuthProvider({ children }) {
     logoutAll,
     unreadNotificationsCount,
     setUnreadNotificationsCount,
+    theme,
+    updateTheme,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
