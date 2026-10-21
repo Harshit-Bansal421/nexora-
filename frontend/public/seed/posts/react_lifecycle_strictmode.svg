@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 340" width="700" height="340">
+    <rect width="700" height="340" rx="12" fill="#1e1e2e"/>
+    <text x="350" y="36" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#cdd6f4" text-anchor="middle">React 18 StrictMode: Double Mount Simulation in Development</text>
+    <g transform="translate(60, 80)">
+      <rect x="0" y="30" width="150" height="50" rx="8" fill="#313244" stroke="#a6e3a1" stroke-width="2"/>
+      <text x="75" y="60" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#a6e3a1" text-anchor="middle">1. Mount Component</text>
+
+      <rect x="210" y="30" width="150" height="50" rx="8" fill="#313244" stroke="#f38ba8" stroke-width="2"/>
+      <text x="285" y="60" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#f38ba8" text-anchor="middle">2. Unmount (Cleanup)</text>
+
+      <rect x="420" y="30" width="150" height="50" rx="8" fill="#313244" stroke="#89b4fa" stroke-width="2"/>
+      <text x="495" y="60" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#89b4fa" text-anchor="middle">3. Remount State</text>
+
+      <line x1="150" y1="55" x2="210" y2="55" stroke="#6c7086" stroke-width="2"/>
+      <line x1="360" y1="55" x2="420" y2="55" stroke="#6c7086" stroke-width="2"/>
+    </g>
+    <text x="350" y="230" font-family="monospace" font-size="13" fill="#fab387" text-anchor="middle">useEffect(() =&gt; { fetch(); return () =&gt; abort(); }, [])</text>
+    <text x="350" y="270" font-family="system-ui, sans-serif" font-size="13" fill="#a6adc8" text-anchor="middle">Catches memory leaks and missing cleanup logic before production build.</text>
+  </svg>

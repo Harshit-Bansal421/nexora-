@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 340" width="700" height="340">
+    <rect width="700" height="340" rx="12" fill="#0f172a"/>
+    <text x="350" y="36" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#f8fafc" text-anchor="middle">Yantrashilpa CAD Blueprint: Spur Gear Profile &amp; Pitch Circle</text>
+    <circle cx="280" cy="180" r="90" fill="none" stroke="#38bdf8" stroke-width="2" stroke-dasharray="6"/>
+    <circle cx="280" cy="180" r="105" fill="none" stroke="#94a3b8" stroke-width="2.5"/>
+    <circle cx="280" cy="180" r="75" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
+    <circle cx="280" cy="180" r="24" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+    <text x="280" y="185" font-family="monospace" font-size="12" fill="#94a3b8" text-anchor="middle">Shaft</text>
+    <g transform="translate(430, 110)">
+      <rect width="210" height="140" rx="8" fill="#1e293b" stroke="#334155"/>
+      <text x="20" y="30" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#38bdf8">Specifications:</text>
+      <text x="20" y="55" font-family="monospace" font-size="12" fill="#cbd5e1">Module (m): 2.5 mm</text>
+      <text x="20" y="80" font-family="monospace" font-size="12" fill="#cbd5e1">No. of Teeth (Z): 36</text>
+      <text x="20" y="105" font-family="monospace" font-size="12" fill="#cbd5e1">Pitch Dia: 90.0 mm</text>
+      <text x="20" y="125" font-family="monospace" font-size="12" fill="#4ade80">Pressure Angle: 20°</text>
+    </g>
+  </svg>

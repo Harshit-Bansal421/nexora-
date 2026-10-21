@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 320" width="700" height="320">
+    <rect width="700" height="320" rx="12" fill="#1e1e2e"/>
+    <text x="350" y="36" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#cdd6f4" text-anchor="middle">Two-Sum II (Sorted Array) - Two Pointer Traversal</text>
+    <!-- Array Elements -->
+    <g transform="translate(80, 100)">
+
+        <rect x="0" y="0" width="68" height="60" rx="8" fill="#313244" stroke="#45475a" stroke-width="2"/>
+        <text x="34" y="36" font-family="monospace" font-size="18" font-weight="700" fill="#f5e0dc" text-anchor="middle">2</text>
+        <text x="34" y="78" font-family="monospace" font-size="12" fill="#6c7086" text-anchor="middle">[0]</text>
+
+        <rect x="76" y="0" width="68" height="60" rx="8" fill="#313244" stroke="#45475a" stroke-width="2"/>
+        <text x="110" y="36" font-family="monospace" font-size="18" font-weight="700" fill="#f5e0dc" text-anchor="middle">7</text>
+        <text x="110" y="78" font-family="monospace" font-size="12" fill="#6c7086" text-anchor="middle">[1]</text>
+
+        <rect x="152" y="0" width="68" height="60" rx="8" fill="#313244" stroke="#45475a" stroke-width="2"/>
+        <text x="186" y="36" font-family="monospace" font-size="18" font-weight="700" fill="#f5e0dc" text-anchor="middle">11</text>
+        <text x="186" y="78" font-family="monospace" font-size="12" fill="#6c7086" text-anchor="middle">[2]</text>
+
+        <rect x="228" y="0" width="68" height="60" rx="8" fill="#313244" stroke="#45475a" stroke-width="2"/>
+        <text x="262" y="36" font-family="monospace" font-size="18" font-weight="700" fill="#f5e0dc" text-anchor="middle">15</text>
+        <text x="262" y="78" font-family="monospace" font-size="12" fill="#6c7086" text-anchor="middle">[3]</text>
+
+        <rect x="304" y="0" width="68" height="60" rx="8" fill="#313244" stroke="#45475a" stroke-width="2"/>
+        <text x="338" y="36" font-family="monospace" font-size="18" font-weight="700" fill="#f5e0dc" text-anchor="middle">19</text>
+        <text x="338" y="78" font-family="monospace" font-size="12" fill="#6c7086" text-anchor="middle">[4]</text>
+
+        <rect x="380" y="0" width="68" height="60" rx="8" fill="#313244" stroke="#45475a" stroke-width="2"/>
+        <text x="414" y="36" font-family="monospace" font-size="18" font-weight="700" fill="#f5e0dc" text-anchor="middle">23</text>
+        <text x="414" y="78" font-family="monospace" font-size="12" fill="#6c7086" text-anchor="middle">[5]</text>
+
+        <rect x="456" y="0" width="68" height="60" rx="8" fill="#313244" stroke="#45475a" stroke-width="2"/>
+        <text x="490" y="36" font-family="monospace" font-size="18" font-weight="700" fill="#f5e0dc" text-anchor="middle">28</text>
+        <text x="490" y="78" font-family="monospace" font-size="12" fill="#6c7086" text-anchor="middle">[6]</text>
+
+      <!-- Left Pointer -->
+      <path d="M 34 110 L 34 85" stroke="#a6e3a1" stroke-width="3" marker-end="url(#arrow)"/>
+      <text x="34" y="130" font-family="monospace" font-size="14" font-weight="700" fill="#a6e3a1" text-anchor="middle">L (left)</text>
+      <!-- Right Pointer -->
+      <path d="M 490 110 L 490 85" stroke="#f38ba8" stroke-width="3" marker-end="url(#arrow)"/>
+      <text x="490" y="130" font-family="monospace" font-size="14" font-weight="700" fill="#f38ba8" text-anchor="middle">R (right)</text>
+    </g>
+    <!-- Subtitle text -->
+    <text x="350" y="270" font-family="monospace" font-size="14" fill="#fab387" text-anchor="middle">current sum: nums[L] + nums[R] = 2 + 28 = 30 &gt; target (26) &#8594; R--</text>
+  </svg>

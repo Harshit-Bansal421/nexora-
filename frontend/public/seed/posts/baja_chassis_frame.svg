@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 340" width="700" height="340">
+    <rect width="700" height="340" rx="12" fill="#18181b"/>
+    <text x="350" y="36" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#fafafa" text-anchor="middle">Team VEGA Racing: BAJA SAE Tubular Roll Cage Architecture</text>
+    <!-- Roll Cage Schematic -->
+    <path d="M 120 220 L 220 220 L 290 120 L 440 120 L 510 220 L 580 220" fill="none" stroke="#ef4444" stroke-width="3.5" stroke-linecap="round"/>
+    <path d="M 220 220 L 290 120 L 320 220 L 440 120 L 510 220" fill="none" stroke="#f97316" stroke-width="2.5"/>
+    <line x1="290" y1="120" x2="440" y2="120" stroke="#ef4444" stroke-width="3"/>
+    <line x1="120" y1="220" x2="580" y2="220" stroke="#ef4444" stroke-width="3"/>
+    <!-- Wheels -->
+    <circle cx="150" cy="240" r="30" fill="#27272a" stroke="#71717a" stroke-width="4"/>
+    <circle cx="550" cy="240" r="30" fill="#27272a" stroke="#71717a" stroke-width="4"/>
+    <text x="350" y="295" font-family="system-ui, sans-serif" font-size="13" font-weight="600" fill="#a1a1aa" text-anchor="middle">AISI 4130 Chromoly Steel Tubing (Outer Dia: 25.4mm, Wall: 1.65mm)</text>
+  </svg>

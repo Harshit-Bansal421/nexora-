@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 340" width="700" height="340">
+      <rect width="700" height="340" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
+      <rect width="700" height="50" rx="12" fill="#0f172a"/>
+      <text x="350" y="32" font-family="system-ui, sans-serif" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">CLASS TEST 2 &amp; PRACTICAL VIVA SCHEDULE (5th SEM CSE)</text>
+      <!-- Table Header -->
+      <rect x="20" y="65" width="660" height="36" fill="#e2e8f0" rx="4"/>
+      <text x="40" y="88" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#334155">Date / Day</text>
+      <text x="180" y="88" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#334155">Morning (9:30 - 11:30 AM)</text>
+      <text x="420" y="88" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#334155">Afternoon (1:30 - 3:30 PM)</text>
+      <!-- Rows -->
+      <rect x="20" y="110" width="660" height="38" fill="#ffffff" rx="4"/>
+      <text x="40" y="134" font-family="system-ui, sans-serif" font-size="12" fill="#1e293b">Mon (27 Oct)</text>
+      <text x="180" y="134" font-family="system-ui, sans-serif" font-size="12" font-weight="600" fill="#2563eb">KCS-501: Database Management Sys</text>
+      <text x="420" y="134" font-family="system-ui, sans-serif" font-size="12" fill="#64748b">Revision Lab (AB3-204)</text>
+
+      <rect x="20" y="155" width="660" height="38" fill="#f1f5f9" rx="4"/>
+      <text x="40" y="179" font-family="system-ui, sans-serif" font-size="12" fill="#1e293b">Tue (28 Oct)</text>
+      <text x="180" y="179" font-family="system-ui, sans-serif" font-size="12" font-weight="600" fill="#2563eb">KCS-502: Compiler Design</text>
+      <text x="420" y="179" font-family="system-ui, sans-serif" font-size="12" fill="#64748b">DBMS Practical Viva (Sec A)</text>
+
+      <rect x="20" y="200" width="660" height="38" fill="#ffffff" rx="4"/>
+      <text x="40" y="224" font-family="system-ui, sans-serif" font-size="12" fill="#1e293b">Wed (29 Oct)</text>
+      <text x="180" y="224" font-family="system-ui, sans-serif" font-size="12" font-weight="600" fill="#2563eb">KCS-503: Design &amp; Analysis of Algo</text>
+      <text x="420" y="224" font-family="system-ui, sans-serif" font-size="12" fill="#64748b">DBMS Practical Viva (Sec B)</text>
+
+      <rect x="20" y="245" width="660" height="38" fill="#f1f5f9" rx="4"/>
+      <text x="40" y="269" font-family="system-ui, sans-serif" font-size="12" fill="#1e293b">Thu (30 Oct)</text>
+      <text x="180" y="269" font-family="system-ui, sans-serif" font-size="12" font-weight="600" fill="#2563eb">KNC-501: Constitution of India</text>
+      <text x="420" y="269" font-family="system-ui, sans-serif" font-size="12" fill="#64748b">DAA Lab Record Sign-offs</text>
+    </svg>

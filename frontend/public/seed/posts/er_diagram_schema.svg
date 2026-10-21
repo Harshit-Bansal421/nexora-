@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 380" width="700" height="380">
+      <rect width="700" height="380" rx="12" fill="#0f172a"/>
+      <text x="350" y="35" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#f8fafc" text-anchor="middle">Course Registration Relational Schema</text>
+      <!-- Students Table -->
+      <g transform="translate(40, 60)">
+        <rect width="180" height="150" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+        <rect width="180" height="32" rx="8" fill="#3b82f6"/>
+        <text x="90" y="21" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">Students</text>
+        <text x="12" y="55" font-family="monospace" font-size="12" fill="#fbbf24">PK student_id</text>
+        <text x="12" y="80" font-family="monospace" font-size="12" fill="#cbd5e1">   name VARCHAR</text>
+        <text x="12" y="105" font-family="monospace" font-size="12" fill="#cbd5e1">   roll_no VARCHAR</text>
+        <text x="12" y="130" font-family="monospace" font-size="12" fill="#60a5fa">FK dept_id</text>
+      </g>
+      <!-- Enrollments Table -->
+      <g transform="translate(260, 140)">
+        <rect width="180" height="150" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+        <rect width="180" height="32" rx="8" fill="#8b5cf6"/>
+        <text x="90" y="21" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">Enrollments</text>
+        <text x="12" y="55" font-family="monospace" font-size="12" fill="#fbbf24">PK enrollment_id</text>
+        <text x="12" y="80" font-family="monospace" font-size="12" fill="#60a5fa">FK student_id</text>
+        <text x="12" y="105" font-family="monospace" font-size="12" fill="#60a5fa">FK course_id</text>
+        <text x="12" y="130" font-family="monospace" font-size="12" fill="#cbd5e1">   grade VARCHAR</text>
+      </g>
+      <!-- Courses Table -->
+      <g transform="translate(480, 60)">
+        <rect width="180" height="150" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+        <rect width="180" height="32" rx="8" fill="#10b981"/>
+        <text x="90" y="21" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">Courses</text>
+        <text x="12" y="55" font-family="monospace" font-size="12" fill="#fbbf24">PK course_id</text>
+        <text x="12" y="80" font-family="monospace" font-size="12" fill="#cbd5e1">   code VARCHAR</text>
+        <text x="12" y="105" font-family="monospace" font-size="12" fill="#cbd5e1">   title VARCHAR</text>
+        <text x="12" y="130" font-family="monospace" font-size="12" fill="#cbd5e1">   credits INT</text>
+      </g>
+      <!-- Connectors -->
+      <line x1="220" y1="135" x2="260" y2="175" stroke="#94a3b8" stroke-width="2" stroke-dasharray="4"/>
+      <line x1="440" y1="175" x2="480" y2="135" stroke="#94a3b8" stroke-width="2" stroke-dasharray="4"/>
+    </svg>

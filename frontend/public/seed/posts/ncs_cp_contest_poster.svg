@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 360" width="700" height="360">
+    <rect width="700" height="360" rx="12" fill="#090d16"/>
+    <rect width="700" height="6" fill="#3b82f6"/>
+    <text x="60" y="80" font-family="system-ui, sans-serif" font-size="32" font-weight="900" fill="#ffffff">NCS WEEKLY CP SPRINT #4</text>
+    <text x="60" y="115" font-family="monospace" font-size="16" fill="#60a5fa">&lt;CompetitiveProgramming /&gt;</text>
+    <g transform="translate(60, 150)">
+      <rect width="580" height="110" rx="8" fill="#131c2e" stroke="#1e293b"/>
+      <text x="30" y="40" font-family="system-ui, sans-serif" font-size="15" fill="#e2e8f0">Format: 4 Algorithmic Problems (Binary Search, DP, Graphs)</text>
+      <text x="30" y="70" font-family="system-ui, sans-serif" font-size="15" fill="#e2e8f0">Time: Tomorrow • 8:00 PM to 10:00 PM (120 mins)</text>
+      <text x="30" y="95" font-family="system-ui, sans-serif" font-size="13" fill="#94a3b8">Platform: HackerRank Contest Portal | Solutions reviewed Monday</text>
+    </g>
+    <text x="60" y="310" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#38bdf8">Nibble Computer Society • Estd. 2000</text>
+  </svg>

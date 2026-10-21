@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 380" width="700" height="380">
+      <defs>
+        <linearGradient id="p_grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#0d1b2a"/>
+          <stop offset="100%" stop-color="#1b4965"/>
+        </linearGradient>
+      </defs>
+      <rect width="700" height="380" rx="12" fill="url(#p_grad)"/>
+      <circle cx="580" cy="90" r="140" fill="rgba(66,133,244,0.12)"/>
+      <circle cx="620" cy="290" r="100" fill="rgba(52,168,83,0.1)"/>
+      <!-- Graphic Elements -->
+      <path d="M 80 80 L 160 80 L 220 140 L 300 140" stroke="#38bdf8" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <path d="M 160 80 L 220 40 L 300 40" stroke="#34d399" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <circle cx="80" cy="80" r="8" fill="#38bdf8"/>
+      <circle cx="160" cy="80" r="8" fill="#38bdf8"/>
+      <circle cx="220" cy="140" r="8" fill="#38bdf8"/>
+      <circle cx="300" cy="140" r="8" fill="#38bdf8"/>
+      <circle cx="220" cy="40" r="8" fill="#34d399"/>
+      <circle cx="300" cy="40" r="8" fill="#34d399"/>
+
+      <text x="80" y="210" font-family="system-ui, sans-serif" font-size="34" font-weight="900" fill="#ffffff">Hands-on Git &amp; GitHub</text>
+      <text x="80" y="245" font-family="system-ui, sans-serif" font-size="18" font-weight="500" fill="#38bdf8">Master Version Control, Branching &amp; Open Source PRs</text>
+      <rect x="80" y="275" width="220" height="42" rx="8" fill="#2563eb"/>
+      <text x="190" y="302" font-family="system-ui, sans-serif" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">Saturday • 3:00 PM</text>
+      <text x="320" y="302" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#cbd5e1">Venue: Computer Lab 3 (AB-3)</text>
+    </svg>

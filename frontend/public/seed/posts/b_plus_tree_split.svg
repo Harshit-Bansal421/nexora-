@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 360" width="700" height="360">
+    <rect width="700" height="360" rx="12" fill="#0f172a"/>
+    <text x="350" y="36" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#f8fafc" text-anchor="middle">B+ Tree Node Split on Inserting Key 28 (Order 4)</text>
+    <!-- Root Node -->
+    <g transform="translate(280, 60)">
+      <rect width="140" height="40" rx="6" fill="#3b82f6" stroke="#60a5fa" stroke-width="2"/>
+      <text x="70" y="25" font-family="monospace" font-size="15" font-weight="700" fill="#ffffff" text-anchor="middle">[ 25 ]</text>
+    </g>
+    <line x1="320" y1="100" x2="200" y2="160" stroke="#94a3b8" stroke-width="2"/>
+    <line x1="380" y1="100" x2="500" y2="160" stroke="#94a3b8" stroke-width="2"/>
+    <!-- Left Leaf -->
+    <g transform="translate(100, 160)">
+      <rect width="200" height="50" rx="6" fill="#1e293b" stroke="#475569" stroke-width="2"/>
+      <text x="100" y="32" font-family="monospace" font-size="15" fill="#e2e8f0" text-anchor="middle">[ 10 | 18 | 22 ]</text>
+    </g>
+    <!-- Right Leaf Splitting -->
+    <g transform="translate(400, 160)">
+      <rect width="220" height="50" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="2"/>
+      <text x="110" y="32" font-family="monospace" font-size="15" fill="#fbbf24" text-anchor="middle">[ 25 | 28* | 32 | 40 ]</text>
+    </g>
+    <!-- Explanation -->
+    <rect x="100" y="240" width="500" height="80" rx="8" fill="#1e293b" stroke="#334155"/>
+    <text x="120" y="270" font-family="system-ui, sans-serif" font-size="13" fill="#38bdf8">1. Node overflows capacity (max 3 keys for order 4 leaf).</text>
+    <text x="120" y="295" font-family="system-ui, sans-serif" font-size="13" fill="#cbd5e1">2. Split into [25, 28] and [32, 40], copying middle key 32 up to parent.</text>
+  </svg>

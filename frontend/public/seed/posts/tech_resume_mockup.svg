@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 480" width="700" height="480">
+      <rect width="700" height="480" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+      <rect width="700" height="40" rx="12" fill="#0f172a"/>
+      <text x="350" y="25" font-family="system-ui, sans-serif" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">ONE-PAGE ATS-FRIENDLY RESUME BLUEPRINT</text>
+      <g transform="translate(30, 60)">
+        <text x="0" y="20" font-family="system-ui, sans-serif" font-size="18" font-weight="800" fill="#0f172a">ROHAN VERMA</text>
+        <text x="0" y="38" font-family="system-ui, sans-serif" font-size="12" fill="#64748b">Noida, UP | github.com/rohan-fictional | linkedin.com/in/rohan-fictional</text>
+        <line x1="0" y1="48" x2="640" y2="48" stroke="#0f172a" stroke-width="1.5"/>
+
+        <text x="0" y="70" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#2563eb">EDUCATION</text>
+        <text x="0" y="90" font-family="system-ui, sans-serif" font-size="12" font-weight="600" fill="#1e293b">B.Tech in Computer Science &amp; Engineering | JSSATEN, Noida (2023 - 2027)</text>
+        <text x="0" y="106" font-family="system-ui, sans-serif" font-size="11" fill="#64748b">CGPA: 8.64 / 10.0 | Relevant Coursework: Data Structures, DBMS, OS, Computer Networks</text>
+
+        <text x="0" y="132" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#2563eb">TECHNICAL SKILLS</text>
+        <text x="0" y="150" font-family="system-ui, sans-serif" font-size="11" fill="#1e293b">Languages: C++, Java, JavaScript, TypeScript, SQL, Python</text>
+        <text x="0" y="166" font-family="system-ui, sans-serif" font-size="11" fill="#1e293b">Web &amp; Frameworks: React, Node.js, Express, TailwindCSS, MongoDB, Redis</text>
+        <text x="0" y="182" font-family="system-ui, sans-serif" font-size="11" fill="#1e293b">Developer Tools: Git, GitHub, Docker, Postman, Linux / Bash</text>
+
+        <text x="0" y="208" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#2563eb">FEATURED PROJECTS</text>
+        <text x="0" y="228" font-family="system-ui, sans-serif" font-size="12" font-weight="600" fill="#1e293b">Campus Pulse - Scalable Discussion Platform (Node.js, MongoDB, Socket.io)</text>
+        <text x="15" y="246" font-family="system-ui, sans-serif" font-size="11" fill="#475569">• Engineered real-time comment feeds handling 50 concurrent socket rooms.</text>
+        <text x="15" y="262" font-family="system-ui, sans-serif" font-size="11" fill="#475569">• Designed atomic vote aggregation pipeline preventing race conditions under high traffic.</text>
+
+        <text x="0" y="290" font-family="system-ui, sans-serif" font-size="12" font-weight="600" fill="#1e293b">AlgoVisualizer - Interactive Graph &amp; Tree Visualizer (React, Canvas API)</text>
+        <text x="15" y="308" font-family="system-ui, sans-serif" font-size="11" fill="#475569">• Visualized Dijkstra's and BFS/DFS traversal algorithms with step-by-step latency simulation.</text>
+      </g>
+    </svg>

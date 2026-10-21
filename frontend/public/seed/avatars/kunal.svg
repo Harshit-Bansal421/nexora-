@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="K avatar">
+    <rect width="120" height="120" rx="60" fill="#fce7f3"/>
+    <g transform="rotate(290 60 60)"><rect x="12" y="12" width="96" height="96" rx="30" fill="#db2777" opacity=".16"/><circle cx="60" cy="60" r="35" fill="#db2777" opacity=".22"/><path d="M60 19 101 91 19 91Z" fill="#db2777" opacity=".32"/></g>
+    <circle cx="60" cy="60" r="28" fill="#db2777"/><text x="60" y="69" text-anchor="middle" font-family="system-ui,sans-serif" font-size="25" font-weight="800" fill="#fff">K</text>
+  </svg>

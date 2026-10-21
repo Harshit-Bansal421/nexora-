@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 340" width="700" height="340">
+    <rect width="700" height="340" rx="12" fill="#111827"/>
+    <text x="350" y="36" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#f9fafb" text-anchor="middle">4-Variable Karnaugh Map (AB \ CD) Simplification</text>
+    <g transform="translate(180, 70)">
+      <rect width="320" height="180" fill="#1f2937" stroke="#374151" stroke-width="2"/>
+      <!-- Grid lines -->
+      <line x1="80" y1="0" x2="80" y2="180" stroke="#374151" stroke-width="1.5"/><line x1="160" y1="0" x2="160" y2="180" stroke="#374151" stroke-width="1.5"/><line x1="240" y1="0" x2="240" y2="180" stroke="#374151" stroke-width="1.5"/>
+      <line x1="0" y1="45" x2="320" y2="45" stroke="#374151" stroke-width="1.5"/><line x1="0" y1="90" x2="320" y2="90" stroke="#374151" stroke-width="1.5"/><line x1="0" y1="135" x2="320" y2="135" stroke="#374151" stroke-width="1.5"/>
+      <!-- Quad Group Loop -->
+      <rect x="85" y="48" width="150" height="84" rx="12" fill="rgba(59, 130, 246, 0.25)" stroke="#3b82f6" stroke-width="2.5"/>
+      <!-- 1s and 0s -->
+      <text x="40" y="28" font-family="monospace" font-size="16" fill="#9ca3af" text-anchor="middle">0</text>
+      <text x="120" y="28" font-family="monospace" font-size="16" font-weight="700" fill="#60a5fa" text-anchor="middle">1</text>
+      <text x="200" y="28" font-family="monospace" font-size="16" font-weight="700" fill="#60a5fa" text-anchor="middle">1</text>
+      <text x="280" y="28" font-family="monospace" font-size="16" fill="#9ca3af" text-anchor="middle">0</text>
+
+      <text x="40" y="73" font-family="monospace" font-size="16" fill="#9ca3af" text-anchor="middle">0</text>
+      <text x="120" y="73" font-family="monospace" font-size="16" font-weight="700" fill="#60a5fa" text-anchor="middle">1</text>
+      <text x="200" y="73" font-family="monospace" font-size="16" font-weight="700" fill="#60a5fa" text-anchor="middle">1</text>
+      <text x="280" y="73" font-family="monospace" font-size="16" fill="#9ca3af" text-anchor="middle">0</text>
+    </g>
+    <text x="350" y="290" font-family="monospace" font-size="15" font-weight="700" fill="#34d399" text-anchor="middle">Minimized Expression: Y = B • D</text>
+  </svg>

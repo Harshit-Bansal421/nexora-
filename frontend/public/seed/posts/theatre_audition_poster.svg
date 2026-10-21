@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 360" width="700" height="360">
+    <rect width="700" height="360" rx="12" fill="#450a0a"/>
+    <circle cx="580" cy="120" r="130" fill="rgba(239,68,68,0.1)"/>
+    <text x="60" y="80" font-family="system-ui, sans-serif" font-size="32" font-weight="900" fill="#fecaca">ILLUMINATI DRAMATICS SOCIETY</text>
+    <text x="60" y="115" font-family="system-ui, sans-serif" font-size="18" font-weight="600" fill="#f87171">Street Play (Nukkad Natak) &amp; Stage Production Auditions</text>
+    <g transform="translate(60, 150)">
+      <rect width="580" height="110" rx="8" fill="rgba(0,0,0,0.3)"/>
+      <text x="30" y="38" font-family="system-ui, sans-serif" font-size="15" fill="#fef2f2">Looking for: Actors, Scriptwriters, Dholak/Percussionists &amp; Vocals</text>
+      <text x="30" y="68" font-family="system-ui, sans-serif" font-size="15" fill="#fef2f2">Venue: College Open Amphitheater</text>
+      <text x="30" y="95" font-family="system-ui, sans-serif" font-size="14" fill="#fca5a5">This Thursday at 4:30 PM • No prior experience required</text>
+    </g>
+    <text x="60" y="305" font-family="system-ui, sans-serif" font-size="14" font-weight="700" fill="#ef4444">Dare to Act. Dare to Inspire.</text>
+  </svg>

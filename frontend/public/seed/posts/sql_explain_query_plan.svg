@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 340" width="700" height="340">
+    <rect width="700" height="340" rx="12" fill="#18181b"/>
+    <text x="350" y="36" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#fafafa" text-anchor="middle">SQL EXPLAIN Plan: Full Table Scan vs B-Tree Index Scan</text>
+    <g transform="translate(40, 70)">
+      <rect width="290" height="190" rx="8" fill="#27272a" stroke="#ef4444" stroke-width="1.5"/>
+      <text x="145" y="30" font-family="system-ui, sans-serif" font-size="14" font-weight="700" fill="#f87171" text-anchor="middle">Without Index (Full Scan)</text>
+      <text x="20" y="65" font-family="monospace" font-size="12" fill="#e4e4e7">Type: ALL (Seq Scan)</text>
+      <text x="20" y="95" font-family="monospace" font-size="12" fill="#e4e4e7">Rows Examined: 250,000</text>
+      <text x="20" y="125" font-family="monospace" font-size="12" fill="#e4e4e7">Execution Time: 340 ms</text>
+      <text x="20" y="160" font-family="monospace" font-size="12" fill="#ef4444">Heavy Disk I/O &amp; CPU Wait</text>
+    </g>
+    <g transform="translate(370, 70)">
+      <rect width="290" height="190" rx="8" fill="#27272a" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="145" y="30" font-family="system-ui, sans-serif" font-size="14" font-weight="700" fill="#4ade80" text-anchor="middle">With Index (Index Scan)</text>
+      <text x="20" y="65" font-family="monospace" font-size="12" fill="#e4e4e7">Type: ref (B-Tree)</text>
+      <text x="20" y="95" font-family="monospace" font-size="12" fill="#e4e4e7">Rows Examined: 3</text>
+      <text x="20" y="125" font-family="monospace" font-size="12" fill="#e4e4e7">Execution Time: 0.8 ms</text>
+      <text x="20" y="160" font-family="monospace" font-size="12" fill="#22c55e">Instant logarithmic O(log N) lookup</text>
+    </g>
+  </svg>

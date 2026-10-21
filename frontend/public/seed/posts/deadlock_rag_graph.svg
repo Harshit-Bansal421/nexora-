@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 360" width="700" height="360">
+    <rect width="700" height="360" rx="12" fill="#0f172a"/>
+    <text x="350" y="36" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#f8fafc" text-anchor="middle">Resource Allocation Graph (RAG) with Deadlock Cycle</text>
+    <!-- Process 1 -->
+    <circle cx="180" cy="140" r="36" fill="#3b82f6" stroke="#93c5fd" stroke-width="2"/>
+    <text x="180" y="146" font-family="system-ui, sans-serif" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">P1</text>
+    <!-- Process 2 -->
+    <circle cx="520" cy="140" r="36" fill="#3b82f6" stroke="#93c5fd" stroke-width="2"/>
+    <text x="520" y="146" font-family="system-ui, sans-serif" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">P2</text>
+    <!-- Resource 1 -->
+    <rect x="310" y="60" width="80" height="60" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-width="2"/>
+    <circle cx="350" cy="90" r="6" fill="#fbbf24"/>
+    <text x="350" y="50" font-family="system-ui, sans-serif" font-size="14" font-weight="700" fill="#fcd34d" text-anchor="middle">R1</text>
+    <!-- Resource 2 -->
+    <rect x="310" y="200" width="80" height="60" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-width="2"/>
+    <circle cx="350" cy="230" r="6" fill="#fbbf24"/>
+    <text x="350" y="280" font-family="system-ui, sans-serif" font-size="14" font-weight="700" fill="#fcd34d" text-anchor="middle">R2</text>
+    <!-- Edges forming cycle -->
+    <!-- R1 allocated to P1 -->
+    <path d="M 350 85 L 216 125" stroke="#4ade80" stroke-width="2.5" fill="none"/>
+    <!-- P1 requests R2 -->
+    <path d="M 205 165 L 310 220" stroke="#f87171" stroke-width="2.5" stroke-dasharray="4" fill="none"/>
+    <!-- R2 allocated to P2 -->
+    <path d="M 350 230 L 485 160" stroke="#4ade80" stroke-width="2.5" fill="none"/>
+    <!-- P2 requests R1 -->
+    <path d="M 495 125 L 390 85" stroke="#f87171" stroke-width="2.5" stroke-dasharray="4" fill="none"/>
+    <text x="350" y="325" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#f87171" text-anchor="middle">Deadlock Condition: Cycle Detected (P1 &#8594; R2 &#8594; P2 &#8594; R1 &#8594; P1)</text>
+  </svg>

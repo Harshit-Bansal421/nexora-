@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 340" width="700" height="340">
+    <rect width="700" height="340" rx="12" fill="#0f172a"/>
+    <text x="350" y="36" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#f8fafc" text-anchor="middle">Oorja EE Forum: Second Order RLC Step Response (Underdamped)</text>
+    <!-- Graph Grid -->
+    <rect x="80" y="70" width="540" height="200" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <!-- Target Level 1.0 -->
+    <line x1="80" y1="130" x2="620" y2="130" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4"/>
+    <text x="635" y="135" font-family="monospace" font-size="12" fill="#fbbf24">1.0 V</text>
+    <!-- Transient curve -->
+    <path d="M 80 270 Q 140 250, 180 80 T 260 160 T 340 120 T 420 135 T 520 130 L 620 130" fill="none" stroke="#38bdf8" stroke-width="3"/>
+    <!-- Annotations -->
+    <text x="180" y="70" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#38bdf8">Peak Overshoot (Mp = 28%)</text>
+    <text x="350" y="300" font-family="system-ui, sans-serif" font-size="13" fill="#cbd5e1" text-anchor="middle">Settling Time (ts) &#8776; 4.2 ms | Damping Ratio &#950; = 0.42</text>
+  </svg>

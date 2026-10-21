@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 340" width="700" height="340">
+    <rect width="700" height="340" rx="12" fill="#202124"/>
+    <rect width="700" height="36" rx="12" fill="#292a2d"/>
+    <text x="350" y="24" font-family="system-ui, sans-serif" font-size="13" fill="#e8eaed" text-anchor="middle">Chrome DevTools - Console &amp; Network</text>
+    <g transform="translate(24, 60)">
+      <rect width="652" height="70" rx="6" fill="#3c1f1e" stroke="#d93025" stroke-width="1.5"/>
+      <text x="16" y="28" font-family="monospace" font-size="12" fill="#f28b82">Access to XMLHttpRequest at 'http://localhost:5000/api/v1/posts' from origin</text>
+      <text x="16" y="48" font-family="monospace" font-size="12" fill="#f28b82">'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header.</text>
+    </g>
+    <g transform="translate(24, 150)">
+      <rect width="652" height="150" rx="6" fill="#292a2d" stroke="#3c4043" stroke-width="1"/>
+      <text x="20" y="30" font-family="monospace" font-size="13" font-weight="700" fill="#8ab4f8">Response Headers (Missing Required Config):</text>
+      <text x="20" y="60" font-family="monospace" font-size="12" fill="#9aa0a6">HTTP/1.1 403 Forbidden</text>
+      <text x="20" y="85" font-family="monospace" font-size="12" fill="#81c995">Expected: Access-Control-Allow-Origin: http://localhost:5173</text>
+      <text x="20" y="110" font-family="monospace" font-size="12" fill="#81c995">Expected: Access-Control-Allow-Credentials: true</text>
+      <text x="20" y="135" font-family="monospace" font-size="12" fill="#e8eaed">Status: Preflight (OPTIONS) failed with code 403</text>
+    </g>
+  </svg>

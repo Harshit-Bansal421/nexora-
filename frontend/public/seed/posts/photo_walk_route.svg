@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 340" width="700" height="340">
+    <rect width="700" height="340" rx="12" fill="#0f172a"/>
+    <text x="350" y="36" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#f8fafc" text-anchor="middle">JSSATE Photography Club (PFC): Golden Hour Campus Photo-Walk</text>
+    <!-- Campus Nodes -->
+    <g transform="translate(60, 80)">
+      <rect x="0" y="40" width="120" height="60" rx="8" fill="#1e293b" stroke="#64748b"/>
+      <text x="60" y="75" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#f1f5f9" text-anchor="middle">Main Gate</text>
+
+      <rect x="220" y="40" width="140" height="60" rx="8" fill="#1e293b" stroke="#38bdf8"/>
+      <text x="290" y="75" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#38bdf8" text-anchor="middle">Amphitheater</text>
+
+      <rect x="440" y="40" width="140" height="60" rx="8" fill="#1e293b" stroke="#64748b"/>
+      <text x="510" y="75" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#f1f5f9" text-anchor="middle">Central Library</text>
+
+      <line x1="120" y1="70" x2="220" y2="70" stroke="#f59e0b" stroke-width="3" stroke-dasharray="4"/>
+      <line x1="360" y1="70" x2="440" y2="70" stroke="#f59e0b" stroke-width="3" stroke-dasharray="4"/>
+    </g>
+    <text x="350" y="270" font-family="system-ui, sans-serif" font-size="14" fill="#cbd5e1" text-anchor="middle">Theme: Architectural Geometry &amp; Natural Shadows (Meet 4:45 PM Friday)</text>
+  </svg>
