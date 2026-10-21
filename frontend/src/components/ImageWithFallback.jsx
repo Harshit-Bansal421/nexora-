@@ -1,8 +1,14 @@
 import { useState } from "react";
+import demoAvatarManifest from "../demoAvatarManifest.json";
+
+function mapLegacyDemoAvatar(path) {
+  const legacyAvatar = path.match(/^\/seed\/avatars\/([^/]+)\.svg$/i);
+  return legacyAvatar ? demoAvatarManifest[legacyAvatar[1]] || path : path;
+}
 
 function resolveSeedAsset(src) {
   if (typeof src !== "string") return src;
-  if (src.startsWith("/seed/")) return src;
+  if (src.startsWith("/seed/")) return mapLegacyDemoAvatar(src);
 
   // The API currently runs stored paths through Cloudinary's URL helper.
   // Recover our local seed path so the frontend can serve the checked-in file.
@@ -10,7 +16,9 @@ function resolveSeedAsset(src) {
     const url = new URL(src);
     if (url.hostname.endsWith("res.cloudinary.com")) {
       const seedPathIndex = url.pathname.indexOf("/seed/");
-      if (seedPathIndex >= 0) return url.pathname.slice(seedPathIndex);
+      if (seedPathIndex >= 0) {
+        return mapLegacyDemoAvatar(url.pathname.slice(seedPathIndex));
+      }
     }
   } catch {
     return src;
