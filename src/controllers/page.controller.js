@@ -15,6 +15,13 @@ import { getIO } from "../socket.js";
 import { createNotification } from "../utils/createNotification.js";
 import { parsePagination } from "../utils/pagination.js";
 
+const uniqueMemberCount = (members = []) =>
+  new Set(
+    (Array.isArray(members) ? members : [])
+      .map((member) => String(member?._id ?? member))
+      .filter((id) => id !== "undefined" && id !== "null"),
+  ).size;
+
 const createPage = asyncHandler(async (req, res) => {
   const { pageName, pageDescription, title, type = "open" } = req.body || {};
   const pageProfileImage = req.file;
@@ -159,7 +166,7 @@ const getPages = asyncHandler(async (req, res) => {
 
   const pages = await query
     .populate({ path: "owner", select: "username profileImage title" })
-    .select("-moderators -members")
+    .select("-moderators")
     .skip(skip)
     .limit(limitNumber);
   //   console.log(getOptimizedImage(page.pageProfileImage))
@@ -177,25 +184,20 @@ const getPages = asyncHandler(async (req, res) => {
   const total = await Page.countDocuments(filter);
   const totalPages = limitNumber ? Math.ceil(total / limitNumber) : 1;
 
-  const isloggedIn = !!req.user;
-  let responsePages;
-  if (isloggedIn) {
-    responsePages = pages;
-  } else {
-    responsePages = pages.map((page) => ({
+  const responsePages = pages.map((page) => ({
       _id: page._id,
       owner: {
-        username: page.owner.username,
-        profileImage: page.owner.profileImage,
+        username: page.owner?.username,
+        profileImage: page.owner?.profileImage,
       },
       pageProfileImage: page?.pageProfileImage,
+      pageCoverImage: page?.pageCoverImage,
       pageName: page?.pageName,
       pageDescription: page?.pageDescription,
       title: page.title,
       type: page.type,
-      membersCount: page.membersCount,
-    }));
-  }
+      membersCount: uniqueMemberCount(page.members),
+  }));
   res.status(200).json(
     new ApiResponse(
       200,
@@ -302,7 +304,7 @@ const seeMembersList = asyncHandler(async (req, res) => {
     pageName: page.pageName,
     owner: page.owner,
     pageProfileImage: page.pageProfileImage,
-    membersCount: page.members.length,
+    membersCount: uniqueMemberCount(page.members),
     members: members.map((member) => ({
       ...member,
       profileImage: getOptimizedImage(member.profileImage),
@@ -748,7 +750,6 @@ const getParticularPage = asyncHandler(async (req, res) => {
 
   // Get page with populated references
   const page = await Page.findById(pageId)
-    .select("-members -moderators")
     .populate("owner", "username profileImage title");
 
   if (!page) throw new ApiError(404, "Page not found");
@@ -767,8 +768,9 @@ const getParticularPage = asyncHandler(async (req, res) => {
     pageDescription: page.pageDescription,
     title: page.title,
     pageProfileImage: getOptimizedImage(page.pageProfileImage),
+    pageCoverImage: page.pageCoverImage,
     type: page.type,
-    membersCount: page.membersCount,
+    membersCount: uniqueMemberCount(page.members),
     moderatorsCount: page.moderatorsCount,
     createdAt: page.createdAt,
     updatedAt: page.updatedAt,

@@ -13,6 +13,7 @@ export default function PageExplorePage() {
   const [pages, setPages] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [joiningPageId, setJoiningPageId] = useState(null);
   const [pendingRequestIds, setPendingRequestIds] = useState(() => new Set());
 
@@ -64,6 +65,7 @@ export default function PageExplorePage() {
         }),
       );
       setPages(enrichedPages);
+      setLoadError(false);
       setPendingRequestIds(
         new Set(
           enrichedPages
@@ -73,6 +75,7 @@ export default function PageExplorePage() {
       );
     } catch (err) {
       console.warn("Error fetching pages:", err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -232,6 +235,11 @@ export default function PageExplorePage() {
               Loading learning hubs...
             </p>
           </div>
+        ) : loadError ? (
+          <div role="alert" className="text-center py-16 bg-surface-container-lowest rounded-3xl border border-outline-variant/15 p-8">
+            <p className="text-sm text-on-surface-variant mb-4">Community hubs could not be loaded.</p>
+            <button onClick={() => { setLoading(true); fetchPages(search.trim()); }} className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-white">Try again</button>
+          </div>
         ) : pages.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {pages.map((page) => {
@@ -243,12 +251,11 @@ export default function PageExplorePage() {
                 currentUser &&
                 (page.owner === currentUser._id ||
                   page.owner?._id === currentUser._id);
-              const memberCount =
-                page.membersCount > 0
-                  ? page.membersCount
-                  : Array.isArray(page.members)
-                    ? page.members.length
-                    : null;
+              const memberCount = Number.isInteger(page.membersCount) && page.membersCount >= 0
+                ? page.membersCount
+                : Array.isArray(page.members)
+                  ? new Set(page.members.map((member) => typeof member === "string" ? member : member?._id).filter(Boolean)).size
+                  : null;
 
               return (
                 <div
@@ -258,12 +265,14 @@ export default function PageExplorePage() {
                   {/* Banner / Cover */}
                   <div className="h-40 relative overflow-hidden bg-surface-container">
                     <ImageWithFallback
-                      src={
-                        page.pageProfileImage ||
-                        "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&auto=format&fit=crop&q=80"
-                      }
+                      src={page.pageCoverImage}
                       alt={page.pageName}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      fallback={
+                        <div aria-label={`${page.pageName} cover`} role="img" className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary via-primary-dim to-tertiary text-white">
+                          <span className="text-4xl font-extrabold tracking-widest drop-shadow">{page.pageName?.trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase() || "N"}</span>
+                        </div>
+                      }
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                     <div className="absolute top-3 right-3 bg-white/90 dark:bg-black/80 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-on-surface uppercase tracking-wider backdrop-blur-sm">
