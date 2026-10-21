@@ -7,7 +7,7 @@ import {
 } from "../src/utils/communitySerialization.js";
 
 process.env.CLOUDINARY_NAME ??= "test-cloud";
-const [{ getPages }, { Page }] = await Promise.all([
+const [{ getPages, getParticularPage }, { Page }] = await Promise.all([
   import("../src/controllers/page.controller.js"),
   import("../src/models/Page.model.js"),
 ]);
@@ -19,7 +19,7 @@ test("getPages returns the cover and member count in its actual API response", a
     pageName: "Illuminati Theatre",
     pageDescription: "A community for theatre members.",
     pageProfileImage: "/seed/icons/illuminati.svg",
-    pageCoverImage: "/seed/covers/illuminati.svg",
+    pageCoverImage: "/seed/covers/illuminati.jpg",
     title: ["Theatre"],
     type: "open",
     members: ["member-1", "member-2", "member-1"],
@@ -46,7 +46,7 @@ test("getPages returns the cover and member count in its actual API response", a
   });
 
   assert.equal(response.statuscode, 200);
-  assert.equal(response.body.data.pages[0].pageCoverImage, "/seed/covers/illuminati.svg");
+  assert.equal(response.body.data.pages[0].pageCoverImage, "/seed/covers/illuminati.jpg");
   assert.equal(response.body.data.pages[0].membersCount, 2);
 });
 
@@ -57,7 +57,7 @@ test("community list API response includes cover URLs and unique member counts",
     pageName: "Illuminati Theatre",
     pageDescription: "A community for theatre members.",
     pageProfileImage: "/seed/icons/illuminati.svg",
-    pageCoverImage: "/seed/covers/illuminati.svg",
+    pageCoverImage: "/seed/covers/illuminati.jpg",
     title: ["Theatre"],
     type: "open",
     members: ["member-1", "member-2", "member-1"],
@@ -75,7 +75,7 @@ test("community list API response includes cover URLs and unique member counts",
     hasNextPage: false,
   });
   const [page] = response.data.pages;
-  assert.equal(page.pageCoverImage, "/seed/covers/illuminati.svg");
+  assert.equal(page.pageCoverImage, "/seed/covers/illuminati.jpg");
   assert.doesNotThrow(() =>
     accessSync(
       new URL(`../frontend/public${page.pageCoverImage}`, import.meta.url),
@@ -96,4 +96,68 @@ test("member counting handles populated objects, plain IDs, and empty data", () 
   );
   assert.equal(uniqueMemberCount(undefined), 0);
   assert.equal(uniqueMemberCount([]), 0);
+});
+
+test("member counting deduplicates Mongo IDs and does not add moderators separately", async () => {
+  const { default: mongoose } = await import("mongoose");
+  const first = new mongoose.Types.ObjectId();
+  const second = new mongoose.Types.ObjectId();
+  assert.equal(
+    uniqueMemberCount([first, { _id: first, username: "same member" }, second]),
+    2,
+  );
+});
+
+test("Page model hydrates the stored community cover URL", async () => {
+  const { default: mongoose } = await import("mongoose");
+  const page = Page.hydrate({
+    _id: new mongoose.Types.ObjectId(),
+    owner: new mongoose.Types.ObjectId(),
+    pageName: "Image contract test",
+    pageDescription: "A long enough description for a community cover regression test.",
+    title: ["Community"],
+    pageProfileImage: "/seed/icons/community.svg",
+    pageCoverImage: "/seed/covers/community.jpg",
+    members: [],
+    moderators: [],
+    type: "open",
+  });
+  assert.equal(page.pageCoverImage, "/seed/covers/community.jpg");
+});
+
+test("getParticularPage returns the same unique count as the list API", async (context) => {
+  const pageId = "page-detail";
+  const memberA = "member-a";
+  const page = {
+    _id: pageId,
+    owner: { _id: "owner-1", username: "owner", profileImage: "/seed/avatars/owner.svg" },
+    pageName: "Oorja EE Forum",
+    pageDescription: "A community for electrical engineering members.",
+    title: ["Electrical Engineering"],
+    pageProfileImage: "/seed/icons/oorja-ee.svg",
+    pageCoverImage: "/seed/covers/oorja-ee.jpg",
+    type: "open",
+    members: [memberA, memberA, "member-b"],
+    moderators: [memberA],
+    moderatorsCount: 1,
+  };
+  context.mock.method(Page, "findById", () => ({
+    populate() { return Promise.resolve(page); },
+  }));
+  context.mock.method(Page, "exists", async () => false);
+
+  const response = await new Promise((resolve, reject) => {
+    getParticularPage(
+      { page: { _id: pageId }, user: null },
+      {
+        status(code) { this.statuscode = code; return this; },
+        json(body) { resolve({ statuscode: this.statuscode, body }); },
+      },
+      reject,
+    );
+  });
+
+  assert.equal(response.statuscode, 200);
+  assert.equal(response.body.data.pageCoverImage, "/seed/covers/oorja-ee.jpg");
+  assert.equal(response.body.data.membersCount, 2);
 });

@@ -33,6 +33,7 @@ const PageSchema = mongoose.Schema(
       type:String,
       required:true
     },
+    pageCoverImage: { type: String, default: "" },
     members:[
       {
         type: mongoose.Schema.Types.ObjectId,

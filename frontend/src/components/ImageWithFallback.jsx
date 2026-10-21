@@ -1,5 +1,23 @@
 import { useState } from "react";
 
+function resolveSeedAsset(src) {
+  if (typeof src !== "string") return src;
+  if (src.startsWith("/seed/")) return src;
+
+  // The API currently runs stored paths through Cloudinary's URL helper.
+  // Recover our local seed path so the frontend can serve the checked-in file.
+  try {
+    const url = new URL(src);
+    if (url.hostname.endsWith("res.cloudinary.com")) {
+      const seedPathIndex = url.pathname.indexOf("/seed/");
+      if (seedPathIndex >= 0) return url.pathname.slice(seedPathIndex);
+    }
+  } catch {
+    return src;
+  }
+  return src;
+}
+
 export default function ImageWithFallback({
   src,
   alt = "",
@@ -8,6 +26,7 @@ export default function ImageWithFallback({
   className = "",
   ...props
 }) {
+  const displaySrc = resolveSeedAsset(src);
   const [failure, setFailure] = useState(null);
   const matchesCurrentSource =
     failure?.src === src && failure?.fallbackSrc === fallbackSrc;
@@ -31,7 +50,7 @@ export default function ImageWithFallback({
 
   return (
     <img
-      src={failed ? fallbackSrc : src}
+      src={failed ? fallbackSrc : displaySrc}
       alt={alt}
       className={className}
       onError={() => {

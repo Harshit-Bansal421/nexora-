@@ -5,6 +5,7 @@ import { pageApi } from "../api/client";
 import { useAuth } from "../context/authContextValue";
 import { useToast } from "../context/toastContextValue";
 import ImageWithFallback from "../components/ImageWithFallback";
+import { resolveCommunityMemberCount } from "../utils/communityData";
 
 export default function PageExplorePage() {
   const { currentUser, isAuthenticated } = useAuth();
@@ -251,11 +252,7 @@ export default function PageExplorePage() {
                 currentUser &&
                 (page.owner === currentUser._id ||
                   page.owner?._id === currentUser._id);
-              const memberCount = Number.isInteger(page.membersCount) && page.membersCount >= 0
-                ? page.membersCount
-                : Array.isArray(page.members)
-                  ? new Set(page.members.map((member) => typeof member === "string" ? member : member?._id).filter(Boolean)).size
-                  : null;
+              const memberCount = resolveCommunityMemberCount(page);
 
               return (
                 <div
@@ -266,7 +263,7 @@ export default function PageExplorePage() {
                   <div className="h-40 relative overflow-hidden bg-surface-container">
                     <ImageWithFallback
                       src={page.pageCoverImage}
-                      alt={page.pageName}
+                      alt={`${page.pageName} community cover`}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       fallback={
                         <div aria-label={`${page.pageName} cover`} role="img" className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary via-primary-dim to-tertiary text-white">

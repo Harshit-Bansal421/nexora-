@@ -7,6 +7,7 @@ import { useAuth } from "../context/authContextValue";
 import { useToast } from "../context/toastContextValue";
 import { joinPageRoom, leavePageRoom } from "../api/socket";
 import ImageWithFallback from "../components/ImageWithFallback";
+import { resolveCommunityMemberCount } from "../utils/communityData";
 
 export default function PageViewPage() {
   const { pageId } = useParams();
@@ -123,13 +124,25 @@ export default function PageViewPage() {
     try {
       if (nextState) {
         await pageApi.joinPage(pageId);
-        setMembersCount((count) => (count === null ? null : count + 1));
+        try {
+          const updated = await pageApi.getPageById(pageId);
+          const updatedPage = updated?.data || updated;
+          setPage(updatedPage);
+          setMembersCount(resolveCommunityMemberCount(updatedPage));
+        } catch {
+          setMembersCount(null);
+        }
         success(`You joined ${page?.pageName || "the community"}!`);
       } else {
         await pageApi.leavePage(pageId);
-        setMembersCount((count) =>
-          count === null ? null : Math.max(0, count - 1),
-        );
+        try {
+          const updated = await pageApi.getPageById(pageId);
+          const updatedPage = updated?.data || updated;
+          setPage(updatedPage);
+          setMembersCount(resolveCommunityMemberCount(updatedPage));
+        } catch {
+          setMembersCount(null);
+        }
         info(`You left ${page?.pageName || "the community"}.`);
       }
     } catch (err) {
@@ -144,7 +157,7 @@ export default function PageViewPage() {
     currentUser &&
     (page?.owner === currentUser._id || page?.owner?._id === currentUser._id);
   const memberCount =
-    membersCount ?? (page?.membersCount > 0 ? page.membersCount : null);
+    membersCount ?? resolveCommunityMemberCount(page);
 
   if (loading) {
     return (
@@ -167,16 +180,11 @@ export default function PageViewPage() {
           <div className="h-40 sm:h-52 w-full overflow-hidden bg-surface-container-highest relative">
             <ImageWithFallback
               src={
-                page?.pageProfileImage ||
-                "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1000&auto=format&fit=crop&q=80"
+                page?.pageCoverImage
               }
-              alt={page?.pageName}
+              alt={`${page?.pageName || "Community"} cover`}
               className="w-full h-full object-cover"
-              fallback={
-                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary to-primary-fixed text-white" aria-hidden="true">
-                  <span className="material-symbols-outlined text-6xl">groups</span>
-                </div>
-              }
+              fallback={<div role="img" aria-label={`${page?.pageName || "Community"} cover`} className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary to-primary-fixed text-white"><span className="text-4xl font-extrabold tracking-widest">{page?.pageName?.trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase() || "N"}</span></div>}
             />
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/5" />
           </div>
@@ -184,11 +192,7 @@ export default function PageViewPage() {
           <div className="flex flex-col gap-5 p-5 sm:p-7 md:flex-row md:items-center md:justify-between">
             <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
               <div className="-mt-12 h-20 w-20 shrink-0 rounded-2xl bg-surface-container-lowest p-1.5 shadow-stitch-ambient sm:-mt-14 sm:h-24 sm:w-24">
-                <div className="w-full h-full rounded-2xl bg-gradient-to-br from-primary to-primary-dim flex items-center justify-center text-on-primary">
-                  <span className="material-symbols-outlined text-4xl">
-                    groups
-                  </span>
-                </div>
+                <ImageWithFallback src={page?.pageProfileImage} alt={`${page?.pageName || "Community"} icon`} className="w-full h-full rounded-2xl object-cover" fallback={<div className="w-full h-full rounded-2xl bg-gradient-to-br from-primary to-primary-dim flex items-center justify-center text-on-primary font-bold">{page?.pageName?.slice(0, 2)?.toUpperCase() || "N"}</div>} />
               </div>
 
               <div className="min-w-0 pb-1">

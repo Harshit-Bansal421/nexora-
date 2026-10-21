@@ -305,11 +305,11 @@ export default function PageInfoPage() {
           <div className="h-40 sm:h-52 w-full overflow-hidden bg-surface-container relative">
             <ImageWithFallback
               src={
-                page?.pageProfileImage ||
-                "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=900&auto=format&fit=crop&q=80"
+                page?.pageCoverImage
               }
-              alt={page?.pageName}
+              alt={`${page?.pageName || "Community"} cover`}
               className="w-full h-full object-cover"
+              fallback={<div role="img" aria-label={`${page?.pageName || "Community"} cover`} className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary to-secondary text-white"><span className="text-4xl font-extrabold tracking-widest">{page?.pageName?.trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase() || "N"}</span></div>}
             />
             <div className="absolute inset-0 bg-black/25" />
           </div>
@@ -317,7 +317,7 @@ export default function PageInfoPage() {
           <div className="p-6 sm:p-8 -mt-10 relative z-10">
             <div className="flex items-center gap-4 mb-4">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-dim text-white flex items-center justify-center shadow-md">
-                <span className="material-symbols-outlined text-3xl">hub</span>
+                <ImageWithFallback src={page?.pageProfileImage} alt={`${page?.pageName || "Community"} icon`} className="w-full h-full rounded-2xl object-cover" fallback={<span className="font-bold text-xl">{page?.pageName?.slice(0, 2)?.toUpperCase() || "N"}</span>} />
               </div>
               <div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold font-headline tracking-tight text-on-surface">
