@@ -14,13 +14,10 @@ import { User } from "../models/User.model.js";
 import { getIO } from "../socket.js";
 import { createNotification } from "../utils/createNotification.js";
 import { parsePagination } from "../utils/pagination.js";
-
-const uniqueMemberCount = (members = []) =>
-  new Set(
-    (Array.isArray(members) ? members : [])
-      .map((member) => String(member?._id ?? member))
-      .filter((id) => id !== "undefined" && id !== "null"),
-  ).size;
+import {
+  createCommunityListResponse,
+  uniqueMemberCount,
+} from "../utils/communitySerialization.js";
 
 const createPage = asyncHandler(async (req, res) => {
   const { pageName, pageDescription, title, type = "open" } = req.body || {};
@@ -184,35 +181,14 @@ const getPages = asyncHandler(async (req, res) => {
   const total = await Page.countDocuments(filter);
   const totalPages = limitNumber ? Math.ceil(total / limitNumber) : 1;
 
-  const responsePages = pages.map((page) => ({
-      _id: page._id,
-      owner: {
-        username: page.owner?.username,
-        profileImage: page.owner?.profileImage,
-      },
-      pageProfileImage: page?.pageProfileImage,
-      pageCoverImage: page?.pageCoverImage,
-      pageName: page?.pageName,
-      pageDescription: page?.pageDescription,
-      title: page.title,
-      type: page.type,
-      membersCount: uniqueMemberCount(page.members),
-  }));
   res.status(200).json(
-    new ApiResponse(
-      200,
-      {
-        pages: responsePages,
-        pagination: {
-          total,
-          page: PageNumber,
-          limit: limitNumber,
-          totalPages,
-          hasNextPage: PageNumber < totalPages,
-        },
-      },
-      "Pages retrieved successfully",
-    ),
+    createCommunityListResponse(pages, {
+      total,
+      page: PageNumber,
+      limit: limitNumber,
+      totalPages,
+      hasNextPage: PageNumber < totalPages,
+    }),
   );
 });
 
